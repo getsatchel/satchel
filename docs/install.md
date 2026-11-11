@@ -5,11 +5,11 @@ This is the canonical getting-started guide. You need [uv](https://docs.astral.s
 ## 1. Install Satchel as a tool
 
 ```bash
-uv tool install "satchel @ git+https://github.com/getsatchel/satchel@v0.1.0#subdirectory=server"
+uv tool install satchel-server
 satchel version
 ```
 
-`@v0.1.0` pins the release; see the [release notes](releases/0.1.0.md). Drop it to install the latest commit on `main` instead. This installs a stable copy at `~/.local/bin/satchel`, independent of any checkout. Do not point Claude at a development checkout (`uv run --project`): uncommitted code and an un-migrated database break every call. `satchel connect` refuses to do that unless you pass `--dev`.
+The PyPI package is `satchel-server` and includes the built curator UI. The command it installs is `satchel`. The PyPI project named `satchel` is unrelated, so don't install that one. To pin a release, use `uv tool install "satchel-server==0.1.1"` ([release notes](https://github.com/getsatchel/satchel/releases)). To run the latest commit on `main`, install from git: `uv tool install "satchel-server @ git+https://github.com/getsatchel/satchel#subdirectory=server"`. A git install has no built UI. This installs a stable copy at `~/.local/bin/satchel`, independent of any checkout. Do not point Claude at a development checkout (`uv run --project`): uncommitted code and an un-migrated database break every call. `satchel connect` refuses to do that unless you pass `--dev`.
 
 Hacking on Satchel itself? Use `cd server && uv sync` and `uv run satchel ...`, and see the README.
 
@@ -91,12 +91,13 @@ Prints a check mark or a cross for each of: Docker, database connection, app rol
 ## 6. Upgrade
 
 ```bash
-satchel upgrade --from git+https://github.com/getsatchel/satchel@v0.2.0   # install that release, then migrate the database
-satchel upgrade --from /path/to/satchel                                  # or a local checkout
-satchel upgrade                                                          # uv tool upgrade satchel, then migrate
+satchel upgrade                                   # uv tool upgrade satchel-server, then migrate the database
+satchel upgrade --from /path/to/satchel           # or install a local checkout (or a git URL) instead
 ```
 
-A plain `satchel upgrade` keeps the version you installed when you pinned a tag (`@v0.1.0`), so pass the new release with `--from`. Releases are listed on the [GitHub releases page](https://github.com/getsatchel/satchel/releases).
+A version pinned with `==` stays pinned. To move to a specific release, run `uv tool install --force "satchel-server==X.Y.Z"`, then `satchel db upgrade`. Releases are listed on the [GitHub releases page](https://github.com/getsatchel/satchel/releases).
+
+**Installed 0.1.0 from git?** That install is named `satchel`, and its `satchel upgrade` stays on 0.1.0. Switch to the PyPI package once with `uv tool uninstall satchel && uv tool install satchel-server`, then run `satchel db upgrade`. Your config (`~/.config/satchel/config.toml`) and your client entries are kept, because the command is still `satchel` at the same path.
 
 `mcp stdio`, `serve api` and `serve mcp` check the database revision when they start. If the database is behind the installed code they say so (`database is at 0005 but this satchel needs 0006 — run: satchel upgrade`); over stdio every tool call returns that message so your agent can tell you.
 

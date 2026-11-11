@@ -65,11 +65,12 @@ _NO_UI_PAGE = """<!doctype html><meta charset="utf-8"><title>satchel</title>
 <body style="font:15px/1.5 system-ui;max-width:640px;margin:48px auto;padding:0 16px">
 <h1>Satchel is running</h1>
 <p>The API and MCP endpoint are up, but this install has no built curator UI.</p>
-<p>From a satchel repo checkout, build it and point satchel at it:</p>
+<p>The PyPI package includes it: <code>uv tool install --force satchel-server</code>.
+From a satchel repo checkout, build it and point satchel at it:</p>
 <pre>cd ui &amp;&amp; npm ci &amp;&amp; npm run build
 SATCHEL_UI_DIR=$PWD/dist satchel up</pre>
 <p>Or reinstall from the checkout after building, so the UI is bundled:
-<code>uv tool install --force --from ./server satchel</code></p>
+<code>uv tool install --force ./server</code></p>
 <p>MCP: <code>/mcp</code> &middot; API docs: <a href="/docs">/docs</a></p></body>"""
 
 

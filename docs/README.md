@@ -48,7 +48,7 @@ Configure and operate it:
 ## 5. Design and contributing
 
 - [Master architecture diagram](architecture/system.md)
-- [Release notes](releases/0.1.0.md) (all releases: [GitHub releases](https://github.com/getsatchel/satchel/releases))
+- [Release notes](releases/0.1.1.md) (all releases: [GitHub releases](https://github.com/getsatchel/satchel/releases))
 - [Contributing](https://github.com/getsatchel/satchel/blob/main/CONTRIBUTING.md)
 
 ## Working on these docs

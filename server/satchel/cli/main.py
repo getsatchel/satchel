@@ -12,6 +12,7 @@ from satchel.cli.evals_cmds import register_eval_commands
 from satchel.cli.secrets_cmds import register_secrets_commands
 from satchel.cli.source_cmds import register_source_commands
 from satchel.cli.storage_cmds import register_storage_commands
+from satchel.install_hints import DIST
 from satchel.store.schema import alembic_config
 
 app = typer.Typer(help="Satchel: context server for data agents", no_args_is_help=True)
@@ -88,7 +89,7 @@ def _require_schema() -> None:
 @app.command("version")
 def version() -> None:
     """Print the satchel version."""
-    typer.echo(_version("satchel"))
+    typer.echo(_version(DIST))
 
 
 @db_app.command("upgrade")

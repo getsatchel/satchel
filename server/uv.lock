@@ -2373,8 +2373,31 @@ wheels = [
 ]
 
 [[package]]
-name = "satchel"
-version = "0.1.0"
+name = "satchel-adapter-sdk"
+version = "1.2.1"
+source = { directory = "../sdk" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2" },
+    { name = "pyyaml" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[[package]]
+name = "satchel-server"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -2473,29 +2496,6 @@ dev = [
     { name = "ruff" },
     { name = "snowflake-connector-python", specifier = ">=3.12" },
     { name = "testcontainers", extras = ["postgres"] },
-    { name = "types-pyyaml" },
-]
-
-[[package]]
-name = "satchel-adapter-sdk"
-version = "1.2.1"
-source = { directory = "../sdk" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2" },
-    { name = "pyyaml" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "ruff" },
     { name = "types-pyyaml" },
 ]
 

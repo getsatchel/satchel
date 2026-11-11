@@ -30,13 +30,13 @@ from satchel.cli.config import (
     get_profile,
     save_profile,
 )
-from satchel.install_hints import git_spec
+from satchel.install_hints import DIST
 from satchel.settings import Settings, get_settings
 from satchel.store.schema import alembic_config, schema_status
 
 EMBEDDINGS = ("fastembed", "hash", "openai_compat")
 DEFAULT_PUBLIC_URL = "http://localhost:8080"
-INSTALL_SPEC = git_spec(ref="")  # the default branch; docs pin a release tag
+INSTALL_SPEC = DIST  # the PyPI package; it includes the built UI
 
 
 def say(msg: str = "") -> None:
@@ -435,7 +435,7 @@ def status(
 
     s = get_settings()
     rows: dict[str, Any] = {
-        "version": _version("satchel"),
+        "version": _version(DIST),
         "config": str(config_path()) + ("" if config_path().exists() else " (missing: run satchel init)"),
         "profile": active_profile(),
         "database": make_display(s.database_url),
@@ -521,7 +521,7 @@ def doctor_cmd(
         s = get_settings()
     except ConfigError as e:
         raise fail(str(e)) from e
-    say(f"satchel {_version('satchel')}  config {config_path()}  profile {active_profile()}")
+    say(f"satchel {_version(DIST)}  config {config_path()}  profile {active_profile()}")
     checks = doctor.run_checks(s, check_clients=not no_clients)
     for line in doctor.render(checks):
         say(line)
@@ -734,7 +734,7 @@ def install_spec(src: str | None) -> str:
     url = src if src.startswith("git+") else f"git+{src}"
     if "#" not in url:
         url += "#subdirectory=server"
-    return f"satchel @ {url}"
+    return f"{DIST} @ {url}"
 
 
 def upgrade(
@@ -753,7 +753,7 @@ def upgrade(
         if from_:
             argv = ["uv", "tool", "install", "--force", "--reinstall", spec]
         else:
-            argv = ["uv", "tool", "upgrade", "satchel"]
+            argv = ["uv", "tool", "upgrade", DIST]
         code, out = infra.run(argv, timeout=900)
         say(out)
         if code != 0:
@@ -776,8 +776,7 @@ def upgrade(
         return
     say("satchel was installed with pip. Run:")
     # Never `pip install -U satchel`: that PyPI name is an unrelated project.
-    target = spec if from_ else git_spec(ref="@vX.Y.Z")
-    say(f'  pip install -U "{target}"' + ("" if from_ else "   # X.Y.Z: the release to install"))
+    say(f'  pip install -U "{spec}"')
     say("  satchel db upgrade")
 
 
