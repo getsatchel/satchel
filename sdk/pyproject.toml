@@ -1,6 +1,6 @@
 [project]
 name = "satchel-adapter-sdk"
-version = "1.2.0"
+version = "1.2.1"
 description = "SDK for writing satchel source adapters: the canonical IR, the adapter protocol and a conformance kit"
 readme = "README.md"
 requires-python = ">=3.12"
