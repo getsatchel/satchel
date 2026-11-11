@@ -5,7 +5,7 @@ every role: `satchel serve api` (UI, REST, MCP at `/mcp`, OAuth/OIDC on one port
 database commands. Everything is stateless; sessions and OAuth state live in Postgres, so replicas are safe.
 
 ```
-helm install satchel oci://ghcr.io/getsatchel/charts/satchel --version 0.1.1 \
+helm install satchel oci://ghcr.io/getsatchel/charts/satchel --version 0.2.0 \
   -n satchel --create-namespace -f my-values.yaml
 ```
 

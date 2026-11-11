@@ -2,7 +2,7 @@ project_id = "my-gcp-project"
 region     = "us-central1"
 
 # A released satchel image tag (ghcr.io/getsatchel/satchel:<tag>).
-image_tag = "0.1.1"
+image_tag = "0.2.0"
 
 # OIDC client you created in your identity provider.
 oidc_issuer    = "https://accounts.google.com"

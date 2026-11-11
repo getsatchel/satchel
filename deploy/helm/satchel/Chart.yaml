@@ -2,8 +2,8 @@ apiVersion: v2
 name: satchel
 description: Satchel context server (UI, REST, MCP and OAuth in one process) for GKE and any Kubernetes cluster
 type: application
-version: 0.1.1
-appVersion: "0.1.1"
+version: 0.2.0
+appVersion: "0.2.0"
 kubeVersion: ">=1.29.0-0"
 home: https://github.com/getsatchel/satchel
 sources:
