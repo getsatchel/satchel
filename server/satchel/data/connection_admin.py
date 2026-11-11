@@ -26,6 +26,7 @@ from satchel.data.connectors.bigquery_conn import DEFAULT_MAX_GIB_BILLED, parse_
 from satchel.data.connectors.bigquery_conn import check_config as check_bigquery
 from satchel.data.connectors.snowflake_conn import check_config as check_snowflake
 from satchel.data.connectors.snowflake_conn import normalize_private_key
+from satchel.install_hints import extra_hint
 from satchel.secrets import connection_aad
 from satchel.settings import Settings
 from satchel.store.models import Asset, Connection, ContextSource, QueryResult
@@ -78,7 +79,7 @@ def kind_status(spec: KindSpec) -> KindSpec:
     with the install hint as its note."""
     if spec.available and missing_modules(spec):
         return replace(spec, available=False,
-                       note=f"Not installed: pip install 'satchel[{spec.extra or spec.kind}]'")
+                       note=f"Not installed: {extra_hint(spec.extra or spec.kind)}")
     return spec
 
 

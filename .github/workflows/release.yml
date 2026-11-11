@@ -60,6 +60,10 @@ jobs:
         run: |
           prerelease=""
           case "${{ steps.version.outputs.version }}" in 0.*|*-*) prerelease="--prerelease" ;; esac
+          # The notes link to other docs pages relatively (../install.md); make those links work on
+          # the release page by pointing them at the tagged docs.
+          sed "s#](\.\./#](https://github.com/getsatchel/satchel/blob/$GITHUB_REF_NAME/docs/#g" \
+            "${{ steps.version.outputs.notes }}" > dist/notes.md
           gh release create "$GITHUB_REF_NAME" "dist/satchel-${{ steps.version.outputs.version }}.tgz" \
-            --title "Satchel $GITHUB_REF_NAME" --notes-file "${{ steps.version.outputs.notes }}" \
+            --title "Satchel $GITHUB_REF_NAME" --notes-file dist/notes.md \
             --verify-tag $prerelease

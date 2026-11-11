@@ -17,9 +17,11 @@ import os
 import threading
 from typing import Any
 
+from satchel.install_hints import extra_hint
+
 AWS_EXTRA_HINT = (
     "Amazon S3 support is not installed. Install the 'aws' extra: "
-    "pip install 'satchel[aws]' (or uv tool install 'satchel[aws]'), "
+    f"{extra_hint('aws')}, "
     "or use the container image, which includes it."
 )
 

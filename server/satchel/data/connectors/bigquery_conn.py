@@ -1,4 +1,4 @@
-"""BigQuery connector (``pip install 'satchel[bigquery]'``).
+"""BigQuery connector (the ``bigquery`` extra).
 
 Auth is Application Default Credentials (workload identity on GKE / Cloud Run, or
 ``GOOGLE_APPLICATION_CREDENTIALS``) unless the connection stores a service-account JSON key.
@@ -19,6 +19,7 @@ from typing import Any
 import pyarrow as pa
 
 from satchel.data.connectors.base import AssetSpec, SqlTimeout, split_list
+from satchel.install_hints import extra_hint
 
 GIB = 1024**3
 DEFAULT_MAX_GIB_BILLED = 10
@@ -81,7 +82,7 @@ def make_client(config: dict[str, Any], secret: str | None) -> Any:
         from google.cloud import bigquery
     except ImportError:
         raise ValueError("BigQuery needs the google-cloud-bigquery package: "
-                         "pip install 'satchel[bigquery]'") from None
+                         + extra_hint("bigquery")) from None
     credentials = None
     if secret:
         from google.oauth2 import service_account
