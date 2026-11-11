@@ -334,7 +334,7 @@ def _client_entry(
         return Check(label, WARN,
                      "runs a dev checkout (uv run --project / .venv): uncommitted code or an "
                      "un-migrated schema breaks every call",
-                     f"uv tool install ... then: satchel connect {client}")
+                     f"uv tool install satchel-server, then: satchel connect {client}")
     env = entry.get("env") or {}
     problems: list[str] = []
     cfg = env.get("SATCHEL_CONFIG")

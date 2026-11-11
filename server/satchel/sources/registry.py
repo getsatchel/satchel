@@ -17,7 +17,7 @@ from typing import Any
 
 from satchel_adapter_sdk import AdapterInfo, SourceAdapter
 
-from satchel.install_hints import extra_hint
+from satchel.install_hints import DIST, extra_hint
 
 log = logging.getLogger("satchel.sources")
 
@@ -116,10 +116,10 @@ def discover() -> dict[str, AdapterEntry]:
             try:
                 loaded = _load_target(target)
                 out[kind] = AdapterEntry(
-                    kind, True, "satchel", None, loaded, missing=missing_modules(loaded)
+                    kind, True, DIST, None, loaded, missing=missing_modules(loaded)
                 )
             except Exception as e:  # noqa: BLE001
-                out[kind] = AdapterEntry(kind, True, "satchel", None, None, str(e))
+                out[kind] = AdapterEntry(kind, True, DIST, None, None, str(e))
     return out
 
 

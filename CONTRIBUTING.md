@@ -56,11 +56,11 @@ Everyone taking part in this project follows the [Code of Conduct](CODE_OF_CONDU
 
 A server release is a `vX.Y.Z` tag on `main`. Before tagging, in one pull request:
 
-1. Set the version in `server/pyproject.toml` and both `version` and `appVersion` in `deploy/helm/satchel/Chart.yaml`.
+1. Set the version in `server/pyproject.toml` (then `cd server && uv lock`) and both `version` and `appVersion` in `deploy/helm/satchel/Chart.yaml`.
 2. Add the release notes as `docs/releases/X.Y.Z.md`, including the `satchel-adapter-sdk` and IR versions the release ships with ([compatibility policy](docs/adapters/compatibility.md)).
-3. Update the pinned version in the install docs (`README.md`, `docs/install.md`, `docs/deploy/container.md`, `docs/deploy/helm.md`, `docs/deploy/storage-and-audit.md`, `docs/integrations/warehouses.md`) and the `image_tag` in the Terraform `terraform.tfvars.example` files.
+3. Update the pinned image and chart version in `docs/deploy/container.md`, `docs/deploy/helm.md` and `docs/deploy/eks.md`, and the `image_tag` in the Terraform `terraform.tfvars.example` files. The PyPI install commands are not pinned.
 
-After merging, push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. The `image` workflow pushes `ghcr.io/getsatchel/satchel:X.Y.Z`, and the `release` workflow checks that the versions match, publishes the chart to `oci://ghcr.io/getsatchel/charts/satchel` and creates the GitHub release from the notes file. 0.x releases are marked as pre-releases. SDK releases are separate (`sdk-v*` tags, see `release-sdk.yml`).
+After merging, push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. The `image` workflow pushes `ghcr.io/getsatchel/satchel:X.Y.Z`, and the `release` workflow checks that the versions match, publishes the chart to `oci://ghcr.io/getsatchel/charts/satchel` and creates the GitHub release from the notes file, then builds the `satchel-server` wheel with the UI and publishes it to PyPI (trusted publishing, the `pypi` environment). 0.x releases are marked as pre-releases. SDK releases are separate (`sdk-v*` tags, see `release-sdk.yml`).
 
 ## Reporting security issues
 

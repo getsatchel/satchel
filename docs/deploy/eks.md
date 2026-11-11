@@ -38,7 +38,7 @@ Test locally: `scripts/floci-aws-e2e.sh` applies this stack against the floci AW
 - A private, versioned S3 bucket for Terraform state (see `examples/eks/backend.tf.example`). State holds the generated database passwords, so restrict access to it.
 - If you restrict the Kubernetes API (`cluster_public_access_cidrs`), include the address you run Terraform from. Terraform's Kubernetes and Helm providers reach the endpoint from there.
 
-The image defaults to `ghcr.io/getsatchel/satchel:<tag>`. Nodes pull it directly through the NAT gateway. To pull from your own ECR instead, set `helm_extra_values = { image = { repository = "ACCOUNT.dkr.ecr.REGION.amazonaws.com/satchel", tag = "0.1.0" } }`.
+The image defaults to `ghcr.io/getsatchel/satchel:<tag>`. Nodes pull it directly through the NAT gateway. To pull from your own ECR instead, set `helm_extra_values = { image = { repository = "ACCOUNT.dkr.ecr.REGION.amazonaws.com/satchel", tag = "0.1.1" } }`.
 
 ## 2. Create the OIDC client
 
