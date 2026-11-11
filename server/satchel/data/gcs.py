@@ -10,9 +10,11 @@ from __future__ import annotations
 import threading
 from typing import Any
 
+from satchel.install_hints import extra_hint
+
 GCP_EXTRA_HINT = (
     "Google Cloud Storage support is not installed. Install the 'gcp' extra: "
-    "pip install 'satchel[gcp]' (or uv tool install 'satchel[gcp]'), "
+    f"{extra_hint('gcp')}, "
     "or use the container image, which includes it."
 )
 

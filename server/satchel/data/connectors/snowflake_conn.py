@@ -1,4 +1,4 @@
-"""Snowflake connector (``pip install 'satchel[snowflake]'``), key-pair auth only.
+"""Snowflake connector (the ``snowflake`` extra), key-pair auth only.
 
 Password auth is deliberately not offered: Snowflake is phasing out single-factor password
 sign-in (service users, ``TYPE = SERVICE``, cannot use one at all), and key-pair is its
@@ -23,9 +23,9 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
 from satchel.data.connectors.base import AssetSpec, SqlTimeout, split_list
+from satchel.install_hints import extra_hint
 
-MISSING = ("Snowflake needs the snowflake-connector-python package: "
-           "pip install 'satchel[snowflake]'")
+MISSING = "Snowflake needs the snowflake-connector-python package: " + extra_hint("snowflake")
 QUERY_TAG = "satchel"
 APPLICATION = "Satchel"
 INTROSPECT_TIMEOUT_S = 120

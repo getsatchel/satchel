@@ -17,6 +17,8 @@ from typing import Any
 
 from satchel_adapter_sdk import AdapterInfo, SourceAdapter
 
+from satchel.install_hints import extra_hint
+
 log = logging.getLogger("satchel.sources")
 
 GROUP = "satchel.sources"
@@ -49,7 +51,7 @@ class AdapterEntry:
             return None
         extras = ",".join(self.adapter.info.extras) if self.adapter else ""
         if self.builtin:
-            return f"pip install 'satchel[{extras or self.kind}]'"
+            return extra_hint(*(extras.split(",") if extras else [self.kind]))
         pkg = f"'{self.package}[{extras}]'" if extras else self.package
         return f"pip install {pkg}"
 

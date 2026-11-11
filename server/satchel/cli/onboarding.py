@@ -30,12 +30,13 @@ from satchel.cli.config import (
     get_profile,
     save_profile,
 )
+from satchel.install_hints import git_spec
 from satchel.settings import Settings, get_settings
 from satchel.store.schema import alembic_config, schema_status
 
 EMBEDDINGS = ("fastembed", "hash", "openai_compat")
 DEFAULT_PUBLIC_URL = "http://localhost:8080"
-INSTALL_SPEC = "satchel @ git+https://github.com/getsatchel/satchel#subdirectory=server"
+INSTALL_SPEC = git_spec(ref="")  # the default branch; docs pin a release tag
 
 
 def say(msg: str = "") -> None:
@@ -774,7 +775,9 @@ def upgrade(
             _ensure_worker_from(s)
         return
     say("satchel was installed with pip. Run:")
-    say(f'  pip install -U "{spec}"' if from_ else '  pip install -U satchel')
+    # Never `pip install -U satchel`: that PyPI name is an unrelated project.
+    target = spec if from_ else git_spec(ref="@vX.Y.Z")
+    say(f'  pip install -U "{target}"' + ("" if from_ else "   # X.Y.Z: the release to install"))
     say("  satchel db upgrade")
 
 
