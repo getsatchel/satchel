@@ -68,6 +68,10 @@ The server accepts a snapshot whose **major** equals its own SDK's major and ref
 clear message. Within a major, the server ignores nothing it does not understand and requires
 nothing new, so an adapter written against `1.0.0` keeps working on every `1.x`.
 
+The full policy (the public API, what counts as breaking, how SDK and IR versions relate, deprecations) is in
+[`docs/adapters/compatibility.md`](../docs/adapters/compatibility.md). Name community packages `satchel-source-<tool>`
+([naming](../docs/adapters/naming.md)) and declare a [maturity tier](../docs/adapters/maturity.md).
+
 ## Conformance kit
 
 ```python

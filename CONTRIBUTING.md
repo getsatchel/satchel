@@ -33,6 +33,13 @@ Never point tests or migrations at your own Satchel database. Tests use their ow
 
 See [`docs/adapters/writing-an-adapter.md`](docs/adapters/writing-an-adapter.md), copy [`templates/adapter/`](templates/adapter) and read the contract in [`sdk/README.md`](sdk/README.md). File an [integration request](.github/ISSUE_TEMPLATE/integration_request.yml) first if you want to check the shape of a mapping.
 
+Before you publish a community adapter, read the rules for outside adapters:
+
+* [Compatibility policy](docs/adapters/compatibility.md): what counts as a breaking change, and how the IR version relates to the SDK version.
+* [Maturity tiers](docs/adapters/maturity.md): experimental, beta and stable, and what promotes an adapter to stable.
+* [Naming and listing](docs/adapters/naming.md): name packages `satchel-source-<tool>`, and how to get listed.
+* [Wanted integrations](docs/adapters/wanted.md): tools we'd like adapters for, and the community adapters list.
+
 ## Pull requests
 
 * One focused change; explain the why. Update the docs when behaviour changes.
@@ -50,7 +57,7 @@ Everyone taking part in this project follows the [Code of Conduct](CODE_OF_CONDU
 A server release is a `vX.Y.Z` tag on `main`. Before tagging, in one pull request:
 
 1. Set the version in `server/pyproject.toml` and both `version` and `appVersion` in `deploy/helm/satchel/Chart.yaml`.
-2. Add the release notes as `docs/releases/X.Y.Z.md`.
+2. Add the release notes as `docs/releases/X.Y.Z.md`, including the `satchel-adapter-sdk` and IR versions the release ships with ([compatibility policy](docs/adapters/compatibility.md)).
 3. Update the pinned version in the install docs (`README.md`, `docs/install.md`, `docs/deploy/container.md`, `docs/deploy/helm.md`) and the `image_tag` in the Terraform `terraform.tfvars.example` files.
 
 After merging, push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. The `image` workflow pushes `ghcr.io/getsatchel/satchel:X.Y.Z`, and the `release` workflow checks that the versions match, publishes the chart to `oci://ghcr.io/getsatchel/charts/satchel` and creates the GitHub release from the notes file. 0.x releases are marked as pre-releases. SDK releases are separate (`sdk-v*` tags, see `release-sdk.yml`).
