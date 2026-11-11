@@ -47,6 +47,10 @@ Before you publish a community adapter, read the rules for outside adapters:
 * Sign off every commit (`git commit -s`). The `Signed-off-by` line certifies the
   [Developer Certificate of Origin](https://developercertificate.org/): that you wrote the change, or
   otherwise have the right to submit it under the project's licence. There is no CLA to sign.
+* CI runs only what your change can affect. The `ci` workflow's `changes` job picks which of `server`, `adapters`,
+  `ui` and `widgets` to run from the files you changed. The other workflows (`image`, `helm`, `terraform`, `floci`)
+  have path filters. A docs-only change runs none of them. A skipped check still counts as passed for merging. If you
+  add a job, or a test that reads files outside its own folder, update the patterns in `.github/workflows/ci.yml`.
 
 ## Code of conduct
 
