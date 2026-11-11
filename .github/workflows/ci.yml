@@ -1,15 +1,54 @@
 name: ci
+# server, adapters, ui and widgets are required checks on main. On a pull request each one runs
+# only when the files it depends on changed (the `changes` job); otherwise it is skipped, which
+# counts as passing. Do not use workflow-level `paths:` here: a required check from a workflow
+# that never starts blocks the merge. Pushes to main and manual runs test everything.
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 # A new push to a PR cancels that PR's previous run; runs on main are never cancelled.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.f.outputs.server }}
+      adapters: ${{ steps.f.outputs.adapters }}
+      ui: ${{ steps.f.outputs.ui }}
+      widgets: ${{ steps.f.outputs.widgets }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: f
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "$BASE" ]; then  # push to main or workflow_dispatch: run everything
+            printf '%s=true\n' server adapters ui widgets | tee -a "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "$BASE...HEAD")
+          echo "$files"
+          # has <regex>: true when a changed file matches it. Every job reruns when this
+          # workflow changes.
+          has() { echo "$files" | grep -Eq "$1|^\.github/workflows/ci\.yml$" && echo true || echo false; }
+          {
+            # server tests also read the Jaffle example, the committed OpenAPI document, the
+            # widget sources and the pinned dbt requirements.
+            echo "server=$(has '^(server/|sdk/|examples/|ui/openapi\.json$|ui-widgets/src/|deploy/docker/dbt-requirements\.txt$)')"
+            echo "adapters=$(has '^(server/|sdk/|templates/adapter/)')"
+            echo "ui=$(has '^ui/')"
+            echo "widgets=$(has '^(ui-widgets/|server/satchel/resources/widgets/)')"
+          } | tee -a "$GITHUB_OUTPUT"
+
   server:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -39,6 +78,8 @@ jobs:
   # Adapter contributors need no Postgres: the SDK, its conformance kit, and an adapter's own
   # conformance tests (the dbt adapter and the template) run without a database.
   adapters:
+    needs: changes
+    if: needs.changes.outputs.adapters == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +105,8 @@ jobs:
           uv pip install -e ../../sdk -e . pytest
           uv run --no-sync pytest -q
   ui:
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -80,6 +123,8 @@ jobs:
       - run: npm run lint
       - run: npm run build
   widgets:
+    needs: changes
+    if: needs.changes.outputs.widgets == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
