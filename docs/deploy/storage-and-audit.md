@@ -14,8 +14,8 @@ later, possibly on a different replica. `SATCHEL_RESULT_DIR` picks the store:
 | `gs://bucket/prefix` | Google Cloud Storage. One object store is required with more than one replica. |
 | `s3://bucket/prefix` | Amazon S3 (or an S3-compatible store). |
 
-GCS needs the `gcp` extra (`pip install 'satchel[gcp]'`) and S3 the `aws` extra
-(`pip install 'satchel[aws]'`); the container image includes both. If the extra is missing,
+GCS needs the `gcp` extra (`uv tool install --force "satchel-server[gcp]"`) and S3 the `aws` extra
+(`satchel-server[aws]`); the container image includes both. If the extra is missing,
 Satchel fails with an error naming it. Credentials never come from Satchel's own settings:
 
 - **GCS:** Application Default Credentials only (workload identity on GKE / Cloud Run, or

@@ -17,6 +17,8 @@ from typing import Any
 
 from satchel_adapter_sdk import AdapterInfo, SourceAdapter
 
+from satchel.install_hints import DIST, extra_hint
+
 log = logging.getLogger("satchel.sources")
 
 GROUP = "satchel.sources"
@@ -49,7 +51,7 @@ class AdapterEntry:
             return None
         extras = ",".join(self.adapter.info.extras) if self.adapter else ""
         if self.builtin:
-            return f"pip install 'satchel[{extras or self.kind}]'"
+            return extra_hint(*(extras.split(",") if extras else [self.kind]))
         pkg = f"'{self.package}[{extras}]'" if extras else self.package
         return f"pip install {pkg}"
 
@@ -114,10 +116,10 @@ def discover() -> dict[str, AdapterEntry]:
             try:
                 loaded = _load_target(target)
                 out[kind] = AdapterEntry(
-                    kind, True, "satchel", None, loaded, missing=missing_modules(loaded)
+                    kind, True, DIST, None, loaded, missing=missing_modules(loaded)
                 )
             except Exception as e:  # noqa: BLE001
-                out[kind] = AdapterEntry(kind, True, "satchel", None, None, str(e))
+                out[kind] = AdapterEntry(kind, True, DIST, None, None, str(e))
     return out
 
 

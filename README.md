@@ -17,10 +17,10 @@ The semantic SQL engine (wren-core) and notebooks (marimo) are reused open-sourc
 
 ## Quickstart
 
-Needs [uv](https://docs.astral.sh/uv/) and Docker. This installs the latest release, v0.1.0 ([release notes](docs/releases/0.1.0.md)). The full guide is [`docs/install.md`](docs/install.md); in short:
+Needs [uv](https://docs.astral.sh/uv/) and Docker. This installs the latest release from PyPI, where the package is `satchel-server` ([release notes](https://github.com/getsatchel/satchel/releases)). The full guide is [`docs/install.md`](docs/install.md); in short:
 
 ```bash
-uv tool install "satchel @ git+https://github.com/getsatchel/satchel@v0.1.0#subdirectory=server"
+uv tool install satchel-server   # the command is `satchel`
 satchel init --example jaffle      # Postgres, migrations, workspace, admin, token, sample data
 satchel up                         # UI + REST + MCP at http://localhost:8080
 satchel connect claude-desktop     # writes the client config (also: claude-code, cursor)

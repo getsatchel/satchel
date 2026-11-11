@@ -24,8 +24,9 @@ Add a connection in **Settings → Connections** (admins), press **Test**, save,
 The libraries are optional extras. The Docker image (`ghcr.io/getsatchel/satchel`) includes both.
 
 ```bash
-pip install 'satchel[bigquery]'    # google-cloud-bigquery
-pip install 'satchel[snowflake]'   # snowflake-connector-python
+uv tool install --force "satchel-server[bigquery]"    # google-cloud-bigquery
+uv tool install --force "satchel-server[snowflake]"   # snowflake-connector-python
+# both: satchel-server[bigquery,snowflake]. Not `satchel`: that PyPI name is a different project.
 ```
 
 Without the library the kind shows as unavailable in the form, with the command to install it.

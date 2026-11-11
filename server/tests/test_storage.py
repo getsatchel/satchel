@@ -125,7 +125,7 @@ def test_gcs_missing_extra_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
     objstore.reset_clients()
-    with pytest.raises(RuntimeError, match=r"satchel\[gcp\]"):
+    with pytest.raises(RuntimeError, match=r"satchel-server\[gcp\]"):
         objstore.open_bucket("gs", "nope")
 
 
@@ -139,7 +139,7 @@ def test_s3_missing_extra_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
     objstore.reset_clients()
-    with pytest.raises(RuntimeError, match=r"satchel\[aws\]"):
+    with pytest.raises(RuntimeError, match=r"satchel-server\[aws\]"):
         objstore.open_bucket("s3", "nope")
 
 

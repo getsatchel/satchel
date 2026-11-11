@@ -103,7 +103,7 @@ Warehouses agents query (`run_sql`, the semantic layer) and that Satchel crawls 
   `STATEMENT_TIMEOUT_IN_SECONDS` from **Limits**. Use a role with only `USAGE` / `SELECT`.
 - Setup for both (IAM roles, the read-only Snowflake role, auth choices, cost guard):
   [docs/integrations/warehouses.md](../integrations/warehouses.md). Their libraries are the extras
-  `satchel[bigquery]` and `satchel[snowflake]`; the Docker image includes both. Without the
+  `satchel-server[bigquery]` and `satchel-server[snowflake]`; the Docker image includes both. Without the
   library the kind is listed unavailable with the install command.
 - Keys (a PEM or JSON key file) are entered in a multi-line box, so newlines are kept. Every
   secret is write-only and sealed with `SATCHEL_ENCRYPTION_KEY`.

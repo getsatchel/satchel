@@ -1,7 +1,8 @@
 name: release
 # Runs when a server release tag like v0.1.0 is pushed. The image workflow builds and pushes
 # ghcr.io/getsatchel/satchel:<version> for the same tag; this workflow publishes the Helm chart
-# to oci://ghcr.io/getsatchel/charts/satchel and creates the GitHub release.
+# to oci://ghcr.io/getsatchel/charts/satchel, creates the GitHub release, and publishes the
+# satchel-server wheel (with the built UI) to PyPI through trusted publishing (no token stored).
 on:
   push:
     tags: ["v*"]
@@ -60,6 +61,62 @@ jobs:
         run: |
           prerelease=""
           case "${{ steps.version.outputs.version }}" in 0.*|*-*) prerelease="--prerelease" ;; esac
+          # The notes link to other docs pages relatively (../install.md); make those links work on
+          # the release page by pointing them at the tagged docs.
+          sed "s#](\.\./#](https://github.com/getsatchel/satchel/blob/$GITHUB_REF_NAME/docs/#g" \
+            "${{ steps.version.outputs.notes }}" > dist/notes.md
           gh release create "$GITHUB_REF_NAME" "dist/satchel-${{ steps.version.outputs.version }}.tgz" \
-            --title "Satchel $GITHUB_REF_NAME" --notes-file "${{ steps.version.outputs.notes }}" \
+            --title "Satchel $GITHUB_REF_NAME" --notes-file dist/notes.md \
             --verify-tag $prerelease
+
+  wheel:
+    needs: release   # the version checks passed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Build the UI (bundled into the wheel)
+        working-directory: ui
+        run: npm ci && npm run build
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+      # Wheel only: the build reads ../ui/dist and ../examples, which an sdist would not carry.
+      - name: Build the wheel
+        run: uv build --wheel --out-dir dist server
+      - name: Check the wheel
+        run: |
+          set -eu
+          whl="$(ls dist/satchel_server-*.whl)"
+          [ "$whl" = "dist/satchel_server-${GITHUB_REF_NAME#v}-py3-none-any.whl" ] || { echo "::error::unexpected wheel $whl"; exit 1; }
+          python3 - "$whl" <<'PY'
+          import sys, zipfile
+          names = set(zipfile.ZipFile(sys.argv[1]).namelist())
+          for need in ("satchel/resources/ui/index.html", "satchel/resources/widgets/result.html",
+                       "satchel/resources/jaffle-shop/seed.py"):
+              assert need in names, f"{need} is missing from the wheel"
+          PY
+          uv venv /tmp/check && uv pip install --python /tmp/check/bin/python "$whl" ./sdk
+          /tmp/check/bin/satchel version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/
+
+  pypi:
+    needs: wheel
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/satchel-server
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

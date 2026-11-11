@@ -1,9 +1,20 @@
 [project]
-name = "satchel"
-version = "0.1.0"
-description = "satchel: self-hosted context server for data agents"
+# Published on PyPI as satchel-server (PyPI's `satchel` is an unrelated project). The command
+# and the import package are both `satchel`.
+name = "satchel-server"
+version = "0.1.1"
+description = "Satchel: an open-source, self-hosted context server for data agents (MCP)"
+readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
+keywords = ["mcp", "data-agents", "semantic-layer", "dbt", "context", "self-hosted"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.12",
+  "Framework :: FastAPI",
+]
 dependencies = [
   "fastapi",
   "uvicorn",
@@ -27,8 +38,15 @@ dependencies = [
   "pyjwt[crypto]>=2.15.1",
   "cryptography>=44",
   "python-multipart>=0.0.32",
-  "satchel-adapter-sdk",
+  "satchel-adapter-sdk>=1.2.1,<2",
 ]
+
+[project.urls]
+Homepage = "https://getsatchel.dev"
+Documentation = "https://github.com/getsatchel/satchel/blob/main/docs/README.md"
+Repository = "https://github.com/getsatchel/satchel"
+Issues = "https://github.com/getsatchel/satchel/issues"
+Changelog = "https://github.com/getsatchel/satchel/releases"
 
 [tool.uv.sources]
 # Non-editable so `uv tool install --from server` bundles the SDK instead of linking to
