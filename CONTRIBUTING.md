@@ -52,6 +52,16 @@ Before you publish a community adapter, read the rules for outside adapters:
 
 Everyone taking part in this project follows the [Code of Conduct](CODE_OF_CONDUCT.md). Report conduct issues to security@getsatchel.dev.
 
+## Releasing (maintainers)
+
+A server release is a `vX.Y.Z` tag on `main`. Before tagging, in one pull request:
+
+1. Set the version in `server/pyproject.toml` and both `version` and `appVersion` in `deploy/helm/satchel/Chart.yaml`.
+2. Add the release notes as `docs/releases/X.Y.Z.md`.
+3. Update the pinned version in the install docs (`README.md`, `docs/install.md`, `docs/deploy/container.md`, `docs/deploy/helm.md`) and the `image_tag` in the Terraform `terraform.tfvars.example` files.
+
+After merging, push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. The `image` workflow pushes `ghcr.io/getsatchel/satchel:X.Y.Z`, and the `release` workflow checks that the versions match, publishes the chart to `oci://ghcr.io/getsatchel/charts/satchel` and creates the GitHub release from the notes file. 0.x releases are marked as pre-releases. SDK releases are separate (`sdk-v*` tags, see `release-sdk.yml`).
+
 ## Reporting security issues
 
 Do not open a public issue. See [`SECURITY.md`](SECURITY.md).

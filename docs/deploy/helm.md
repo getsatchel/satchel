@@ -5,8 +5,14 @@ every role: `satchel serve api` (UI, REST, MCP at `/mcp`, OAuth/OIDC on one port
 database commands. Everything is stateless; sessions and OAuth state live in Postgres, so replicas are safe.
 
 ```
-helm install satchel deploy/helm/satchel -n satchel --create-namespace -f my-values.yaml
+helm install satchel oci://ghcr.io/getsatchel/charts/satchel --version 0.1.0 \
+  -n satchel --create-namespace -f my-values.yaml
 ```
+
+Each `v*` release publishes the chart to `oci://ghcr.io/getsatchel/charts/satchel`, with the chart version and `appVersion`
+equal to the release, so the chart deploys the image of the same version (`image.tag` defaults to `appVersion`). Upgrade
+with `helm upgrade satchel oci://ghcr.io/getsatchel/charts/satchel --version <new>`. To install from a checkout instead,
+use the path `deploy/helm/satchel`. The example values files below are in that directory.
 
 Example values: `values-gke.yaml` (Cloud SQL Auth Proxy, Workload Identity, Gateway API, Secret Manager),
 `values-eks.yaml` (RDS, IRSA, ALB Ingress, AWS Secrets Manager) and `values-dev.yaml` (kind, in-cluster

@@ -8,11 +8,11 @@ database and on existing ones, so upgrades are in place.
 | Deployment | How |
 |---|---|
 | Local | `satchel upgrade` (reinstalls and migrates). |
-| Helm | `helm upgrade`; the pre-upgrade hook Job runs migrations before new pods start. |
+| Helm | `helm upgrade satchel oci://ghcr.io/getsatchel/charts/satchel --version <new>`; the pre-upgrade hook Job runs migrations before new pods start. |
 | Cloud Run | Roll the image, then run the migrate Job. See [Cloud Run §8](../deploy/cloud-run.md). |
 | Container | Run `satchel db upgrade` with the owner URL, then roll the replicas. |
 
-Back up first. Roll web and worker to the same version. `satchel status` shows the schema revision against head.
+Read the [release notes](https://github.com/getsatchel/satchel/releases) for each version you skip. Back up first. Roll web and worker to the same version. `satchel status` shows the schema revision against head.
 
 ## Backups
 
