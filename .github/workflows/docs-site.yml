@@ -1,0 +1,27 @@
+name: docs-site
+# getsatchel.dev renders this repository's docs/ at build time (satchel-internal:
+# site/scripts/sync-docs.mjs). Cloudflare Pages only rebuilds on pushes to that repository, so a
+# docs change here asks for a rebuild through a Pages deploy hook. The hook URL is the secret
+# SITE_DEPLOY_HOOK (Pages project > Settings > Builds > Deploy hooks); without it, this does nothing.
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**"]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger a site rebuild
+        env:
+          HOOK: ${{ secrets.SITE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::notice::SITE_DEPLOY_HOOK is not set; the site rebuilds on its next deploy."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" -o /dev/null
+          echo "Site rebuild requested."

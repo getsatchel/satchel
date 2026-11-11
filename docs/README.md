@@ -53,4 +53,4 @@ Configure and operate it:
 
 ## Working on these docs
 
-The pages are plain markdown. Edit them here, in the same pull request as the change they describe; the website renders them from this repository.
+The pages are plain markdown. Edit them here, in the same pull request as the change they describe; the website renders them from this repository. A push to `main` that changes `docs/` rebuilds https://getsatchel.dev (the `docs-site` workflow). New pages need an entry in the website's navigation, so mention them in the pull request.
