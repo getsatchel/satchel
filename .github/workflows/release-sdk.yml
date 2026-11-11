@@ -1,0 +1,49 @@
+name: release-sdk
+# Publishes satchel-adapter-sdk to PyPI when a tag like sdk-v1.2.0 is pushed.
+# Uses PyPI trusted publishing (OIDC): no token is stored in the repo.
+on:
+  push:
+    tags: ["sdk-v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+      - name: Tag matches the package version
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' sdk/pyproject.toml)"
+          [ "sdk-v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME does not match sdk version $version"; exit 1; }
+      - name: Check and test
+        working-directory: sdk
+        run: |
+          uv sync
+          uv run ruff check .
+          uv run mypy satchel_adapter_sdk
+          uv run pytest -q
+      - name: Build
+        run: uv build sdk --out-dir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/satchel-adapter-sdk
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
