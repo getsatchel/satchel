@@ -35,6 +35,7 @@ from satchel.api.eval_schemas import (
     SuiteIn,
     SuiteOut,
 )
+from satchel.evals import schedule
 from satchel.evals.gate import evaluate_gate, load_gate_config, start_gate_runs
 from satchel.evals.providers import resolve_provider
 from satchel.evals.runner import EvalProvider, compare_summaries, create_run, execute_run
@@ -71,8 +72,15 @@ def run_out(s: Session, run: EvalRun) -> RunOut:
         cases_skipped=cases.get("skipped", 0),
         measures=[_stat(n, m) for n, m in sorted((sm.get("measures") or {}).items())],
         tokens=sm.get("tokens") or {}, seconds=sm.get("seconds"), llm=bool(sm.get("llm")),
-        error=sm.get("error"),
+        error=sm.get("error"), trigger=_trigger(sm),
+        previous_run_id=sm.get("previous_run_id"),
     )
+
+
+def _trigger(sm: dict[str, Any]) -> str:
+    if sm.get("trigger") == schedule.TRIGGER:
+        return "schedule"
+    return "gate" if sm.get("role") in ("baseline", "preview") else "manual"
 
 
 def _deltas(rows: list[dict[str, Any]]) -> list[MeasureDelta]:
@@ -84,15 +92,18 @@ def _suite_out(s: Session, row: EvalSuite, required: set[str]) -> SuiteOut:
     last = s.scalar(
         select(EvalRun.started_at)
         .join(EvalSuite, EvalSuite.id == EvalRun.suite_id)
-        .where(EvalSuite.key == row.key)
+        .where(EvalSuite.workspace_id == row.workspace_id, EvalSuite.key == row.key)
         .order_by(EvalRun.started_at.desc())
         .limit(1)
     )
+    hours = schedule.interval_of(row)
+    nxt = (schedule.next_run_at(row, schedule.last_scheduled_at(s, row.workspace_id, row.key))
+           if hours else None)
     return SuiteOut(
         id=row.id, key=row.key, name=row.name, version_seq=row.version_seq,
         managed_by=row.managed_by, cases=len(suite.cases), measures=suite.measures(),
         needs_agent=suite.needs_agent, required_by_gate=row.key in required,
-        created_at=row.created_at, last_run_at=last,
+        created_at=row.created_at, last_run_at=last, schedule_hours=hours, next_run_at=nxt,
     )
 
 

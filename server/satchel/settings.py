@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     # ...and checks for sources whose scheduled sync (sync_interval_hours) is due this often.
     # 0 turns scheduled syncs off on this worker.
     source_tick_min: int = 5
+    # ...and for eval suites whose schedule (schedule.interval_hours) is due this often, on a
+    # third thread. 0 turns scheduled eval runs off on this worker.
+    eval_tick_min: int = 15
 
     # Data plane (design §11). Results are Parquet files under result_dir: a local directory, or
     # gs://bucket/prefix / s3://bucket/prefix for multi-replica deployments.

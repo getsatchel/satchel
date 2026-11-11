@@ -175,14 +175,16 @@ def create_run(
     *,
     provider: EvalProvider | None = None,
     note: dict[str, Any] | None = None,
+    record_starter: bool = True,
 ) -> uuid.UUID:
-    """Insert the ``running`` eval_run row (so a caller can return before the run finishes)."""
+    """Insert the ``running`` eval_run row (so a caller can return before the run finishes).
+    ``record_starter=False`` leaves ``started_by`` null (scheduled runs)."""
     suite = suite_of(suite_row)
     with workspace_session(principal.workspace_id, principal.user_id, engine=engine) as s:
         run = EvalRun(
             workspace_id=principal.workspace_id, suite_id=suite_row.id, release_id=release_id,
             model=provider.model_id if (provider and suite.needs_agent) else None,
-            started_by=principal.user_id, summary=dict(note or {}),
+            started_by=principal.user_id if record_starter else None, summary=dict(note or {}),
         )
         s.add(run)
         s.flush()

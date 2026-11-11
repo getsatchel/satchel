@@ -25,6 +25,9 @@ class SuiteOut(BaseModel):
     required_by_gate: bool = False
     created_at: datetime
     last_run_at: datetime | None = None
+    schedule_hours: int | None = Field(default=None, description="schedule.interval_hours")
+    next_run_at: datetime | None = Field(
+        default=None, description="When the worker next runs it on a schedule (past: due)")
 
 
 class SuiteDetail(SuiteOut):
@@ -75,6 +78,9 @@ class RunOut(BaseModel):
     seconds: float | None = None
     llm: bool = False
     error: str | None = None
+    trigger: str = Field(default="manual", description="manual | schedule | gate")
+    previous_run_id: uuid.UUID | None = Field(
+        default=None, description="Scheduled runs: the previous completed scheduled run")
 
 
 class GradeOut(BaseModel):

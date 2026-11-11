@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 MAX_CASES = 100
 MAX_RUBRICS = 15
 MAX_ATTEMPTS = 5
+MAX_INTERVAL_HOURS = 168
 
 Grader = Literal[
     "numeric_value", "sql_equivalent", "context_used", "judge_final_answer", "judge_session"
@@ -36,6 +37,14 @@ class ModelSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
     provider: Literal["anthropic", "openai_compat"] = "anthropic"
     name: str
+
+
+class Schedule(BaseModel):
+    """Run the suite against the latest published release every ``interval_hours`` (the worker,
+    ``satchel.evals.schedule``)."""
+
+    model_config = ConfigDict(extra="forbid")
+    interval_hours: int = Field(ge=1, le=MAX_INTERVAL_HOURS)
 
 
 class Rubric(BaseModel):
@@ -103,6 +112,7 @@ class Suite(BaseModel):
     name: str = ""
     description: str = ""
     model: ModelSpec | None = None
+    schedule: Schedule | None = None
     cases: list[Case] = Field(min_length=1, max_length=MAX_CASES)
 
     @model_validator(mode="after")

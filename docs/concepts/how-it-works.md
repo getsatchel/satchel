@@ -34,7 +34,7 @@ flowchart LR
 ```
 
 **Nothing auto-publishes.** Agents and the suggestion engine only propose changes. A human accepts a
-suggestion into a draft, and a draft still goes through preview, evals (if `publish.require_evals` is set)
+suggestion into a draft, and a draft still goes through preview, [evals](evals.md) (if `publish.require_evals` is set)
 and publish.
 
 ## A typical agent session

@@ -66,7 +66,7 @@ that is already gone does not block deleting the row. The command exits 1 if any
 | `item.create`, `item.update`, `item.overlay`, `item.deprecate` | curator API |
 | `release.publish`, `release.rollback`, `release.publish_override` | curator API |
 | `proposal.accept`, `proposal.reject`, `suggestion.*`, `curate.run` | curator API |
-| `eval.suite.save`, `eval.run.start`, `eval.gate.start` | evals API |
+| `eval.suite.save`, `eval.run.start`, `eval.gate.start` | evals API; scheduled runs write `eval.run.start` from the worker (`trigger: schedule`, no actor) |
 | `session.sensitive` | observability API |
 | `source.sync` | sources API (`trigger: manual`), worker schedule and push webhook (`trigger: schedule` / `webhook`, no actor; webhook adds `provider`, `ref`, `delivery`; failed automatic syncs have `status: error`) |
 | `source.webhook.create`, `source.webhook.rotate`, `source.webhook.remove` | Sources page → Push webhook (never the secret) |
