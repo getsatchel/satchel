@@ -1,10 +1,13 @@
 """``satchel worker``: run curation for every workspace on an interval (design §7.1 nightly job),
-and sync sources whose schedule is due (``satchel.sources.automation``).
+sync sources whose schedule is due (``satchel.sources.automation``) and run eval suites whose
+schedule is due (``satchel.evals.schedule``).
 
 Deliberately small: no queue, one process, a per-workspace Postgres advisory lock so it can
 run beside the API or as a Cloud Run Job / Kubernetes CronJob (``--once``). Scheduled source
 syncs run on their own thread every ``source_tick_min`` minutes (a per-source advisory lock),
-so a long curation pass never delays them; ``--once`` runs one check after the pass.
+so a long curation pass never delays them; scheduled evals run on a third thread every
+``eval_tick_min`` minutes, so a long eval never delays a sync. ``--once`` runs one check of each
+after the pass.
 """
 
 from __future__ import annotations
@@ -97,12 +100,29 @@ def sync_sources(workspace: str | None = None) -> None:
         log.exception("scheduled source syncs failed")
 
 
-def _tick_loop(stop: threading.Event, every_s: float, fn: Callable[[], object]) -> None:
+def run_evals(workspace: str | None = None) -> None:
+    """Run the scheduled eval suites that are due (of one workspace, or all). Never fails."""
+    from satchel.evals.schedule import run_due_evals
+
+    try:
+        ws_id = None
+        if workspace is not None:
+            with admin_session() as s:
+                ws_id = s.scalars(select(Workspace.id).where(Workspace.slug == workspace)).first()
+            if ws_id is None:
+                return
+        run_due_evals(workspace_id=ws_id)
+    except Exception:
+        log.exception("scheduled eval runs failed")
+
+
+def _tick_loop(stop: threading.Event, every_s: float, fn: Callable[[], object],
+               what: str = "source") -> None:
     while not stop.is_set():
         try:
             fn()
         except Exception:
-            log.exception("source tick failed")
+            log.exception("%s tick failed", what)
         stop.wait(every_s)
 
 
@@ -110,13 +130,16 @@ def run_forever(
     *, interval_min: int | None = None, workspace: str | None = None, once: bool = False,
     stop: threading.Event | None = None, pass_fn: Callable[[], object] | None = None,
     use_llm: bool = True, sources_fn: Callable[[], object] | None = None,
-    tick_min: int | None = None,
+    tick_min: int | None = None, evals_fn: Callable[[], object] | None = None,
+    eval_tick_min: int | None = None,
 ) -> None:
     """Loop until ``stop`` is set (SIGINT/SIGTERM set it). ``once`` runs a single pass.
 
     Scheduled source syncs (``sources_fn``, default :func:`sync_sources`) run on a separate
     thread every ``tick_min`` minutes (``SATCHEL_SOURCE_TICK_MIN``; 0 = off). A caller that
-    passes its own ``pass_fn`` (tests) gets no source ticks unless it passes ``sources_fn``."""
+    passes its own ``pass_fn`` (tests) gets no source ticks unless it passes ``sources_fn``.
+    Scheduled evals (``evals_fn``, default :func:`run_evals`) work the same way with
+    ``eval_tick_min`` (``SATCHEL_EVAL_TICK_MIN``)."""
     st = get_settings()
     interval = (interval_min if interval_min is not None else st.curate_interval_min) * 60
     tick = (tick_min if tick_min is not None else st.source_tick_min) * 60
@@ -124,6 +147,10 @@ def run_forever(
     tick_fn = sources_fn or (None if pass_fn else (lambda: sync_sources(workspace)))
     if not tick:
         tick_fn = None
+    eval_tick = (eval_tick_min if eval_tick_min is not None else st.eval_tick_min) * 60
+    eval_fn = evals_fn or (None if pass_fn else (lambda: run_evals(workspace)))
+    if not eval_tick:
+        eval_fn = None
 
     def _halt(_sig: int, _frame: FrameType | None) -> None:
         stop.set()
@@ -139,11 +166,14 @@ def run_forever(
             purge_sessions()
 
     do = pass_fn or default_pass
-    ticker: threading.Thread | None = None
-    if tick_fn is not None and not once:
-        ticker = threading.Thread(target=_tick_loop, args=(stop, tick, tick_fn),
-                                  name="satchel-sources", daemon=True)
-        ticker.start()
+    tickers: list[threading.Thread] = []
+    if not once:
+        for fn, every, name in ((tick_fn, tick, "source"), (eval_fn, eval_tick, "eval")):
+            if fn is not None:
+                t = threading.Thread(target=_tick_loop, args=(stop, every, fn, name),
+                                     name=f"satchel-{name}s", daemon=True)
+                t.start()
+                tickers.append(t)
     try:
         while not stop.is_set():
             try:
@@ -151,12 +181,13 @@ def run_forever(
             except Exception:
                 log.exception("curation pass failed")
             if once:
-                if tick_fn is not None:
-                    tick_fn()
+                for fn in (tick_fn, eval_fn):
+                    if fn is not None:
+                        fn()
                 return
             log.info("next curation pass in %d minute(s)", interval // 60)
             stop.wait(interval)
     finally:
         stop.set()
-        if ticker is not None:
-            ticker.join(timeout=5)
+        for t in tickers:
+            t.join(timeout=5)

@@ -33,6 +33,8 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_CHAT_TIMEOUT_S` | `120.0` | Chat request timeout. |
 | `SATCHEL_CHAT_MAX_RETRIES` | `4` | Chat request retries. |
 | `SATCHEL_CURATE_INTERVAL_MIN` | `1440` | Minutes between worker passes. |
+| `SATCHEL_SOURCE_TICK_MIN` | `5` | Minutes between the worker's checks for scheduled source syncs; `0` turns them off. |
+| `SATCHEL_EVAL_TICK_MIN` | `15` | Minutes between the worker's checks for scheduled eval runs; `0` turns them off ([evals](../concepts/evals.md#scheduled-runs)). |
 | `SATCHEL_RESULT_DIR` | `~/.cache/satchel/results` | Result cache location: local path, `gs://` or `s3://`. |
 | `SATCHEL_RESULT_TTL_DAYS` | `7` | Default result cache lifetime. |
 | `SATCHEL_SQL_ROW_CAP` | `1000` | Default max rows per query (workspace Limits may override). |

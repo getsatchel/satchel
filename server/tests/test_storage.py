@@ -351,6 +351,7 @@ def test_results_purge_cli_and_worker_pass(
     b = _add_result(app_engine, ws, st, expires=past)
     monkeypatch.setattr(worker, "run_once", lambda **_k: [])
     monkeypatch.setattr(worker, "sync_sources", lambda *_a: None)  # other tests' sources
+    monkeypatch.setattr(worker, "run_evals", lambda *_a: None)  # other tests' suites
     worker.run_forever(once=True)
     assert not _exists(app_engine, b.id) and not st.exists(b.path)
 

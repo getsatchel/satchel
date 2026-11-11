@@ -8,7 +8,7 @@ deployment path.
 | Component | Required | Notes |
 |---|---|---|
 | **web** (`satchel serve api`) | yes | UI, REST `/v1`, MCP `/mcp`, OAuth/OIDC on one port (8080). Stateless; scale horizontally. |
-| **worker** (`satchel worker`) | recommended | Curation, expired result purge, session retention. Run as a Deployment, or a CronJob with `--once`. |
+| **worker** (`satchel worker`) | recommended | Curation, expired result purge, session retention, scheduled source syncs and [scheduled eval runs](../concepts/evals.md#scheduled-runs). Run as a Deployment, or a CronJob with `--once`. |
 | **migrate Job** (`satchel db upgrade`) | yes | Runs before each release. Optionally runs `satchel db bootstrap` first. |
 | **Postgres 17 + pgvector** | yes | The only required dependency. The app connects as a non-superuser role so RLS applies. |
 | **Object store** (GCS or S3) | optional | Result cache (Parquet) and audit exports. A local directory works for one replica. |

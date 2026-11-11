@@ -6,7 +6,7 @@ import type { EvalCase, EvalRun, EvalSuite } from "@/api/types";
 import { CaseMoves, DeltaTable, MeasureChips, OutcomeBadge } from "@/components/EvalBits";
 import { useToast } from "@/components/Toast";
 import { Chevron, Crumb, EmptyState, ErrorBox, GitBadge, ICONS, KeyLines, Loading, Modal, Notice, PageHeader, SectionHeading, StatCell, StatGrid, TableCard, Tabs } from "@/components/ui";
-import { errMsg, timeAgo } from "@/lib/format";
+import { errMsg, fullTime, timeAgo, timeUntil } from "@/lib/format";
 
 type Tab = "suites" | "runs";
 const RANK = { explorer: 0, analyst: 1, curator: 2, admin: 3 } as const;
@@ -93,6 +93,11 @@ function Suites() {
                     {s.managed_by === "git" && <GitBadge />}
                     {s.required_by_gate && <span className="badge badge-accent" title="Evals must pass before a preview can be published">publish gate</span>}
                     {!s.needs_agent && <span className="badge">no LLM</span>}
+                    {s.schedule_hours ? (
+                      <span className="badge" title={s.next_run_at ? `Next scheduled run ${fullTime(s.next_run_at)}, against the published release` : undefined}>
+                        every {everyLabel(s.schedule_hours)} · {timeUntil(s.next_run_at)}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="mt-0.5 text-xs text-muted sm:hidden">
                     {s.cases} cases{s.last_run_at ? ` · last run ${timeAgo(s.last_run_at)}` : ""}
@@ -157,8 +162,17 @@ function SuiteViewer(props: { suiteKey: string | null; onClose: () => void; canE
   );
 }
 
+function everyLabel(hours: number): string {
+  if (hours === 1) return "hour";
+  if (hours % 24 === 0) return hours === 24 ? "day" : `${hours / 24} days`;
+  return `${hours} hours`;
+}
+
+const TRIGGER_LABEL: Record<string, string> = { schedule: "scheduled", gate: "publish gate" };
+
 const TEMPLATE = `id: my-suite
 name: My suite
+# schedule: { interval_hours: 24 }   # the worker runs it against the published release daily
 cases:
   - id: example
     prompt: What was revenue last month?
@@ -333,6 +347,7 @@ function RunRow({ r, checked, onCheck, onOpen }: { r: EvalRun; checked: boolean;
         </Link>
         <div className="mt-0.5 text-xs text-muted">
           <span className="mono">v{r.suite_version}</span> on #{r.release_seq} {r.release_kind}
+          {TRIGGER_LABEL[r.trigger] && <span className="badge ml-1.5">{TRIGGER_LABEL[r.trigger]}</span>}
           <span className="sm:hidden">
             {" "}
             · {r.cases_pass}/{r.cases_total} pass
@@ -372,11 +387,18 @@ export function EvalRunPage() {
       <Crumb to="/evals?tab=runs" label="Evals" rest="Run history" />
       <PageHeader
         title={`Run of ${r.suite_key} v${r.suite_version}`}
-        sub={`On release #${r.release_seq} (${r.release_kind}) · ${r.model ?? "no LLM"} · ${r.tokens.input ?? 0} in / ${r.tokens.output ?? 0} out tokens`}
+        sub={`${r.trigger === "schedule" ? "Scheduled run on" : "On"} release #${r.release_seq} (${r.release_kind}) · ${r.model ?? "no LLM"} · ${r.tokens.input ?? 0} in / ${r.tokens.output ?? 0} out tokens`}
         actions={
-          <Link className="btn" to="/evals?tab=runs">
-            All runs
-          </Link>
+          <>
+            {r.previous_run_id && r.status === "completed" && (
+              <Link className="btn" to={`/evals/compare?a=${r.previous_run_id}&b=${r.id}`} title="Compare with the previous scheduled run of this suite">
+                Compare with previous
+              </Link>
+            )}
+            <Link className="btn" to="/evals?tab=runs">
+              All runs
+            </Link>
+          </>
         }
       />
       <section aria-labelledby="run-sum" className="mb-9">

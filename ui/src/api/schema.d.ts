@@ -2498,6 +2498,11 @@ export interface components {
             /** Model */
             model: string | null;
             /**
+             * Previous Run Id
+             * @description Scheduled runs: the previous completed scheduled run
+             */
+            previous_run_id?: string | null;
+            /**
              * Release Id
              * Format: uuid
              */
@@ -2533,6 +2538,12 @@ export interface components {
             tokens: {
                 [key: string]: number;
             };
+            /**
+             * Trigger
+             * @description manual | schedule | gate
+             * @default manual
+             */
+            trigger: string;
         };
         /** RunOut */
         RunOut: {
@@ -2583,6 +2594,11 @@ export interface components {
             /** Model */
             model: string | null;
             /**
+             * Previous Run Id
+             * @description Scheduled runs: the previous completed scheduled run
+             */
+            previous_run_id?: string | null;
+            /**
              * Release Id
              * Format: uuid
              */
@@ -2618,6 +2634,12 @@ export interface components {
             tokens: {
                 [key: string]: number;
             };
+            /**
+             * Trigger
+             * @description manual | schedule | gate
+             * @default manual
+             */
+            trigger: string;
         };
         /** RunRequest */
         RunRequest: {
@@ -3169,10 +3191,20 @@ export interface components {
             /** Needs Agent */
             needs_agent: boolean;
             /**
+             * Next Run At
+             * @description When the worker next runs it on a schedule (past: due)
+             */
+            next_run_at?: string | null;
+            /**
              * Required By Gate
              * @default false
              */
             required_by_gate: boolean;
+            /**
+             * Schedule Hours
+             * @description schedule.interval_hours
+             */
+            schedule_hours?: number | null;
             /** Spec */
             spec: {
                 [key: string]: unknown;
@@ -3219,10 +3251,20 @@ export interface components {
             /** Needs Agent */
             needs_agent: boolean;
             /**
+             * Next Run At
+             * @description When the worker next runs it on a schedule (past: due)
+             */
+            next_run_at?: string | null;
+            /**
              * Required By Gate
              * @default false
              */
             required_by_gate: boolean;
+            /**
+             * Schedule Hours
+             * @description schedule.interval_hours
+             */
+            schedule_hours?: number | null;
             /** Version Seq */
             version_seq: number;
         };

@@ -11,6 +11,7 @@ try it, understand it, run it in production, then integrate and extend it.
 |---|---|
 | [Install and quickstart](install.md) | Run Satchel locally with `satchel init`, connect Claude, ask a question. |
 | [How Satchel works](concepts/how-it-works.md) | Context, sessions, signals, the curation loop, releases. |
+| [Evals](concepts/evals.md) | Measure answers with eval suites, gate publishing, run suites on a schedule. |
 
 ## 2. Self-hosting
 
