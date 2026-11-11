@@ -108,4 +108,6 @@ publish:
 **Run evals** in Changes runs each required suite on the preview and on its parent release (a
 parent run from the last 24 hours is reused), then compares them per measure. In CI,
 `satchel eval gate <preview-id> --workspace acme` does the same and exits 1 unless the gate passes.
+For a context repo on GitHub, the [GitHub Action](../integrations/github-action.md) builds the
+preview from each pull request, runs the gate and comments the comparison.
 An admin can publish over a failing gate; that is recorded as `release.publish_override`.

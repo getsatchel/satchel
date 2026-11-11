@@ -4,6 +4,11 @@ Items are keyed by file path (``context_item.key``; ``path#slug`` for several it
 file). A new ``context_version`` is created only when the content hash changes. Files that
 disappear are deprecated. Every import that changes anything publishes a new release
 (previous release + changed versions).
+
+A pull-request preview (:mod:`satchel.sync.preview`) stores versions that are not current. When
+the pull request merges and this import runs, a changed file reuses the preview's version with the
+same content (its chunks are already embedded) instead of adding another one, and an item that
+only existed in previews (no current version) counts as created.
 """
 
 from __future__ import annotations
@@ -16,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from satchel.curation.releases import create_release, latest_published, release_map
@@ -213,7 +218,10 @@ def import_context(
     *,
     embedder: EmbeddingProvider | None = None,
     engine: Engine | None = None,
+    sync_sources: bool = True,
 ) -> ImportReport:
+    """``sync_sources=False`` skips the sources declared in ``satchel.config.yaml`` (an uploaded
+    bundle: their paths would be read on the server)."""
     root = Path(path).resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"context path is not a directory: {root}")
@@ -279,12 +287,15 @@ def import_context(
             cvid = item.current_version_id
             cur = s.get(ContextVersion, cvid) if cvid else None
             if cur is None or cur.content_hash != chash:
-                seq = (cur.seq if cur else 0) + 1
-                ver = _new_version(s, item, seq, it, chash)
-                new_versions.append((ver, it))
+                previewed = _previewed_version(s, item, cur, chash)
+                if previewed is not None:
+                    ver = previewed  # chunks embedded when the preview was built
+                else:
+                    ver = _new_version(s, item, next_version_seq(s, item.id), it, chash)
+                    new_versions.append((ver, it))
                 item.current_version_id = item.published_version_id = ver.id
                 item.state = "published"
-                report.updated.append(it.key)
+                (report.created if cur is None else report.updated).append(it.key)
                 vid = ver.id
             elif item.state != "published" or item.published_version_id != cur.id:
                 item.state, item.published_version_id = "published", cur.id
@@ -338,10 +349,29 @@ def import_context(
     problems = validate_declared(repo.config)
     if problems:
         raise ImportValidationError(problems)
-    report.sources, report.source_errors = sync_repo_sources(
-        repo.config, root, workspace_slug, embedder=emb, engine=engine
-    )
+    if sync_sources:
+        report.sources, report.source_errors = sync_repo_sources(
+            repo.config, root, workspace_slug, embedder=emb, engine=engine
+        )
     return report
+
+
+def next_version_seq(s: Session, item_id: uuid.UUID) -> int:
+    """max(seq) + 1: preview versions may sit above the current one."""
+    return int(s.scalar(select(func.max(ContextVersion.seq))
+                        .where(ContextVersion.item_id == item_id)) or 0) + 1
+
+
+def _previewed_version(
+    s: Session, item: ContextItem, cur: ContextVersion | None, chash: str
+) -> ContextVersion | None:
+    """A version with this content added after the current one (by a pull-request preview)."""
+    return s.scalars(
+        select(ContextVersion)
+        .where(ContextVersion.item_id == item.id, ContextVersion.content_hash == chash,
+               ContextVersion.seq > (cur.seq if cur else 0))
+        .order_by(ContextVersion.seq.desc())
+    ).first()
 
 
 def _new_version(

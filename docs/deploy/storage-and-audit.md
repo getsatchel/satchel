@@ -69,6 +69,7 @@ that is already gone does not block deleting the row. The command exits 1 if any
 | `eval.suite.save`, `eval.run.start`, `eval.gate.start` | evals API; scheduled runs write `eval.run.start` from the worker (`trigger: schedule`, no actor) |
 | `session.sensitive` | observability API |
 | `source.sync` | sources API (`trigger: manual`), worker schedule and push webhook (`trigger: schedule` / `webhook`, no actor; webhook adds `provider`, `ref`, `delivery`; failed automatic syncs have `status: error`) |
+| `sync.preview`, `sync.import` | context repo uploads (`POST /v1/sync/preview`, `POST /v1/sync/import`, e.g. the GitHub Action), with the git `ref` |
 | `source.webhook.create`, `source.webhook.rotate`, `source.webhook.remove` | Sources page → Push webhook (never the secret) |
 | `token.create`, `token.revoke` | PAT creation / revocation (CLI, `satchel init`) |
 | `user.create`, `user.role_change`, `user.provision` | token / workspace bootstrap, OIDC auto-provisioning |

@@ -1020,6 +1020,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sync/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync Import */
+        post: operations["sync_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sync/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync Preview */
+        post: operations["sync_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2319,6 +2353,11 @@ export interface components {
             note: string | null;
             /** Parent Release Id */
             parent_release_id: string | null;
+            /**
+             * Ref
+             * @description Pull-request previews: the git ref it was built from
+             */
+            ref?: string | null;
             /** Removed Keys */
             removed_keys: string[];
             /** Seq */
@@ -2433,6 +2472,11 @@ export interface components {
             note: string | null;
             /** Parent Release Id */
             parent_release_id: string | null;
+            /**
+             * Ref
+             * @description Pull-request previews: the git ref it was built from
+             */
+            ref?: string | null;
             /** Seq */
             seq: number;
         };
@@ -3267,6 +3311,59 @@ export interface components {
             schedule_hours?: number | null;
             /** Version Seq */
             version_seq: number;
+        };
+        /** SyncImportOut */
+        SyncImportOut: {
+            /** Created */
+            created: string[];
+            /** Deprecated */
+            deprecated: string[];
+            /** Eval Suites */
+            eval_suites: string[];
+            /** Release Created */
+            release_created: boolean;
+            /** Release Id */
+            release_id: string | null;
+            /** Release Seq */
+            release_seq: number | null;
+            /** Skipped Files */
+            skipped_files: string[];
+            /** Unchanged */
+            unchanged: number;
+            /** Updated */
+            updated: string[];
+        };
+        /** SyncPreviewOut */
+        SyncPreviewOut: {
+            /** Base Release Seq */
+            base_release_seq: number | null;
+            /** Created */
+            created: string[];
+            /**
+             * Eval Suites Changed
+             * @description Suites this folder changes; the gate uses the suites already imported
+             */
+            eval_suites_changed: string[];
+            /**
+             * Gate Required
+             * @description publish.require_evals on the server
+             */
+            gate_required: string[];
+            /**
+             * Preview Id
+             * @description None when the folder changes nothing
+             */
+            preview_id: string | null;
+            /** Preview Seq */
+            preview_seq: number | null;
+            /** Removed */
+            removed: string[];
+            /** Unchanged */
+            unchanged: number;
+            /** Updated */
+            updated: string[];
+            /** Warnings */
+            warnings: string[];
         };
         /** SyncReportOut */
         SyncReportOut: {
@@ -6077,6 +6174,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuggestionSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_import: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_preview: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncPreviewOut"];
                 };
             };
             /** @description Validation Error */

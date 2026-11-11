@@ -3606,6 +3606,18 @@
             ],
             "title": "Parent Release Id"
           },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pull-request previews: the git ref it was built from",
+            "title": "Ref"
+          },
           "removed_keys": {
             "items": {
               "type": "string"
@@ -3972,6 +3984,18 @@
               }
             ],
             "title": "Parent Release Id"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pull-request previews: the git ref it was built from",
+            "title": "Ref"
           },
           "seq": {
             "title": "Seq",
@@ -6108,6 +6132,190 @@
           "created_at"
         ],
         "title": "SuiteOut",
+        "type": "object"
+      },
+      "SyncImportOut": {
+        "properties": {
+          "created": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "deprecated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deprecated",
+            "type": "array"
+          },
+          "eval_suites": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eval Suites",
+            "type": "array"
+          },
+          "release_created": {
+            "title": "Release Created",
+            "type": "boolean"
+          },
+          "release_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Id"
+          },
+          "release_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Seq"
+          },
+          "skipped_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped Files",
+            "type": "array"
+          },
+          "unchanged": {
+            "title": "Unchanged",
+            "type": "integer"
+          },
+          "updated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Updated",
+            "type": "array"
+          }
+        },
+        "required": [
+          "release_id",
+          "release_seq",
+          "release_created",
+          "created",
+          "updated",
+          "deprecated",
+          "unchanged",
+          "eval_suites",
+          "skipped_files"
+        ],
+        "title": "SyncImportOut",
+        "type": "object"
+      },
+      "SyncPreviewOut": {
+        "properties": {
+          "base_release_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Release Seq"
+          },
+          "created": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "eval_suites_changed": {
+            "description": "Suites this folder changes; the gate uses the suites already imported",
+            "items": {
+              "type": "string"
+            },
+            "title": "Eval Suites Changed",
+            "type": "array"
+          },
+          "gate_required": {
+            "description": "publish.require_evals on the server",
+            "items": {
+              "type": "string"
+            },
+            "title": "Gate Required",
+            "type": "array"
+          },
+          "preview_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None when the folder changes nothing",
+            "title": "Preview Id"
+          },
+          "preview_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Seq"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "unchanged": {
+            "title": "Unchanged",
+            "type": "integer"
+          },
+          "updated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Updated",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "preview_id",
+          "preview_seq",
+          "base_release_seq",
+          "created",
+          "updated",
+          "removed",
+          "unchanged",
+          "warnings",
+          "eval_suites_changed",
+          "gate_required"
+        ],
+        "title": "SyncPreviewOut",
         "type": "object"
       },
       "SyncReportOut": {
@@ -13641,6 +13849,168 @@
         "summary": "Dismiss",
         "tags": [
           "suggestions"
+        ]
+      }
+    },
+    "/v1/sync/import": {
+      "post": {
+        "operationId": "sync_import",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sync Import",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/preview": {
+      "post": {
+        "operationId": "sync_preview",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sync Preview",
+        "tags": [
+          "sync"
         ]
       }
     }

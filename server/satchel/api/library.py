@@ -86,7 +86,9 @@ def make_router(auth: Auth) -> APIRouter:
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> ItemPage:
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
-            conds = []
+            # Items that only exist in pull-request previews (satchel.sync.preview) are hidden.
+            conds = [or_(ContextItem.state != "deprecated",
+                         ContextItem.current_version_id.is_not(None))]
             if type:
                 conds.append(ContextItem.type == type)
             if state:

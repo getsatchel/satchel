@@ -456,6 +456,9 @@ class Release(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = _created()
     parent_release_id: Mapped[uuid.UUID | None] = _fk("release.id", nullable=True)
+    # Pull-request previews (migration 0013): the git ref the preview was built from, e.g.
+    # ``refs/pull/12/merge@3f2c1a9``. Published by merging the pull request, not from the UI.
+    ref: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class ReleaseItem(Base):

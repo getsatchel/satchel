@@ -1,0 +1,70 @@
+name: Satchel context
+description: >-
+  Preview a context repo pull request on a Satchel server, run the publish gate's evals and comment
+  the result; publish the default branch when it changes.
+author: The Satchel Authors
+branding:
+  icon: book-open
+  color: gray-dark
+
+inputs:
+  url:
+    description: Satchel server URL, e.g. https://satchel.example.com
+    required: true
+  token:
+    description: >-
+      Satchel personal access token. Curator (or above) for previews and the gate; admin to publish.
+    required: true
+  path:
+    description: The context repo folder (the one holding satchel.config.yaml).
+    default: "."
+  mode:
+    description: >-
+      auto (pull_request events preview, pushes publish), preview or publish.
+    default: auto
+  run-evals:
+    description: Run the publish gate's required eval suites on the preview.
+    default: "true"
+  fail-on-gate:
+    description: Fail the job when the gate does not pass.
+    default: "true"
+  wait-minutes:
+    description: How long to wait for the gate's eval runs.
+    default: "30"
+  comment:
+    description: Post (and update) a pull request comment. Needs `pull-requests write`.
+    default: "true"
+  github-token:
+    description: Token for the pull request comment.
+    default: ${{ github.token }}
+
+outputs:
+  preview-id:
+    description: The preview release id (empty when the pull request changes no context).
+    value: ${{ steps.run.outputs.preview-id }}
+  gate-status:
+    description: none, pass, fail, pending or running (timed out).
+    value: ${{ steps.run.outputs.gate-status }}
+  release-seq:
+    description: The published release number (publish mode).
+    value: ${{ steps.run.outputs.release-seq }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      run: '"$GITHUB_ACTION_PATH/satchel-context.sh"'
+      env:
+        SATCHEL_URL: ${{ inputs.url }}
+        SATCHEL_TOKEN: ${{ inputs.token }}
+        CONTEXT_PATH: ${{ inputs.path }}
+        MODE: ${{ inputs.mode }}
+        RUN_EVALS: ${{ inputs.run-evals }}
+        FAIL_ON_GATE: ${{ inputs.fail-on-gate }}
+        WAIT_MINUTES: ${{ inputs.wait-minutes }}
+        COMMENT: ${{ inputs.comment }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}

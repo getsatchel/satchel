@@ -26,6 +26,7 @@ from satchel.api import (
     proposals,
     sources,
     suggestions,
+    sync,
     workbench,
     workspace_settings,
 )
@@ -156,6 +157,7 @@ def create_app(
     app.include_router(catalog.make_router(auth))
     app.include_router(evals.make_router(auth))
     app.include_router(sources.make_router(auth))
+    app.include_router(sync.make_router(auth))
     app.include_router(hooks.make_router(auth.ctx))  # unauthenticated push webhooks
     app.include_router(audit.make_router(auth))
     app.include_router(llm.make_router(auth))

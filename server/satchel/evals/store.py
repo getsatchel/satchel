@@ -80,7 +80,8 @@ def import_repo_suites(
     globs = eval_globs(config)
     files = sorted(
         p for p in root.rglob("*.y*ml")
-        if p.is_file() and any(fnmatch.fnmatch(p.relative_to(root).as_posix(), g) for g in globs)
+        if p.is_file() and not any(seg.startswith(".") for seg in p.relative_to(root).parts)
+        and any(fnmatch.fnmatch(p.relative_to(root).as_posix(), g) for g in globs)
     )
     done: list[str] = []
     errors: list[str] = []

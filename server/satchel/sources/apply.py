@@ -61,7 +61,7 @@ from satchel.store.models import (
     Release,
 )
 from satchel.sync.embedding_sync import reembed_stale
-from satchel.sync.importer import AssetIndex, content_hash, sync_links
+from satchel.sync.importer import AssetIndex, content_hash, next_version_seq, sync_links
 from satchel.sync.parse import ParsedItem, slugify
 
 
@@ -278,7 +278,7 @@ def apply_snapshot(
                     held.add(item.id)  # an analyst's unpublished overlay draft: not ours to publish
                     report.held.append(c.key)
             if cur is None or cur.content_hash != chash:
-                ver = _new_version(s, item, (cur.seq if cur else 0) + 1, c, chash, prov)
+                ver = _new_version(s, item, next_version_seq(s, item.id), c, chash, prov)
                 new_versions.append((ver, c))
                 item.current_version_id = ver.id
                 report.updated.append(c.key)

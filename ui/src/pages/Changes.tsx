@@ -206,6 +206,11 @@ function PreviewPanel({ id, onClose }: { id: string; onClose: () => void }) {
             {p.changed_keys.length} changed, {p.removed_keys.length} removed, {p.item_count} items in total
             {p.note ? ` · "${p.note}"` : ""}
           </p>
+          {p.ref && !published && (
+            <Notice>
+              Built from <code className="break-all">{p.ref}</code> by the GitHub Action. It is published when the pull request merges, so there is no Publish button here.
+            </Notice>
+          )}
           <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(min(18rem,100%),1fr))" }}>
             {p.changed_keys.map((k) => (
               <li key={k} className="min-w-0">
@@ -223,7 +228,7 @@ function PreviewPanel({ id, onClose }: { id: string; onClose: () => void }) {
           <button className="btn" onClick={onClose}>
             Close
           </button>
-          {!published && (
+          {!published && !p.ref && (
             <button
               className="btn btn-primary"
               disabled={blocked && !isAdmin}

@@ -70,6 +70,7 @@ def create_release(
     parent_id: uuid.UUID | None,
     note: str | None,
     created_by: uuid.UUID | None = None,
+    ref: str | None = None,
 ) -> Release:
     """Insert a release and its ``release_item`` rows. The single place releases are built."""
     rel = Release(
@@ -79,6 +80,7 @@ def create_release(
         note=note,
         created_by=created_by,
         parent_release_id=parent_id,
+        ref=ref,
     )
     s.add(rel)
     s.flush()
