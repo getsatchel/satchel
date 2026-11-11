@@ -20,6 +20,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from satchel import limits as lim
 from satchel.api.auth import Auth, Caller
+from satchel.install_hints import DIST
 from satchel.settings import Settings
 from satchel.store.db import workspace_session
 from satchel.store.models import Workspace
@@ -199,7 +200,7 @@ def deployment_out(st: Settings, schema: str | None) -> DeploymentOut:
         ]),
     ]
     try:
-        ver = pkg_version("satchel")
+        ver = pkg_version(DIST)
     except PackageNotFoundError:
         ver = "unknown"
     return DeploymentOut(version=ver, groups=groups)

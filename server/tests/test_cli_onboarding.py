@@ -550,13 +550,13 @@ def test_down_never_purges_without_confirmation(
 def test_install_spec_and_kind(tmp_path: Path) -> None:
     from satchel.cli.onboarding import INSTALL_SPEC, install_spec
 
-    assert install_spec(None) == INSTALL_SPEC
+    assert install_spec(None) == INSTALL_SPEC == "satchel-server"
     repo = tmp_path / "repo"
     (repo / "server").mkdir(parents=True)
     (repo / "server" / "pyproject.toml").write_text("")
     assert install_spec(str(repo)) == str(repo / "server")
     assert install_spec("https://github.com/getsatchel/satchel") == (
-        "satchel @ git+https://github.com/getsatchel/satchel#subdirectory=server"
+        "satchel-server @ git+https://github.com/getsatchel/satchel#subdirectory=server"
     )
 
 
