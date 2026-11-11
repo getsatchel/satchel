@@ -82,17 +82,17 @@ With a Satchel server: `satchel source add mytool main --export /path/to/export.
 
 ## 5. Publish
 
-Name the package `satchel-source-<tool>`, register the entry point in `pyproject.toml`:
+Name the package `satchel-source-<tool>` (the full rule, and the built-in kinds you must not reuse, are in [Naming and listing](naming.md)), register the entry point in `pyproject.toml`:
 
 ```toml
 [project.entry-points."satchel.sources"]
 mytool = "satchel_source_mytool:adapter"
 ```
 
-and release it to PyPI. `pip install satchel-source-mytool` next to Satchel is enough; it is discovered identically to the built-in dbt, Cube and SQLMesh adapters (which register through the same group). Open an issue using the *Integration request* template, and open a PR if you want it listed or built in.
+and release it to PyPI. `pip install satchel-source-mytool` next to Satchel is enough; it is discovered identically to the built-in dbt, Cube and SQLMesh adapters (which register through the same group). Open an issue using the *Integration request* template, and see [Getting listed](naming.md#getting-listed) to have it added to the [community adapters](wanted.md#community-adapters) list. Set `maturity` according to [Maturity tiers](maturity.md). Looking for something to build? See [Wanted integrations](wanted.md).
 
 **Trust.** Installed adapters run inside the Satchel process as trusted code. Read an adapter before installing it on a server.
 
 ## IR versions
 
-The SDK exposes `IR_VERSION` (semver). The server accepts a snapshot with the same major version. New optional fields are minor bumps; removals and changes of meaning are major. Details: [`sdk/README.md`](../../sdk/README.md).
+The SDK exposes `IR_VERSION` (semver). The server accepts a snapshot with the same major version. New optional fields are minor bumps; removals and changes of meaning are major. The full policy, including what counts as breaking and which SDK version to depend on, is in [Adapter compatibility](compatibility.md).

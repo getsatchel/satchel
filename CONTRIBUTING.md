@@ -33,6 +33,13 @@ Never point tests or migrations at your own Satchel database. Tests use their ow
 
 See [`docs/adapters/writing-an-adapter.md`](docs/adapters/writing-an-adapter.md), copy [`templates/adapter/`](templates/adapter) and read the contract in [`sdk/README.md`](sdk/README.md). File an [integration request](.github/ISSUE_TEMPLATE/integration_request.yml) first if you want to check the shape of a mapping.
 
+Before you publish a community adapter, read the rules for outside adapters:
+
+* [Compatibility policy](docs/adapters/compatibility.md): what counts as a breaking change, and how the IR version relates to the SDK version.
+* [Maturity tiers](docs/adapters/maturity.md): experimental, beta and stable, and what promotes an adapter to stable.
+* [Naming and listing](docs/adapters/naming.md): name packages `satchel-source-<tool>`, and how to get listed.
+* [Wanted integrations](docs/adapters/wanted.md): tools we'd like adapters for, and the community adapters list.
+
 ## Pull requests
 
 * One focused change; explain the why. Update the docs when behaviour changes.
