@@ -41,6 +41,10 @@ See [`docs/adapters/writing-an-adapter.md`](docs/adapters/writing-an-adapter.md)
   [Developer Certificate of Origin](https://developercertificate.org/): that you wrote the change, or
   otherwise have the right to submit it under the project's licence. There is no CLA to sign.
 
+## Code of conduct
+
+Everyone taking part in this project follows the [Code of Conduct](CODE_OF_CONDUCT.md). Report conduct issues to security@getsatchel.dev.
+
 ## Reporting security issues
 
 Do not open a public issue. See [`SECURITY.md`](SECURITY.md).

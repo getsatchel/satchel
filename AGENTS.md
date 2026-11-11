@@ -21,3 +21,4 @@ Satchel is a self-hosted context server for data agents. Read these first:
 6. **Nothing auto-publishes context.** Agents and the suggestion engine only propose changes.
 7. **UI:** follow [`ui/DESIGN.md`](ui/DESIGN.md) and reuse the components in `ui/src/components/ui.tsx`. Run `npm run typecheck && npm run lint && npm run build` in `ui/`.
 8. **API contract:** if you change an API route, regenerate it: `cd server && uv run satchel openapi > ../ui/openapi.json && cd ../ui && npm run gen:api`.
+9. **Commits:** sign off every commit with `git commit -s` (the [DCO](https://developercertificate.org/), see `CONTRIBUTING.md`). Never add AI attribution: no `Co-Authored-By` trailers for AI tools and no "Generated with" lines in commit messages or pull request descriptions.
