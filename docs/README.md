@@ -1,0 +1,55 @@
+# Satchel documentation
+
+Satchel is a self-hosted context server for data agents. These docs are organised the way you'd approach it:
+try it, understand it, run it in production, then integrate and extend it.
+
+> **Status:** pre-alpha. Pages marked *(planned)* are stubs for work we intend to write.
+
+## 1. Get started
+
+| Page | What you'll do |
+|---|---|
+| [Install and quickstart](install.md) | Run Satchel locally with `satchel init`, connect Claude, ask a question. |
+| [How Satchel works](concepts/how-it-works.md) | Context, sessions, signals, the curation loop, releases. |
+
+## 2. Self-hosting
+
+Start with the [self-hosting overview](self-hosting/index.md) (architecture, prerequisites, production checklist), then pick a deployment:
+
+| Target | Page |
+|---|---|
+| Any container runtime | [Container image](deploy/container.md) |
+| Kubernetes (any cluster) | [Helm chart](deploy/helm.md) |
+| GKE (Terraform + Helm) | [GKE](deploy/gke.md) |
+| Amazon EKS (Terraform + Helm) | [EKS](deploy/eks.md) |
+| Google Cloud Run (Terraform) | [Cloud Run](deploy/cloud-run.md) |
+| Rehearse AWS locally | [floci](deploy/floci.md) |
+
+Configure and operate it:
+
+- [Configuration: environment vs Settings](deploy/configuration.md), including the encryption key.
+- [Database](deploy/database.md): roles, RLS, `satchel db bootstrap`.
+- [Storage and audit](deploy/storage-and-audit.md): result cache and audit export.
+- [Upgrading, backups and troubleshooting](self-hosting/operations.md)
+
+## 3. Integrate
+
+- Clients: [Claude](integrations/claude.md) (Desktop, Code), Cursor and others via `satchel connect`.
+- Sources: [dbt](integrations/dbt.md), [Cube](integrations/cube.md), [SQLMesh](integrations/sqlmesh.md).
+- [Writing a source adapter](adapters/writing-an-adapter.md) with `satchel-adapter-sdk`.
+
+## 4. Reference
+
+- [CLI](reference/cli.md)
+- [MCP tools](reference/mcp-tools.md)
+- [Environment variables](reference/environment-variables.md)
+- REST API: `satchel openapi` prints the OpenAPI document (`ui/openapi.json` is the committed copy).
+
+## 5. Design and contributing
+
+- [Master architecture diagram](architecture/system.md)
+- [Contributing](https://github.com/getsatchel/satchel/blob/main/CONTRIBUTING.md)
+
+## Working on these docs
+
+The pages are plain markdown. Edit them here, in the same pull request as the change they describe; the website renders them from this repository.

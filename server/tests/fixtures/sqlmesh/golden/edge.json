@@ -1,0 +1,352 @@
+{
+  "assets": [
+    {
+      "caveats": [],
+      "columns": [],
+      "database": null,
+      "depends_on": [
+        "model.warehouse.sales.orders"
+      ],
+      "description": "Uses macros, so the query is not parsed.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "sales.daily",
+      "grain": [],
+      "key": "model.sales.daily",
+      "kind": "view",
+      "name": "daily",
+      "owner": "x@example.com",
+      "relationships": [],
+      "source_meta": {
+        "dialect": "snowflake",
+        "kind": "VIEW",
+        "model": "sales.daily",
+        "path": "models/sales/macro_model.sql"
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "int",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "double",
+          "description": "Model score between 0 and 1.",
+          "enum_values": [],
+          "meta": {},
+          "name": "score",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "Python model: enriched orders",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "sales.enriched",
+      "grain": [
+        "order_id"
+      ],
+      "key": "model.sales.enriched",
+      "kind": "table",
+      "name": "enriched",
+      "owner": "ds@example.com",
+      "relationships": [],
+      "source_meta": {
+        "dialect": "snowflake",
+        "kind": "FULL",
+        "model": "sales.enriched",
+        "path": "models/py/enriched.py",
+        "python": true
+      },
+      "tags": [
+        "ml"
+      ],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "text",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "code",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "text",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "label",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "Static region list.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "sales.regions",
+      "grain": [],
+      "key": "model.sales.regions",
+      "kind": "table",
+      "name": "regions",
+      "owner": "default-owner@example.com",
+      "relationships": [],
+      "source_meta": {
+        "dialect": "snowflake",
+        "kind": "SEED",
+        "model": "sales.regions",
+        "path": "models/sales/seed.sql"
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "timestamp with time zone",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "created",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "int",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": "text",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "name",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "decimal(10, 2)",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "price",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "warehouse",
+      "depends_on": [],
+      "description": null,
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "sales.dim_customer",
+      "grain": [
+        "id"
+      ],
+      "key": "model.warehouse.sales.dim_customer",
+      "kind": "table",
+      "name": "dim_customer",
+      "owner": "default-owner@example.com",
+      "relationships": [],
+      "source_meta": {
+        "audits": [
+          "not_null",
+          "unique_values"
+        ],
+        "dialect": "snowflake",
+        "kind": "FULL",
+        "model": "warehouse.sales.dim_customer",
+        "path": "models/sales/dim_customer.sql"
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": null,
+          "description": "Where it was bought.",
+          "enum_values": [
+            "web",
+            "store",
+            "phone"
+          ],
+          "meta": {},
+          "name": "channel",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "customer_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Line within the order.",
+          "enum_values": [],
+          "meta": {},
+          "name": "line_no",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Order number.",
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "order_ts",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "warehouse",
+      "depends_on": [
+        "model.warehouse.sales.dim_customer"
+      ],
+      "description": "Order lines (one per item). Joined to dim_customer; a \")\" and -- are fine here.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "sales.orders",
+      "grain": [
+        "order_id",
+        "line_no"
+      ],
+      "key": "model.warehouse.sales.orders",
+      "kind": "table",
+      "name": "orders",
+      "owner": "sales-eng@example.com",
+      "relationships": [],
+      "source_meta": {
+        "audits": [
+          "accepted_values",
+          "not_null_non_blocking",
+          "number_of_rows",
+          "unique_combination_of_columns"
+        ],
+        "cron": "@daily",
+        "dialect": "snowflake",
+        "kind": "INCREMENTAL_BY_TIME_RANGE",
+        "model": "warehouse.sales.orders",
+        "path": "models/sales/orders.sql",
+        "start": "2024-01-01",
+        "time_column": "order_ts"
+      },
+      "tags": [
+        "pii (some)",
+        "sales"
+      ],
+      "used_by": []
+    }
+  ],
+  "fingerprint": "e93c331a4bc7d3880d3b8bb8033f50f5d64ee7011749a24a4826756c498a2ccd",
+  "ir_version": "1.0.0",
+  "kind": "sqlmesh",
+  "project": null,
+  "queries": [],
+  "semantic_models": [],
+  "terms": [],
+  "warnings": [
+    {
+      "code": "invalid_model",
+      "key": "models/sales/broken.sql",
+      "message": "models/sales/broken.sql: cannot read the MODEL block (unbalanced parentheses in MODEL block)"
+    },
+    {
+      "code": "invalid_model",
+      "key": "models/sales/no_name.sql",
+      "message": "models/sales/no_name.sql: the model has no readable name"
+    },
+    {
+      "code": "query_unparsed",
+      "key": "sales.daily",
+      "message": "model sales.daily: the query uses macros or syntax that was not parsed, so its columns and upstream tables are not inferred (declare `columns`)"
+    },
+    {
+      "code": "duplicate_model",
+      "key": "sales.regions",
+      "message": "model sales.regions is defined in models/sales/seed.sql and models/sales/z_dup.sql; the first (by path) is used"
+    }
+  ]
+}

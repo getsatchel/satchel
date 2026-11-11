@@ -1,0 +1,40 @@
+[project]
+name = "satchel-adapter-sdk"
+version = "1.2.0"
+description = "SDK for writing satchel source adapters: the canonical IR, the adapter protocol and a conformance kit"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = ["pydantic>=2", "pyyaml"]
+
+[dependency-groups]
+dev = ["pytest", "ruff", "mypy", "types-pyyaml"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["satchel_adapter_sdk"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"sdk_tests/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["sdk_tests"]
+
+[tool.uv]
+# Rebuild the (non-editable) server install of this package when its sources change.
+cache-keys = [{ file = "pyproject.toml" }, { file = "satchel_adapter_sdk/**/*.py" }]

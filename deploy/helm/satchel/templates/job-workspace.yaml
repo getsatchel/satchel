@@ -1,0 +1,60 @@
+{{- if .Values.firstWorkspace.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "satchel.fullname" . }}-workspace
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workspace
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.migration.ttlSecondsAfterFinished }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "satchel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: workspace
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "satchel.serviceAccountName" . }}
+      securityContext:
+        {{- include "satchel.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.cloudSqlProxy.enabled }}
+      initContainers:
+        {{- include "satchel.cloudSqlProxy" . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: workspace-create
+          image: {{ include "satchel.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - satchel
+            - workspace
+            - create
+            - {{ .Values.firstWorkspace.slug | quote }}
+            - --name
+            - {{ default .Values.firstWorkspace.slug .Values.firstWorkspace.name | quote }}
+            - --admin-email
+            - {{ .Values.firstWorkspace.adminEmail | quote }}
+          envFrom:
+            {{- include "satchel.envFrom" . | nindent 12 }}
+          env:
+            {{- include "satchel.runtimeSecretEnv" (dict "root" . "role" "worker") | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          securityContext:
+            {{- include "satchel.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            {{- include "satchel.volumeMounts" (dict "root" . "sm" true) | nindent 12 }}
+      volumes:
+        {{- include "satchel.volumes" (dict "root" . "sm" true) | nindent 8 }}
+{{- end }}

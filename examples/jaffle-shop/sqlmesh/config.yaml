@@ -1,0 +1,14 @@
+# Local DuckDB gateway for the Jaffle Shop example. `raw.*` holds the source tables and the models
+# are built into `analytics.*`, the same relations the hand-written satchel context documents.
+# SQLMESH_DUCKDB_PATH defaults to jaffle_sqlmesh.duckdb (gitignored); see README.md.
+gateways:
+  local:
+    connection:
+      type: duckdb
+      database: "{{ env_var('SQLMESH_DUCKDB_PATH', 'jaffle_sqlmesh.duckdb') }}"
+
+default_gateway: local
+
+model_defaults:
+  dialect: duckdb
+  start: 2020-01-01

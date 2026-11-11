@@ -1,0 +1,32 @@
+# kind / local demo. NOT FOR PRODUCTION: in-cluster pgvector, dev auth, plain http, no TLS.
+publicUrl: http://localhost:8080
+env: development
+logFormat: text
+
+web:
+  replicaCount: 1
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {memory: 1536Mi}
+worker:
+  mode: deployment
+pdb:
+  enabled: false
+
+extraEnv:
+  SATCHEL_DEV_AUTH: "1"
+  SATCHEL_ALLOW_INSECURE_PUBLIC_URL: "1"
+
+devPostgres:
+  enabled: true
+
+image:
+  repository: satchel
+  tag: dev
+  pullPolicy: Never
+
+firstWorkspace:
+  enabled: true
+  slug: demo
+  name: Demo
+  adminEmail: admin@example.com

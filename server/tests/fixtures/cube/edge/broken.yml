@@ -1,0 +1,3 @@
+cubes:
+  - name: templated
+    sql_table: {% if env == 'prod' %}analytics.orders{% endif %}

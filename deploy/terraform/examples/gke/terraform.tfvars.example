@@ -1,0 +1,18 @@
+project_id = "my-gcp-project"
+region     = "us-central1"
+image_tag  = "0.1.0"
+
+domain         = "satchel.example.com"
+oidc_issuer    = "https://accounts.google.com"
+oidc_client_id = "1234567890-abc.apps.googleusercontent.com"
+
+# Required on GKE. Pass it with TF_VAR_oidc_client_secret rather than writing it here.
+# oidc_client_secret = "..."
+
+replicas = 2
+
+# Lock the control plane down to your office or VPN.
+# master_authorized_networks = { office = "203.0.113.0/24" }
+
+# Create the first workspace automatically after install (OIDC login as this email becomes admin).
+# first_workspace = { slug = "acme", name = "Acme", admin_email = "you@example.com" }

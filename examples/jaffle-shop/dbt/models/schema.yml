@@ -1,0 +1,106 @@
+version: 2
+
+models:
+  - name: metricflow_time_spine
+    description: Calendar of days that MetricFlow joins to when it fills gaps in time series.
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_day
+        description: The calendar day.
+        granularity: day
+
+  - name: orders
+    description: One row per customer order. The source of truth for orders and revenue (AUD cents).
+    access: public
+    config:
+      contract:
+        enforced: false
+    meta:
+      owner: data-team@jaffle.example
+      satchel:
+        endorsed: true
+        caveats:
+          - "Orders before 2023 predate the refund workflow; refund analysis is only reliable from 2023."
+    columns:
+      - name: order_id
+        description: Primary key of the order.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Customer who placed the order. 0 is the internal test customer, always exclude it.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('customers')
+                field: customer_id
+              config:
+                where: "customer_id <> 0"
+      - name: order_date
+        description: Date the order was placed in Australia/Sydney time.
+      - name: status
+        description: Order lifecycle state. returned and return_pending orders are excluded from revenue.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [placed, shipped, completed, return_pending, returned]
+      - name: amount
+        description: Order total including GST and shipping, in AUD cents.
+
+  - name: customers
+    description: One row per registered customer. Guest checkouts (customer_id 0) are not in this table.
+    meta:
+      owner: crm-team@jaffle.example
+    columns:
+      - name: customer_id
+        description: Primary key of the customer.
+        data_tests:
+          - unique
+          - not_null
+      - name: first_name
+        description: Customer first name.
+      - name: last_name
+        description: Customer last name.
+      - name: email
+        description: Contact email. Personal data.
+        meta:
+          pii: true
+      - name: signup_date
+        description: Date the customer registered.
+      - name: first_order_date
+        description: Date of the customer's first order of any status.
+      - name: number_of_orders
+        description: Count of non-returned orders placed by the customer.
+
+  - name: payments
+    description: One row per payment attempt or refund against an order (AUD cents).
+    columns:
+      - name: payment_id
+        description: Primary key of the payment.
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: Order the payment belongs to.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('orders')
+                field: order_id
+      - name: payment_method
+        description: How the customer paid.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [credit_card, bank_transfer, gift_card, coupon]
+      - name: status
+        description: Payment outcome.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [succeeded, failed, refunded]
+      - name: amount
+        description: Payment amount in AUD cents.
+      - name: created_at
+        description: When the payment was created (UTC).

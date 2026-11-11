@@ -1,0 +1,63 @@
+# floci, a local AWS emulator (https://github.com/floci-io/floci, MIT), plus a k3s server that
+# stands in for the EKS data plane, for testing the AWS Terraform modules and the Helm chart end
+# to end. See docs/deploy/floci.md.
+#
+# floci's EKS API is control-plane metadata only (no Kubernetes behind it), so the Helm release
+# installs on this k3s instead. RDS is real: floci starts pgvector/pgvector:pg17 containers and
+# proxies TCP to them. Every container floci spawns is labelled floci_namespace=satchel-aws.
+name: floci-satchel-aws
+
+services:
+  floci:
+    image: floci/floci:2.4.0
+    container_name: floci-satchel-aws
+    ports:
+      - "127.0.0.1:${FLOCI_AWS_PORT:-4566}:4566"
+      # RDS proxy ports (one per instance).
+      - "127.0.0.1:7001-7020:7001-7020"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      FLOCI_STORAGE_MODE: memory
+      FLOCI_SERVICES_DOCKER_NETWORK: floci-satchel-aws
+      FLOCI_DOCKER_RESOURCE_NAMESPACE: satchel-aws
+      # RDS for PostgreSQL defaults to postgres:16-alpine, which has no pgvector.
+      FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector:pg17
+    networks:
+      floci-satchel-aws:
+        # Fixed addresses: floci and k3s start together, and the generated DB URLs, the S3
+        # endpoint the pods use and k3s's kubelet tunnel all depend on them.
+        ipv4_address: 10.251.88.2
+        aliases: [floci]
+
+  k3s:
+    image: rancher/k3s:v1.34.13-k3s1
+    container_name: floci-satchel-aws-k3s
+    command: ["server", "--disable=traefik", "--disable=metrics-server", "--tls-san=127.0.0.1", "--write-kubeconfig-mode=644", "--node-ip=10.251.88.3"]
+    privileged: true
+    tmpfs: ["/run", "/var/run"]
+    ports:
+      - "127.0.0.1:${K3S_PORT:-6551}:6443"
+    environment:
+      K3S_KUBECONFIG_OUTPUT: /output/kubeconfig.yaml
+    volumes:
+      - k3s-output:/output
+    networks:
+      floci-satchel-aws:
+        ipv4_address: 10.251.88.3
+    labels:
+      floci_namespace: satchel-aws
+
+volumes:
+  k3s-output:
+    labels:
+      floci_namespace: satchel-aws
+
+networks:
+  floci-satchel-aws:
+    name: floci-satchel-aws
+    ipam:
+      config:
+        - subnet: 10.251.88.0/24
+    labels:
+      floci_namespace: satchel-aws

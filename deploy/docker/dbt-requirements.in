@@ -1,0 +1,6 @@
+# dbt for `dbt parse` on the server (satchel.sources.dbt_build), installed into its own
+# virtualenv (/opt/dbt) so its pins never meet the server's. Regenerate the lock with:
+#   uv pip compile --universal --python-version 3.12 --generate-hashes --no-header \
+#     deploy/docker/dbt-requirements.in -o deploy/docker/dbt-requirements.txt
+dbt-core==1.12.6
+dbt-duckdb==1.11.0

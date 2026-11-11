@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-satchel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-satchel}
+      POSTGRES_DB: ${POSTGRES_DB:-satchel}
+    ports:
+      - "5433:5432"
+    volumes:
+      - satchel-pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro   # creates the satchel_app and satchel_worker roles
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Local OIDC IdP: `docker compose --profile auth up -d`. Static user analyst@satchel.test /
+  # "password"; OIDC client `satchel` / `satchel-secret` (see dex/config.yaml and docs/integrations/claude.md).
+  dex:
+    profiles: ["auth"]
+    image: ghcr.io/dexidp/dex:v2.41.1
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./dex/config.yaml:/etc/dex/config.yaml:ro
+    ports:
+      - "5556:5556"
+
+volumes:
+  satchel-pgdata:

@@ -1,0 +1,9 @@
+gateways:
+  wh:
+    connection:
+      type: snowflake
+default_gateway: wh
+model_defaults:
+  dialect: snowflake
+  owner: default-owner@example.com
+  start: 2023-01-01

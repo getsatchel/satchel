@@ -1,0 +1,9 @@
+{
+  "tables": [
+    {"schema": "Shop", "name": "Orders", "description": "One row per order.", "owner": "data-team",
+     "columns": [{"name": "order_id", "type": "integer", "description": "Primary key."},
+                 {"name": "status", "type": "varchar"}]},
+    {"schema": "Shop", "name": "Customers", "description": "One row per customer.",
+     "columns": [{"name": "customer_id", "type": "integer"}]}
+  ]
+}

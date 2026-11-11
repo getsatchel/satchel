@@ -1,0 +1,829 @@
+{
+  "assets": [
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "integer",
+          "description": "Primary key of the customer.",
+          "enum_values": [],
+          "meta": {},
+          "name": "customer_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": "Contact email. Personal data.",
+          "enum_values": [],
+          "meta": {},
+          "name": "email",
+          "not_null": false,
+          "pii": true,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": "Customer first name.",
+          "enum_values": [],
+          "meta": {},
+          "name": "first_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": "Date of the customer's first order of any status.",
+          "enum_values": [],
+          "meta": {},
+          "name": "first_order_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": "Customer last name.",
+          "enum_values": [],
+          "meta": {},
+          "name": "last_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": "Count of non-returned orders placed by the customer.",
+          "enum_values": [],
+          "meta": {},
+          "name": "number_of_orders",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": "Date the customer registered.",
+          "enum_values": [],
+          "meta": {},
+          "name": "signup_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "jaffle",
+      "depends_on": [
+        "source.jaffle_shop.raw.customers"
+      ],
+      "description": "One row per registered customer. Guest checkouts (customer_id 0) are not in this table.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.customers",
+      "grain": [
+        "customer_id"
+      ],
+      "key": "model.jaffle_shop.customers",
+      "kind": "table",
+      "name": "customers",
+      "owner": "crm-team@jaffle.example",
+      "relationships": [],
+      "source_meta": {
+        "access": "protected",
+        "contract_enforced": false,
+        "materialized": "table",
+        "package": "jaffle_shop",
+        "path": "models/customers.sql",
+        "resource_type": "model",
+        "unique_id": "model.jaffle_shop.customers"
+      },
+      "tags": [],
+      "used_by": [
+        "Weekly revenue dashboard (dashboard) https://bi.jaffle.example/dashboards/weekly-revenue"
+      ]
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "date",
+          "description": "The calendar day.",
+          "enum_values": [],
+          "meta": {},
+          "name": "date_day",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "jaffle",
+      "depends_on": [],
+      "description": "Calendar of days that MetricFlow joins to when it fills gaps in time series.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.metricflow_time_spine",
+      "grain": [],
+      "key": "model.jaffle_shop.metricflow_time_spine",
+      "kind": "table",
+      "name": "metricflow_time_spine",
+      "owner": null,
+      "relationships": [],
+      "source_meta": {
+        "access": "protected",
+        "contract_enforced": false,
+        "materialized": "table",
+        "package": "jaffle_shop",
+        "path": "models/metricflow_time_spine.sql",
+        "resource_type": "model",
+        "unique_id": "model.jaffle_shop.metricflow_time_spine"
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [
+        "Orders before 2023 predate the refund workflow; refund analysis is only reliable from 2023."
+      ],
+      "columns": [
+        {
+          "data_type": "integer",
+          "description": "Order total including GST and shipping, in AUD cents.",
+          "enum_values": [],
+          "meta": {},
+          "name": "amount",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": "Customer who placed the order. 0 is the internal test customer, always exclude it.",
+          "enum_values": [],
+          "meta": {},
+          "name": "customer_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": "Date the order was placed in Australia/Sydney time.",
+          "enum_values": [],
+          "meta": {},
+          "name": "order_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": "Primary key of the order.",
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": "Order lifecycle state. returned and return_pending orders are excluded from revenue.",
+          "enum_values": [
+            "placed",
+            "shipped",
+            "completed",
+            "return_pending",
+            "returned"
+          ],
+          "meta": {},
+          "name": "status",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "jaffle",
+      "depends_on": [
+        "source.jaffle_shop.raw.orders"
+      ],
+      "description": "One row per customer order. The source of truth for orders and revenue (AUD cents).",
+      "endorsed": true,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.orders",
+      "grain": [
+        "order_id"
+      ],
+      "key": "model.jaffle_shop.orders",
+      "kind": "table",
+      "name": "orders",
+      "owner": "data-team@jaffle.example",
+      "relationships": [
+        {
+          "column": "customer_id",
+          "to_asset": "analytics.customers",
+          "to_column": "customer_id"
+        }
+      ],
+      "source_meta": {
+        "access": "public",
+        "contract_enforced": false,
+        "materialized": "table",
+        "package": "jaffle_shop",
+        "path": "models/orders.sql",
+        "resource_type": "model",
+        "unique_id": "model.jaffle_shop.orders"
+      },
+      "tags": [],
+      "used_by": [
+        "Weekly revenue dashboard (dashboard) https://bi.jaffle.example/dashboards/weekly-revenue"
+      ]
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "integer",
+          "description": "Payment amount in AUD cents.",
+          "enum_values": [],
+          "meta": {},
+          "name": "amount",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "timestamp",
+          "description": "When the payment was created (UTC).",
+          "enum_values": [],
+          "meta": {},
+          "name": "created_at",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": "Order the payment belongs to.",
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": "Primary key of the payment.",
+          "enum_values": [],
+          "meta": {},
+          "name": "payment_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": "How the customer paid.",
+          "enum_values": [
+            "credit_card",
+            "bank_transfer",
+            "gift_card",
+            "coupon"
+          ],
+          "meta": {},
+          "name": "payment_method",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": "Payment outcome.",
+          "enum_values": [
+            "succeeded",
+            "failed",
+            "refunded"
+          ],
+          "meta": {},
+          "name": "status",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "jaffle",
+      "depends_on": [
+        "source.jaffle_shop.raw.payments"
+      ],
+      "description": "One row per payment attempt or refund against an order (AUD cents).",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.payments",
+      "grain": [
+        "payment_id"
+      ],
+      "key": "model.jaffle_shop.payments",
+      "kind": "table",
+      "name": "payments",
+      "owner": null,
+      "relationships": [
+        {
+          "column": "order_id",
+          "to_asset": "analytics.orders",
+          "to_column": "order_id"
+        }
+      ],
+      "source_meta": {
+        "access": "protected",
+        "contract_enforced": false,
+        "materialized": "table",
+        "package": "jaffle_shop",
+        "path": "models/payments.sql",
+        "resource_type": "model",
+        "unique_id": "model.jaffle_shop.payments"
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "customer_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "first_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "last_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "email",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "signup_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "first_order_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "number_of_orders",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "jaffle",
+      "depends_on": [],
+      "description": "The transactional tables the shop's checkout writes to.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "raw.customers",
+      "grain": [],
+      "key": "source.jaffle_shop.raw.customers",
+      "kind": "table",
+      "name": "customers",
+      "owner": null,
+      "relationships": [],
+      "source_meta": {
+        "contract_enforced": false,
+        "package": "jaffle_shop",
+        "path": "models/sources.yml",
+        "resource_type": "source",
+        "unique_id": "source.jaffle_shop.raw.customers"
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "customer_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "order_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "status",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "amount",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "jaffle",
+      "depends_on": [],
+      "description": "The transactional tables the shop's checkout writes to.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "raw.orders",
+      "grain": [],
+      "key": "source.jaffle_shop.raw.orders",
+      "kind": "table",
+      "name": "orders",
+      "owner": null,
+      "relationships": [],
+      "source_meta": {
+        "contract_enforced": false,
+        "package": "jaffle_shop",
+        "path": "models/sources.yml",
+        "resource_type": "source",
+        "unique_id": "source.jaffle_shop.raw.orders"
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "payment_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "payment_method",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "status",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "amount",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "timestamp",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "created_at",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": "jaffle",
+      "depends_on": [],
+      "description": "The transactional tables the shop's checkout writes to.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "raw.payments",
+      "grain": [],
+      "key": "source.jaffle_shop.raw.payments",
+      "kind": "table",
+      "name": "payments",
+      "owner": null,
+      "relationships": [],
+      "source_meta": {
+        "contract_enforced": false,
+        "package": "jaffle_shop",
+        "path": "models/sources.yml",
+        "resource_type": "source",
+        "unique_id": "source.jaffle_shop.raw.payments"
+      },
+      "tags": [],
+      "used_by": []
+    }
+  ],
+  "fingerprint": "691c8b7dfa25333d018bc53bd0787f1d27e6f1a0df2d2c525e055e9a3d70c945",
+  "ir_version": "1.0.0",
+  "kind": "dbt",
+  "project": "jaffle_shop",
+  "queries": [
+    {
+      "description": "Revenue and order count by month.",
+      "key": "saved_query.monthly_revenue",
+      "metric_query": {
+        "dimensions": [
+          "metric_time:month"
+        ],
+        "metrics": [
+          "revenue",
+          "order_count"
+        ]
+      },
+      "question": "Revenue and order count by month.",
+      "sql": null,
+      "variants": [
+        "monthly revenue"
+      ]
+    }
+  ],
+  "semantic_models": [
+    {
+      "description": "Metrics defined in the dbt project jaffle_shop",
+      "key": "semantic.jaffle_shop",
+      "mdl": {
+        "catalog": "jaffle_shop",
+        "cubes": [
+          {
+            "baseObject": "orders",
+            "description": "Customer orders, one row per order.",
+            "dimensions": [
+              {
+                "description": "Order status (placed, shipped or completed for valid orders).",
+                "expression": "status",
+                "name": "status",
+                "type": "VARCHAR"
+              },
+              {
+                "description": "foreign entity",
+                "expression": "customer_id",
+                "name": "customer",
+                "type": "VARCHAR"
+              },
+              {
+                "description": "primary entity",
+                "expression": "order_id",
+                "name": "order_id",
+                "type": "VARCHAR"
+              }
+            ],
+            "measures": [
+              {
+                "description": "Revenue divided by valid order count, in AUD dollars.",
+                "expression": "CAST(SUM(CASE WHEN (status NOT IN ('returned', 'return_pending') AND customer_id <> 0) THEN amount / 100.0 END) AS DOUBLE) / NULLIF(CAST(COUNT(CASE WHEN (status NOT IN ('returned', 'return_pending') AND customer_id <> 0) THEN order_id END) AS DOUBLE), 0)",
+                "name": "average_order_value",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "Number of valid orders.",
+                "expression": "COUNT(CASE WHEN (status NOT IN ('returned', 'return_pending') AND customer_id <> 0) THEN order_id END)",
+                "name": "order_count",
+                "type": "BIGINT"
+              },
+              {
+                "description": "Sum of order amounts in AUD dollars for valid orders (excludes returned, return_pending and the internal test customer).",
+                "expression": "SUM(CASE WHEN (status NOT IN ('returned', 'return_pending') AND customer_id <> 0) THEN amount / 100.0 END)",
+                "name": "revenue",
+                "type": "DOUBLE"
+              }
+            ],
+            "name": "orders",
+            "timeDimensions": [
+              {
+                "description": "Date the order was placed (Australia/Sydney).",
+                "expression": "order_date",
+                "name": "order_date",
+                "type": "DATE"
+              },
+              {
+                "description": "Alias of order_date, the default time dimension",
+                "expression": "order_date",
+                "name": "metric_time",
+                "type": "DATE"
+              }
+            ]
+          }
+        ],
+        "dataSource": "duckdb",
+        "models": [
+          {
+            "columns": [
+              {
+                "name": "amount",
+                "type": "integer"
+              },
+              {
+                "name": "customer_id",
+                "type": "integer"
+              },
+              {
+                "name": "order_date",
+                "type": "date"
+              },
+              {
+                "name": "order_id",
+                "type": "integer"
+              },
+              {
+                "name": "status",
+                "type": "varchar"
+              }
+            ],
+            "description": "Customer orders, one row per order.",
+            "name": "orders",
+            "primaryKey": "order_id",
+            "tableReference": {
+              "schema": "analytics",
+              "table": "orders"
+            }
+          }
+        ],
+        "relationships": [],
+        "schema": "public"
+      },
+      "name": "jaffle_shop",
+      "notes": [],
+      "queryable_metrics": [
+        "average_order_value",
+        "order_count",
+        "revenue"
+      ]
+    }
+  ],
+  "terms": [],
+  "warnings": []
+}

@@ -1,0 +1,29 @@
+[project]
+name = "satchel-source-example"      # rename: satchel-source-<tool>
+version = "0.1.0"
+description = "Example satchel source adapter: replace with your tool"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = ["satchel-adapter-sdk>=1.2,<2"]
+
+[dependency-groups]
+dev = ["pytest"]
+
+# The adapter is discovered through this entry-point group; the name must equal info.kind.
+[project.entry-points."satchel.sources"]
+example = "satchel_source_example:adapter"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["satchel_source_example"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Developing inside the satchel checkout? Use the local SDK:
+# [tool.uv.sources]
+# satchel-adapter-sdk = { path = "../../sdk", editable = true }

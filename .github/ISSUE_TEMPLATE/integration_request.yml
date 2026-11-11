@@ -1,0 +1,48 @@
+name: Integration request
+description: Ask for a Satchel source adapter (dbt, Cube, SQLMesh, a BI tool, a catalog...)
+title: "Integration: <tool>"
+labels: ["integration", "adapter"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Source adapters read a tool's artifacts and describe them in Satchel's IR. See
+        [writing an adapter](../../docs/adapters/writing-an-adapter.md). Fill in what you can.
+  - type: input
+    id: tool
+    attributes:
+      label: Tool and version
+      placeholder: "Cube 1.x"
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: What does the tool write or expose?
+      description: Files (paths, formats, schema links) an adapter could read without running the tool. Attach a small anonymised sample if you can.
+    validations:
+      required: true
+  - type: checkboxes
+    id: capabilities
+    attributes:
+      label: What would you want in Satchel?
+      options:
+        - label: Table and column descriptions, owners, tags (assets)
+        - label: Governed metrics and dimensions (semantic model, query_metrics)
+        - label: Saved queries (golden queries)
+        - label: Glossary terms
+        - label: Lineage
+  - type: textarea
+    id: mapping
+    attributes:
+      label: Mapping ideas
+      description: Which of the tool's concepts correspond to Satchel's asset docs, metrics, golden queries, glossary terms?
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Can you help build it?
+      options:
+        - "No, I'm requesting it"
+        - "I can test it"
+        - "I can write it (with guidance)"
+        - "I'm already writing it"

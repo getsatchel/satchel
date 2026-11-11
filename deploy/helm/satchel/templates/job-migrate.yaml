@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "satchel.fullname" . }}-migrate
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    {{- include "satchel.preHook" (dict "weight" "0" "policy" "before-hook-creation,hook-succeeded") | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.migration.ttlSecondsAfterFinished }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "satchel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "satchel.migrationServiceAccountName" . }}
+      securityContext:
+        {{- include "satchel.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.cloudSqlProxy.enabled .Values.devPostgres.enabled (include "satchel.bootstrapEnabled" .) }}
+      initContainers:
+        {{- if .Values.cloudSqlProxy.enabled }}
+        {{- include "satchel.cloudSqlProxy" . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.devPostgres.enabled }}
+        - name: wait-for-postgres
+          image: {{ include "satchel.image" . }}
+          command: ["python", "-c", "import socket,time,sys\nfor _ in range(120):\n    try:\n        socket.create_connection(('{{ include "satchel.devPgHost" . }}', 5432), 2).close(); sys.exit(0)\n    except OSError:\n        time.sleep(2)\nsys.exit(1)"]
+          securityContext:
+            {{- include "satchel.containerSecurityContext" . | nindent 12 }}
+        {{- end }}
+        {{- if include "satchel.bootstrapEnabled" . }}
+        - name: db-bootstrap
+          image: {{ include "satchel.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["satchel", "db", "bootstrap"]
+          envFrom:
+            {{- include "satchel.envFrom" . | nindent 12 }}
+          env:
+            {{- $b := include "satchel.bootstrapSecretName" . }}
+            {{- include "satchel.secretEnv" (dict "name" "SATCHEL_BOOTSTRAP_DATABASE_URL" "secret" $b) | nindent 12 }}
+            {{- include "satchel.secretEnv" (dict "name" "SATCHEL_APP_DB_PASSWORD" "secret" $b) | nindent 12 }}
+            {{- include "satchel.secretEnv" (dict "name" "SATCHEL_WORKER_DB_PASSWORD" "secret" $b) | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          securityContext:
+            {{- include "satchel.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            {{- include "satchel.volumeMounts" (dict "root" . "smBootstrap" true) | nindent 12 }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: db-upgrade
+          image: {{ include "satchel.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["satchel", "db", "upgrade"]
+          envFrom:
+            {{- include "satchel.envFrom" . | nindent 12 }}
+          env:
+            {{- include "satchel.runtimeSecretEnv" (dict "root" . "role" "migration") | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          securityContext:
+            {{- include "satchel.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            {{- include "satchel.volumeMounts" (dict "root" . "sm" true "smMigrate" true) | nindent 12 }}
+      volumes:
+        {{- include "satchel.volumes" (dict "root" . "sm" true "smMigrate" true "smBootstrap" true) | nindent 8 }}

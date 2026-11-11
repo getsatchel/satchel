@@ -1,0 +1,50 @@
+# floci-gcp, a local GCP emulator (https://github.com/floci-io/floci-gcp, MIT), for testing the
+# Terraform modules and the Helm chart end to end. See docs/deploy/floci.md.
+#
+# Every container and volume floci spawns (Cloud SQL postgres, Cloud Run revisions and job
+# tasks, the k3s GKE cluster, GCS volume helpers) is named floci-gcp-satchel-* and labelled
+# floci_namespace=satchel, so down.sh removes exactly those and nothing else.
+name: floci-satchel
+
+services:
+  floci-gcp:
+    image: floci/floci-gcp:0.12.0
+    container_name: floci-satchel-gcp
+    ports:
+      # API, Cloud Run front door (*.run.localhost.floci.io:4588) and GCS on one port.
+      - "127.0.0.1:${FLOCI_PORT:-4588}:4588"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      FLOCI_GCP_DEFAULT_PROJECT_ID: floci-local
+      # Tests start from nothing; no state survives `down`.
+      FLOCI_GCP_STORAGE_MODE: memory
+      # Sidecars join this network and are named/labelled with this namespace.
+      FLOCI_GCP_SERVICES_DOCKER_NETWORK: floci-satchel
+      FLOCI_GCP_DOCKER_RESOURCE_NAMESPACE: satchel
+      # Cloud SQL POSTGRES_17 defaults to postgres:17-alpine, which has no pgvector.
+      FLOCI_GCP_SERVICES_CLOUDSQL_POSTGRES17_IMAGE: pgvector/pgvector:pg17
+      # Pin k3s (the default is rancher/k3s:latest).
+      FLOCI_GCP_SERVICES_GKE_DEFAULT_IMAGE: rancher/k3s:v1.34.13-k3s1
+      # Cloud Run: execution mode by default; up.sh --cloudrun-mock flips this for tier 1.
+      FLOCI_GCP_SERVICES_CLOUDRUN_MOCK: ${FLOCI_CLOUDRUN_MOCK:-false}
+      # Cloud Scheduler: keep the jobs as config only. The dispatcher would send real requests
+      # to https://run.googleapis.com (the module's target URI); fire them by hand if needed.
+      FLOCI_GCP_SERVICES_SCHEDULER_INVOCATION_ENABLED: "false"
+      # GKE k3s API servers are published by the host Docker daemon on 6550-6599 (the default
+      # range); emulated clusters advertise them as host:port.
+      # The satchel image takes a few seconds to import the app; jobs run migrations.
+      FLOCI_GCP_SERVICES_CLOUDRUN_EXECUTION_STARTUP_TIMEOUT: 240s
+      FLOCI_GCP_SERVICES_CLOUDRUN_EXECUTION_OPERATION_TIMEOUT: 600s
+      # Job task stdout/stderr is logged at DEBUG; the e2e script reads it from `docker logs`.
+      QUARKUS_LOG_CATEGORY__IO_FLOCI_GCP_SERVICES_CLOUDRUN__LEVEL: DEBUG
+    networks:
+      floci-satchel:
+        aliases: [floci-gcp]
+    # The image ships its own HEALTHCHECK (/usr/local/bin/healthcheck.sh); up.sh waits on it.
+
+networks:
+  floci-satchel:
+    name: floci-satchel
+    labels:
+      floci_namespace: satchel

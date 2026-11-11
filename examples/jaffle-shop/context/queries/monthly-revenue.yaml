@@ -1,0 +1,15 @@
+question: What was monthly revenue last quarter?
+variants: [revenue by month, monthly sales, revenue per month, monthly revenue trend]
+connection: warehouse
+sql: |
+  select
+    date_trunc('month', order_date) as month,
+    sum(amount) / 100.0 as revenue_aud
+  from analytics.orders
+  where status not in ('returned', 'return_pending')
+    and customer_id <> 0
+    and order_date >= date_trunc('quarter', current_date) - interval 3 month
+    and order_date <  date_trunc('quarter', current_date)
+  group by 1
+  order by 1
+verified_by: jane@jaffle.example

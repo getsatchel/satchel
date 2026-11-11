@@ -1,0 +1,50 @@
+terms:
+  - term: revenue
+    synonyms: [sales, turnover, gross revenue]
+    definition: >
+      Sum of analytics.orders.amount in AUD cents (divide by 100 for dollars) for orders whose
+      status is not returned and not return_pending, attributed to the month of order_date.
+      Test orders (customer_id 0) are excluded.
+    related_assets: [analytics.orders]
+  - term: net revenue
+    synonyms: [net sales, revenue after refunds]
+    definition: >
+      Revenue minus refunds. Refunds are the sum of analytics.payments.amount where status is
+      refunded, attributed to the month the refund was created.
+    related_assets: [analytics.orders, analytics.payments]
+  - term: active customer
+    synonyms: [active user, active buyer]
+    definition: >
+      A customer with at least one non-returned order in the 90 days up to the reporting date.
+      Count distinct customer_id from analytics.orders.
+    related_assets: [analytics.orders, analytics.customers]
+  - term: average order value
+    synonyms: [AOV, basket size, average basket]
+    definition: >
+      Revenue divided by the number of orders that count towards revenue (non-returned) in the
+      same period. Report in AUD dollars.
+    related_assets: [analytics.orders]
+  - term: refund
+    synonyms: [refunds, money back, chargeback]
+    definition: >
+      Money paid back to a customer, recorded as a row in analytics.payments with status
+      refunded. A refund is not the same as a returned order, which is an order status.
+    related_assets: [analytics.payments]
+  - term: new customer
+    synonyms: [first-time customer, new buyer, acquisition]
+    definition: >
+      A customer whose first ever order (analytics.customers.first_order_date) falls in the
+      period being reported.
+    related_assets: [analytics.customers]
+  - term: repeat customer
+    synonyms: [returning customer, repeat buyer, loyal customer]
+    definition: >
+      A customer with two or more non-returned orders in total (number_of_orders >= 2 on
+      analytics.customers).
+    related_assets: [analytics.customers]
+  - term: gift card redemption
+    synonyms: [gift card usage, voucher redemption]
+    definition: >
+      Payments with payment_method gift_card and status succeeded. The value is the amount
+      paid with the card, not the face value of the card.
+    related_assets: [analytics.payments]

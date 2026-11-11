@@ -1,0 +1,428 @@
+{
+  "assets": [
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "int",
+          "description": "Primary key of the customer.",
+          "enum_values": [],
+          "meta": {},
+          "name": "customer_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": "text",
+          "description": "Contact email. Personal data.",
+          "enum_values": [],
+          "meta": {},
+          "name": "email",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "text",
+          "description": "Customer first name.",
+          "enum_values": [],
+          "meta": {},
+          "name": "first_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": "Date of the customer's first order of any status.",
+          "enum_values": [],
+          "meta": {},
+          "name": "first_order_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "text",
+          "description": "Customer last name.",
+          "enum_values": [],
+          "meta": {},
+          "name": "last_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "int",
+          "description": "Count of non-returned orders placed by the customer.",
+          "enum_values": [],
+          "meta": {},
+          "name": "number_of_orders",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": "Date the customer registered.",
+          "enum_values": [],
+          "meta": {},
+          "name": "signup_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "One row per registered customer. Guest checkouts (customer_id 0) are not in this table.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.customers",
+      "grain": [
+        "customer_id"
+      ],
+      "key": "model.analytics.customers",
+      "kind": "table",
+      "name": "customers",
+      "owner": "crm-team@jaffle.example",
+      "relationships": [],
+      "source_meta": {
+        "audits": [
+          "not_null",
+          "unique_values"
+        ],
+        "dialect": "duckdb",
+        "kind": "FULL",
+        "model": "analytics.customers",
+        "path": "models/customers.sql"
+      },
+      "tags": [
+        "core"
+      ],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": null,
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "month",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "order_count",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "revenue",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [
+        "model.analytics.customers",
+        "model.analytics.orders"
+      ],
+      "description": "Revenue and order count by month, in AUD dollars, valid orders only (the weekly review deck reads it).",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.monthly_revenue",
+      "grain": [
+        "month"
+      ],
+      "key": "model.analytics.monthly_revenue",
+      "kind": "view",
+      "name": "monthly_revenue",
+      "owner": "finance@jaffle.example",
+      "relationships": [],
+      "source_meta": {
+        "audits": [
+          "unique_combination_of_columns"
+        ],
+        "dialect": "duckdb",
+        "kind": "VIEW",
+        "model": "analytics.monthly_revenue",
+        "path": "models/monthly_revenue.sql"
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "int",
+          "description": "Order total including GST and shipping, in AUD cents.",
+          "enum_values": [],
+          "meta": {},
+          "name": "amount",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "int",
+          "description": "Customer who placed the order. 0 is the internal test customer, always exclude it.",
+          "enum_values": [],
+          "meta": {},
+          "name": "customer_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "date",
+          "description": "Date the order was placed in Australia/Sydney time.",
+          "enum_values": [],
+          "meta": {},
+          "name": "order_date",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "int",
+          "description": "Primary key of the order.",
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": "text",
+          "description": "Order lifecycle state. returned and return_pending orders are excluded from revenue.",
+          "enum_values": [
+            "placed",
+            "shipped",
+            "completed",
+            "return_pending",
+            "returned"
+          ],
+          "meta": {},
+          "name": "status",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "One row per customer order. The source of truth for orders and revenue (AUD cents).",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.orders",
+      "grain": [
+        "order_id"
+      ],
+      "key": "model.analytics.orders",
+      "kind": "table",
+      "name": "orders",
+      "owner": "data-team@jaffle.example",
+      "relationships": [
+        {
+          "column": "customer_id",
+          "to_asset": "analytics.customers",
+          "to_column": "customer_id"
+        }
+      ],
+      "source_meta": {
+        "audits": [
+          "accepted_values",
+          "not_null",
+          "unique_values"
+        ],
+        "dialect": "duckdb",
+        "kind": "FULL",
+        "model": "analytics.orders",
+        "path": "models/orders.sql"
+      },
+      "tags": [
+        "core",
+        "finance"
+      ],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "int",
+          "description": "Payment amount in AUD cents.",
+          "enum_values": [],
+          "meta": {},
+          "name": "amount",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "timestamp",
+          "description": "When the payment was created (UTC).",
+          "enum_values": [],
+          "meta": {},
+          "name": "created_at",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "int",
+          "description": "Order the payment belongs to.",
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "int",
+          "description": "Primary key of the payment.",
+          "enum_values": [],
+          "meta": {},
+          "name": "payment_id",
+          "not_null": true,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": "text",
+          "description": "How the customer paid.",
+          "enum_values": [
+            "credit_card",
+            "bank_transfer",
+            "gift_card",
+            "coupon"
+          ],
+          "meta": {},
+          "name": "payment_method",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "text",
+          "description": "Payment outcome.",
+          "enum_values": [
+            "succeeded",
+            "failed",
+            "refunded"
+          ],
+          "meta": {},
+          "name": "status",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "One row per payment attempt or refund against an order (AUD cents).",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.payments",
+      "grain": [
+        "payment_id"
+      ],
+      "key": "model.analytics.payments",
+      "kind": "table",
+      "name": "payments",
+      "owner": null,
+      "relationships": [
+        {
+          "column": "order_id",
+          "to_asset": "analytics.orders",
+          "to_column": "order_id"
+        }
+      ],
+      "source_meta": {
+        "audits": [
+          "accepted_values",
+          "not_null",
+          "unique_values"
+        ],
+        "dialect": "duckdb",
+        "kind": "FULL",
+        "model": "analytics.payments",
+        "path": "models/payments.sql"
+      },
+      "tags": [],
+      "used_by": []
+    }
+  ],
+  "fingerprint": "b0af222b536ec6f7953228f22a60544264ce502f932569ac7ee09213358f52e6",
+  "ir_version": "1.0.0",
+  "kind": "sqlmesh",
+  "project": null,
+  "queries": [],
+  "semantic_models": [],
+  "terms": [],
+  "warnings": []
+}

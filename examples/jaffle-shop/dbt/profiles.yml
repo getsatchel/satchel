@@ -1,0 +1,11 @@
+# Local DuckDB profile for the Jaffle Shop example. `raw.*` holds the source tables and the models
+# are built into `analytics.*`, the same relations the hand-written satchel context documents.
+# DBT_DUCKDB_PATH defaults to dev.duckdb (gitignored); see ../README or docs/integrations/dbt.md.
+jaffle_shop:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'dev.duckdb') }}"
+      schema: analytics
+      threads: 1

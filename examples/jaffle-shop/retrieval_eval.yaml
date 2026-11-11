@@ -1,0 +1,53 @@
+# Labelled retrieval questions: each `expect` key must appear in the top 5 (recall@5).
+# Keys are context_item.key values.
+cases:
+  - question: revenue last month
+    expect: [glossary/business-terms.yaml#revenue, queries/monthly-revenue.yaml]
+  - question: what was our sales turnover in March
+    expect: [glossary/business-terms.yaml#revenue]
+  - question: do returned orders count towards revenue
+    expect: [glossary/business-terms.yaml#revenue]
+  - question: how many active customers do we have
+    expect: [glossary/business-terms.yaml#active-customer, queries/active-customers-90d.yaml]
+  - question: what is our average basket size
+    expect: [glossary/business-terms.yaml#average-order-value]
+  - question: AOV by month
+    expect: [queries/average-order-value.yaml]
+  - question: how much money did we pay back to customers last month
+    expect: [glossary/business-terms.yaml#refund]
+  - question: what is the refund rate each month
+    expect: [queries/refund-rate.yaml]
+  - question: what is the difference between a return and a refund
+    expect: [guides/refunds-and-returns.md]
+  - question: who are our biggest customers by spend
+    expect: [queries/top-customers-by-revenue.yaml]
+  - question: how many first-time buyers did we get this month
+    expect: [glossary/business-terms.yaml#new-customer]
+  - question: what share of customers are returning buyers
+    expect: [glossary/business-terms.yaml#repeat-customer]
+  - question: revenue after refunds
+    expect: [glossary/business-terms.yaml#net-revenue]
+  - question: which table should I use to analyse orders
+    expect: [assets/warehouse/analytics/orders.yaml]
+  - question: what values can the order status take
+    expect: [assets/warehouse/analytics/orders.yaml]
+  - question: can I trust customer counts from before 2023
+    expect: [caveats/guest-checkout-customers.md]
+  - question: are refunds recorded properly in early 2023
+    expect: [caveats/refunds-pre-2023.md]
+  - question: how do I reconcile payments with the bank deposits
+    expect: [guides/payments-reconciliation.md]
+  - question: which payment methods do customers use
+    expect: [assets/warehouse/analytics/payments.yaml]
+  - question: how are gift cards counted
+    expect: [glossary/business-terms.yaml#gift-card-redemption]
+  - question: how do I run a cohort retention analysis
+    expect: [guides/customer-analysis.md]
+  - question: which columns contain personal information
+    expect: [assets/warehouse/analytics/customers.yaml]
+  - question: how should failed payments be treated in totals
+    expect: [guides/payments-reconciliation.md]
+  - question: what currency and units are order amounts in
+    expect: [assets/warehouse/analytics/orders.yaml]
+  - question: how should I present monthly revenue so charts do not skip months
+    expect: [guides/revenue-reporting.md]

@@ -1,0 +1,126 @@
+[project]
+name = "satchel"
+version = "0.1.0"
+description = "satchel: self-hosted context server for data agents"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "sqlalchemy>=2",
+  "psycopg[binary]>=3",
+  "alembic",
+  "pydantic>=2",
+  "pydantic-settings",
+  "typer",
+  "pgvector",
+  "pyyaml",
+  "python-frontmatter",
+  "sqlglot>=30.25.0",
+  "fastembed>=0.9.1",
+  "httpx>=0.28.1",
+  "mcp<2",
+  "wren-core-py==0.8.2",
+  "duckdb>=1.5",
+  "pyarrow>=26.0.0",
+  "numpy>=2",
+  "pyjwt[crypto]>=2.15.1",
+  "cryptography>=44",
+  "python-multipart>=0.0.32",
+  "satchel-adapter-sdk",
+]
+
+[tool.uv.sources]
+# Non-editable so `uv tool install --from server` bundles the SDK instead of linking to
+# the checkout; cache-keys in sdk/pyproject.toml make `uv sync` pick up SDK edits.
+satchel-adapter-sdk = { path = "../sdk", editable = false }
+
+[project.optional-dependencies]
+# Object storage for multi-replica deployments (results cache, audit export) on GCS or S3.
+gcp = ["google-cloud-storage>=2.18"]
+aws = ["boto3>=1.35"]
+# Warehouse connections (Settings → Connections). Both are in the Docker image.
+bigquery = ["google-cloud-bigquery>=3.27"]
+snowflake = ["snowflake-connector-python>=3.12"]
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "testcontainers[postgres]",
+  "ruff",
+  "mypy",
+  "types-pyyaml",
+  "httpx>=0.28.1",
+  "moto[s3]>=5.0",
+  "pytest-xdist>=3.8.0",
+  # The warehouse extras, so their connector tests and type checks run in CI.
+  "google-cloud-bigquery>=3.27",
+  "snowflake-connector-python>=3.12",
+]
+
+[project.scripts]
+satchel = "satchel.cli.main:app"
+
+# Source adapters are discovered through this entry-point group. Built-in adapters register here
+# exactly like external packages (`pip install satchel-source-foo`).
+[project.entry-points."satchel.sources"]
+dbt = "satchel.sources.adapters.dbt:adapter"
+cube = "satchel.sources.adapters.cube:adapter"
+sqlmesh = "satchel.sources.adapters.sqlmesh:adapter"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["satchel"]
+
+# The Jaffle Shop example ships inside the wheel (`satchel init --example jaffle` works from an
+# installed tool). Built from the repo checkout (uv tool install ...#subdirectory=server).
+[tool.hatch.build.targets.wheel.hooks.custom]  # hatch_build.py: bundles ../ui/dist
+
+[tool.hatch.build.targets.wheel.force-include]
+"../examples/jaffle-shop/context" = "satchel/resources/jaffle-shop/context"
+"../examples/jaffle-shop/seed.py" = "satchel/resources/jaffle-shop/seed.py"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["tests/fixtures"]  # trimmed upstream projects, byte-for-byte inputs
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"satchel/tools/text.py" = ["E501"]  # agent-facing prose
+"satchel/cli/*.py" = ["E501"]  # help text and fix hints
+"tests/test_cli_onboarding.py" = ["E501"]
+"tests/test_sources_sync.py" = ["E501"]
+"tests/test_source_dbt.py" = ["E501"]
+"tests/test_source_cube.py" = ["E501"]
+"tests/test_source_sqlmesh.py" = ["E501", "F811"]
+"tests/test_source_precedence.py" = ["E501", "F811"]  # reuses the env fixture of test_sources_sync
+"satchel/store/migrations/versions/0001_initial.py" = ["E501"]  # generated DDL
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["satchel.core.*", "satchel.store.*", "satchel.retrieval.*", "satchel.sync.*", "satchel.llm.*", "satchel.curation.*", "satchel.sources.*"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["satchel.mcp.server", "satchel.mcp.stdio"]
+disallow_untyped_decorators = false  # the mcp SDK's decorators are untyped
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = ["satchel.store.migrations.*"]
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: spawns a real subprocess; still runs by default"]

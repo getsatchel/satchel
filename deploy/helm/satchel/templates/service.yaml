@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "satchel.fullname" . }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+  annotations:
+    {{- if and .Values.gke.enabled (eq .Values.exposure.type "ingress") }}
+    cloud.google.com/neg: '{"ingress": true}'
+    cloud.google.com/backend-config: '{"default": "{{ include "satchel.fullname" . }}"}'
+    {{- end }}
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      appProtocol: http
+  selector:
+    {{- include "satchel.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web

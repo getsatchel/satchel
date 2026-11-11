@@ -1,0 +1,196 @@
+{{- $full := include "satchel.fullname" . }}
+{{- if eq .Values.exposure.type "gateway" }}
+{{- if .Values.gateway.create }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.gateway.certificateMap }}
+    networking.gke.io/certmap: {{ .Values.gateway.certificateMap | quote }}
+    {{- end }}
+    {{- with .Values.gateway.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  {{- with .Values.gateway.staticIpName }}
+  # A reserved global address (GKE: NamedAddress), so DNS can point at it before the first deploy.
+  addresses:
+    - type: NamedAddress
+      value: {{ . | quote }}
+  {{- end }}
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: {{ .Values.exposure.host | quote }}
+      allowedRoutes:
+        namespaces: {from: Same}
+      {{- if .Values.gateway.tlsSecretName }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ .Values.gateway.tlsSecretName }}
+      {{- end }}
+---
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    {{- if .Values.gateway.create }}
+    - name: {{ $full }}
+    {{- else }}
+    {{- toYaml .Values.gateway.parentRefs | nindent 4 }}
+    {{- end }}
+  hostnames:
+    - {{ .Values.exposure.host | quote }}
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /}
+      {{- if not .Values.gke.enabled }}
+      timeouts:
+        request: {{ printf "%ds" (int .Values.exposure.timeoutSec) }}
+      {{- end }}
+      backendRefs:
+        - name: {{ $full }}
+          port: {{ .Values.service.port }}
+{{- if .Values.gke.enabled }}
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: {{ .Values.web.port }}
+        requestPath: {{ .Values.gateway.healthCheckPath }}
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ $full }}
+---
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+spec:
+  default:
+    timeoutSec: {{ .Values.exposure.timeoutSec }}
+    connectionDraining:
+      drainingTimeoutSec: 60
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ $full }}
+{{- end }}
+{{- else if eq .Values.exposure.type "ingress" }}
+{{- if .Values.gke.enabled }}
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+spec:
+  timeoutSec: {{ .Values.exposure.timeoutSec }}
+  connectionDraining:
+    drainingTimeoutSec: 60
+  healthCheck:
+    type: HTTP
+    requestPath: /readyz
+    port: {{ .Values.web.port }}
+---
+{{- if .Values.ingress.managedCertificate }}
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+spec:
+  domains:
+    - {{ .Values.exposure.host | quote }}
+---
+{{- end }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.gke.enabled }}
+    {{- if .Values.ingress.managedCertificate }}
+    networking.gke.io/managed-certificates: {{ $full }}
+    {{- end }}
+    {{- with .Values.ingress.staticIpName }}
+    kubernetes.io/ingress.global-static-ip-name: {{ . | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.aws.enabled }}
+    {{- with .Values.aws.alb }}
+    alb.ingress.kubernetes.io/scheme: {{ .scheme | quote }}
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/ssl-policy: {{ .sslPolicy | quote }}
+    alb.ingress.kubernetes.io/healthcheck-path: /readyz
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds={{ $.Values.exposure.timeoutSec }},routing.http.drop_invalid_header_fields.enabled=true
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+    {{- with .certificateArn }}
+    alb.ingress.kubernetes.io/certificate-arn: {{ . | quote }}
+    {{- end }}
+    {{- with .groupName }}
+    alb.ingress.kubernetes.io/group.name: {{ . | quote }}
+    {{- end }}
+    {{- with .wafv2AclArn }}
+    alb.ingress.kubernetes.io/wafv2-acl-arn: {{ . | quote }}
+    {{- end }}
+    {{- with .securityGroups }}
+    alb.ingress.kubernetes.io/security-groups: {{ join "," . | quote }}
+    alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with (.Values.ingress.className | default (ternary "alb" "" .Values.aws.enabled)) }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.tlsSecretName }}
+  tls:
+    - hosts: [{{ .Values.exposure.host | quote }}]
+      secretName: {{ .Values.ingress.tlsSecretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.exposure.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $full }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

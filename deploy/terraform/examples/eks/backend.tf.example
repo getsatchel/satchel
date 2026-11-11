@@ -1,0 +1,13 @@
+# Copy to backend.tf. Create the bucket first (versioning and encryption on), for example:
+#   aws s3api create-bucket --bucket my-tfstate-bucket --region eu-west-2 \
+#     --create-bucket-configuration LocationConstraint=eu-west-2
+#   aws s3api put-bucket-versioning --bucket my-tfstate-bucket --versioning-configuration Status=Enabled
+terraform {
+  backend "s3" {
+    bucket       = "my-tfstate-bucket"
+    key          = "satchel/eks.tfstate"
+    region       = "eu-west-2"
+    encrypt      = true
+    use_lockfile = true
+  }
+}

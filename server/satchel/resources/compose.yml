@@ -1,0 +1,24 @@
+# Postgres for `satchel init` / `satchel up`. Shipped inside the package so it works from an installed
+# tool; copied to ~/.local/share/satchel/compose/ and run as compose project `satchel`.
+# Dev credentials only (satchel/satchel owner, satchel_app/satchel_app runtime role,
+# satchel_worker/satchel_worker for server-internal jobs); bound to localhost.
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: satchel
+      POSTGRES_PASSWORD: satchel
+      POSTGRES_DB: satchel
+    ports:
+      - "127.0.0.1:${SATCHEL_PG_PORT:-5433}:5432"
+    volumes:
+      - satchel-pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro   # creates the satchel_app and satchel_worker roles
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U satchel -d satchel"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  satchel-pgdata:

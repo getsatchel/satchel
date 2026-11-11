@@ -1,0 +1,17 @@
+question: Who are our top 10 customers by revenue?
+variants: [biggest customers, highest spending customers, best customers by spend]
+connection: warehouse
+sql: |
+  select
+    c.customer_id,
+    c.first_name,
+    c.last_name,
+    sum(o.amount) / 100.0 as revenue_aud
+  from analytics.orders o
+  join analytics.customers c on c.customer_id = o.customer_id
+  where o.status not in ('returned', 'return_pending')
+    and o.customer_id <> 0
+  group by 1, 2, 3
+  order by revenue_aud desc
+  limit 10
+verified_by: jane@jaffle.example

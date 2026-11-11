@@ -1,0 +1,99 @@
+{{- define "satchel.workerPodSpec" -}}
+serviceAccountName: {{ include "satchel.serviceAccountName" . }}
+securityContext:
+  {{- include "satchel.podSecurityContext" . | nindent 2 }}
+{{- with .Values.imagePullSecrets }}
+imagePullSecrets:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- if .Values.cloudSqlProxy.enabled }}
+initContainers:
+  {{- include "satchel.cloudSqlProxy" . | nindent 2 }}
+{{- end }}
+containers:
+  - name: worker
+    image: {{ include "satchel.image" . }}
+    imagePullPolicy: {{ .Values.image.pullPolicy }}
+    command: {{ if eq .Values.worker.mode "cronjob" }}["satchel", "worker", "--once"]{{ else }}["satchel", "worker"]{{ end }}
+    envFrom:
+      {{- include "satchel.envFrom" . | nindent 6 }}
+    env:
+      {{- include "satchel.runtimeSecretEnv" (dict "root" . "role" "worker") | nindent 6 }}
+    resources:
+      {{- toYaml .Values.worker.resources | nindent 6 }}
+    securityContext:
+      {{- include "satchel.containerSecurityContext" . | nindent 6 }}
+    volumeMounts:
+      {{- include "satchel.volumeMounts" (dict "root" . "results" true "sm" true) | nindent 6 }}
+volumes:
+  {{- include "satchel.volumes" (dict "root" . "results" true "sm" true) | nindent 2 }}
+{{- with .Values.worker.nodeSelector }}
+nodeSelector:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.worker.affinity }}
+affinity:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.worker.tolerations }}
+tolerations:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end -}}
+{{- if eq .Values.worker.mode "deployment" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "satchel.fullname" . }}-worker
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "satchel.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "satchel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.worker.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "satchel.workerPodSpec" . | nindent 6 }}
+{{- else if eq .Values.worker.mode "cronjob" }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "satchel.fullname" . }}-worker
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  schedule: {{ .Values.worker.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            {{- include "satchel.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: worker
+          annotations:
+            {{- with .Values.worker.podAnnotations }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        spec:
+          restartPolicy: Never
+          {{- include "satchel.workerPodSpec" . | nindent 10 }}
+{{- end }}

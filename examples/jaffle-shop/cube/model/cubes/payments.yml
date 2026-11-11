@@ -1,0 +1,54 @@
+cubes:
+  - name: payments
+    sql_table: analytics.payments
+    description: One row per payment attempt or refund against an order (AUD cents).
+
+    joins:
+      - name: orders
+        relationship: many_to_one
+        sql: "{CUBE}.order_id = {orders}.order_id"
+
+    dimensions:
+      - name: payment_id
+        sql: payment_id
+        type: number
+        primary_key: true
+        description: Primary key of the payment.
+
+      - name: order_id
+        sql: order_id
+        type: number
+        description: Order the payment belongs to.
+
+      - name: payment_method
+        sql: payment_method
+        type: string
+        description: How the customer paid.
+        meta:
+          satchel:
+            enum_values: [credit_card, bank_transfer, gift_card, coupon]
+
+      - name: status
+        sql: status
+        type: string
+        description: Payment outcome.
+        meta:
+          satchel:
+            enum_values: [succeeded, failed, refunded]
+
+      - name: created_at
+        sql: created_at
+        type: time
+        description: When the payment was created (UTC).
+
+    measures:
+      - name: payment_count
+        type: count
+        description: Number of payments of any outcome.
+
+      - name: collected
+        sql: "amount / 100.0"
+        type: sum
+        description: Payments that succeeded, in AUD dollars.
+        filters:
+          - sql: "{CUBE}.status = 'succeeded'"

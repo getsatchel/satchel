@@ -1,0 +1,9 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.auto.tfvars
+backend.tf
+crash.log
+# The floci examples ship their emulator tfvars (nothing secret).
+!examples/floci-*/terraform.tfvars

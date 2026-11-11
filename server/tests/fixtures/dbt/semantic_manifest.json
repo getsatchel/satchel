@@ -1,0 +1,316 @@
+{
+ "metrics": [
+  {
+   "config": {
+    "meta": {}
+   },
+   "datatype": null,
+   "description": "Sum of order amounts in AUD dollars for valid orders (excludes returned, return_pending and the internal test customer).",
+   "filter": {
+    "where_filters": [
+     {
+      "where_sql_template": "{{ Dimension('order_id__status') }} NOT IN ('returned', 'return_pending')\nAND {{ Entity('customer') }} <> 0\n"
+     }
+    ]
+   },
+   "label": "Revenue",
+   "metadata": null,
+   "name": "revenue",
+   "time_granularity": null,
+   "type": "simple",
+   "type_params": {
+    "conversion_type_params": null,
+    "cumulative_type_params": null,
+    "denominator": null,
+    "expr": null,
+    "fill_nulls_with": null,
+    "grain_to_date": null,
+    "input_measures": [
+     {
+      "alias": null,
+      "fill_nulls_with": null,
+      "filter": null,
+      "join_to_timespine": false,
+      "name": "order_total"
+     }
+    ],
+    "is_private": null,
+    "join_to_timespine": false,
+    "measure": {
+     "alias": null,
+     "fill_nulls_with": null,
+     "filter": null,
+     "join_to_timespine": false,
+     "name": "order_total"
+    },
+    "metric_aggregation_params": null,
+    "metrics": [],
+    "numerator": null,
+    "window": null
+   }
+  },
+  {
+   "config": {
+    "meta": {}
+   },
+   "datatype": null,
+   "description": "Number of valid orders.",
+   "filter": {
+    "where_filters": [
+     {
+      "where_sql_template": "{{ Dimension('order_id__status') }} NOT IN ('returned', 'return_pending')\nAND {{ Entity('customer') }} <> 0\n"
+     }
+    ]
+   },
+   "label": "Order count",
+   "metadata": null,
+   "name": "order_count",
+   "time_granularity": null,
+   "type": "simple",
+   "type_params": {
+    "conversion_type_params": null,
+    "cumulative_type_params": null,
+    "denominator": null,
+    "expr": null,
+    "fill_nulls_with": null,
+    "grain_to_date": null,
+    "input_measures": [
+     {
+      "alias": null,
+      "fill_nulls_with": null,
+      "filter": null,
+      "join_to_timespine": false,
+      "name": "order_count"
+     }
+    ],
+    "is_private": null,
+    "join_to_timespine": false,
+    "measure": {
+     "alias": null,
+     "fill_nulls_with": null,
+     "filter": null,
+     "join_to_timespine": false,
+     "name": "order_count"
+    },
+    "metric_aggregation_params": null,
+    "metrics": [],
+    "numerator": null,
+    "window": null
+   }
+  },
+  {
+   "config": {
+    "meta": {}
+   },
+   "datatype": null,
+   "description": "Revenue divided by valid order count, in AUD dollars.",
+   "filter": null,
+   "label": "Average order value",
+   "metadata": null,
+   "name": "average_order_value",
+   "time_granularity": null,
+   "type": "ratio",
+   "type_params": {
+    "conversion_type_params": null,
+    "cumulative_type_params": null,
+    "denominator": {
+     "alias": null,
+     "filter": null,
+     "name": "order_count",
+     "offset_to_grain": null,
+     "offset_window": null
+    },
+    "expr": null,
+    "fill_nulls_with": null,
+    "grain_to_date": null,
+    "input_measures": [
+     {
+      "alias": null,
+      "fill_nulls_with": null,
+      "filter": null,
+      "join_to_timespine": false,
+      "name": "order_total"
+     },
+     {
+      "alias": null,
+      "fill_nulls_with": null,
+      "filter": null,
+      "join_to_timespine": false,
+      "name": "order_count"
+     }
+    ],
+    "is_private": null,
+    "join_to_timespine": false,
+    "measure": null,
+    "metric_aggregation_params": null,
+    "metrics": [],
+    "numerator": {
+     "alias": null,
+     "filter": null,
+     "name": "revenue",
+     "offset_to_grain": null,
+     "offset_window": null
+    },
+    "window": null
+   }
+  }
+ ],
+ "project_configuration": {
+  "dsi_package_version": {
+   "major_version": "0",
+   "minor_version": "213",
+   "patch_version": "0"
+  },
+  "metadata": null,
+  "time_spine_table_configurations": [],
+  "time_spines": [
+   {
+    "custom_granularities": [],
+    "node_relation": {
+     "alias": "metricflow_time_spine",
+     "database": "jaffle",
+     "relation_name": "\"jaffle\".\"analytics\".\"metricflow_time_spine\"",
+     "schema_name": "analytics"
+    },
+    "primary_column": {
+     "name": "date_day",
+     "time_granularity": "day"
+    }
+   }
+  ]
+ },
+ "saved_queries": [
+  {
+   "description": "Revenue and order count by month.",
+   "exports": [],
+   "label": null,
+   "metadata": null,
+   "name": "monthly_revenue",
+   "query_params": {
+    "group_by": [
+     "TimeDimension('metric_time', 'month')"
+    ],
+    "limit": null,
+    "metrics": [
+     "revenue",
+     "order_count"
+    ],
+    "order_by": [],
+    "where": null
+   },
+   "tags": []
+  }
+ ],
+ "semantic_models": [
+  {
+   "config": {
+    "meta": {}
+   },
+   "defaults": {
+    "agg_time_dimension": "order_date"
+   },
+   "description": "Customer orders, one row per order.",
+   "dimensions": [
+    {
+     "config": {
+      "meta": {}
+     },
+     "datatype": null,
+     "description": "Date the order was placed (Australia/Sydney).",
+     "expr": null,
+     "is_partition": false,
+     "label": null,
+     "metadata": null,
+     "name": "order_date",
+     "type": "time",
+     "type_params": {
+      "time_granularity": "day",
+      "validity_params": null
+     }
+    },
+    {
+     "config": {
+      "meta": {}
+     },
+     "datatype": null,
+     "description": "Order status (placed, shipped or completed for valid orders).",
+     "expr": null,
+     "is_partition": false,
+     "label": null,
+     "metadata": null,
+     "name": "status",
+     "type": "categorical",
+     "type_params": null
+    }
+   ],
+   "entities": [
+    {
+     "config": {
+      "meta": {}
+     },
+     "description": null,
+     "expr": null,
+     "label": null,
+     "metadata": null,
+     "name": "order_id",
+     "role": null,
+     "type": "primary"
+    },
+    {
+     "config": {
+      "meta": {}
+     },
+     "description": null,
+     "expr": "customer_id",
+     "label": null,
+     "metadata": null,
+     "name": "customer",
+     "role": null,
+     "type": "foreign"
+    }
+   ],
+   "label": null,
+   "measures": [
+    {
+     "agg": "sum",
+     "agg_params": null,
+     "agg_time_dimension": null,
+     "config": {
+      "meta": {}
+     },
+     "create_metric": false,
+     "description": "Order amount in AUD dollars (cents / 100).",
+     "expr": "amount / 100.0",
+     "label": null,
+     "metadata": null,
+     "name": "order_total",
+     "non_additive_dimension": null
+    },
+    {
+     "agg": "count",
+     "agg_params": null,
+     "agg_time_dimension": null,
+     "config": {
+      "meta": {}
+     },
+     "create_metric": false,
+     "description": "Number of orders.",
+     "expr": "order_id",
+     "label": null,
+     "metadata": null,
+     "name": "order_count",
+     "non_additive_dimension": null
+    }
+   ],
+   "metadata": null,
+   "name": "orders",
+   "node_relation": {
+    "alias": "orders",
+    "database": "jaffle",
+    "relation_name": "\"jaffle\".\"analytics\".\"orders\"",
+    "schema_name": "analytics"
+   },
+   "primary_entity": null
+  }
+ ]
+}

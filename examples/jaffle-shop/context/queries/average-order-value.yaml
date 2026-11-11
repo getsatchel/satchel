@@ -1,0 +1,13 @@
+question: What is our average order value by month?
+variants: [AOV by month, average basket size over time]
+connection: warehouse
+sql: |
+  select
+    date_trunc('month', order_date) as month,
+    sum(amount) / 100.0 / count(*) as aov_aud
+  from analytics.orders
+  where status not in ('returned', 'return_pending')
+    and customer_id <> 0
+  group by 1
+  order by 1
+verified_by: sam@jaffle.example

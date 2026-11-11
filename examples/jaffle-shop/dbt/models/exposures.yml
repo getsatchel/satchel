@@ -1,0 +1,15 @@
+version: 2
+
+exposures:
+  - name: weekly_revenue_dashboard
+    label: Weekly revenue dashboard
+    type: dashboard
+    maturity: high
+    url: https://bi.jaffle.example/dashboards/weekly-revenue
+    description: Finance's weekly revenue review.
+    owner:
+      name: Finance
+      email: finance@jaffle.example
+    depends_on:
+      - ref('orders')
+      - ref('customers')

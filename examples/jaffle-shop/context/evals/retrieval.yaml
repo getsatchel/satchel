@@ -1,0 +1,37 @@
+# Retrieval-only suite: `context_used` rubrics only, so it needs no LLM and is cheap enough to
+# run on every change in CI (satchel eval run context/evals/retrieval.yaml).
+id: retrieval
+name: Retrieval regression
+cases:
+  - id: revenue
+    prompt: What was revenue in March 2025?
+    rubrics:
+      - { grader: context_used, items: [glossary/business-terms.yaml#revenue], top_n: 5, measure: retrieval }
+  - id: net-revenue
+    prompt: revenue after refunds
+    rubrics:
+      - { grader: context_used, items: [glossary/business-terms.yaml#net-revenue], top_n: 5, measure: retrieval }
+  - id: refund
+    prompt: how much did we refund last month
+    rubrics:
+      - { grader: context_used, items: [glossary/business-terms.yaml#refund], top_n: 5, measure: retrieval }
+  - id: aov
+    prompt: what is our average basket size
+    rubrics:
+      - { grader: context_used, items: [glossary/business-terms.yaml#average-order-value], top_n: 5, measure: retrieval }
+  - id: active-customers
+    prompt: how many active customers do we have
+    rubrics:
+      - { grader: context_used, items: [glossary/business-terms.yaml#active-customer], top_n: 5, measure: retrieval }
+  - id: top-customers
+    prompt: who are our biggest customers by spend
+    rubrics:
+      - { grader: context_used, items: [queries/top-customers-by-revenue.yaml], top_n: 5, measure: retrieval }
+  - id: orders-table
+    prompt: which table should I use to analyse orders
+    rubrics:
+      - { grader: context_used, items: [assets/warehouse/analytics/orders.yaml], top_n: 5, measure: retrieval }
+  - id: guest-caveat
+    prompt: can I trust customer counts from before 2023
+    rubrics:
+      - { grader: context_used, items: [caveats/guest-checkout-customers.md], top_n: 5, measure: retrieval }

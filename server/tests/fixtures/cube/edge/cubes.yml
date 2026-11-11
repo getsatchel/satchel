@@ -1,0 +1,138 @@
+cubes:
+  # a base cube; two cubes read the same table, and one extends it
+  - name: base_orders
+    sql_table: analytics.orders
+    description: Base cube over the orders table.
+    public: false
+    dimensions:
+      - name: order_id
+        sql: "{CUBE}.order_id"
+        type: number
+        primary_key: true
+      - name: status
+        sql: "{TABLE}.status"
+        type: string
+    measures:
+      - name: total_amount
+        sql: amount
+        type: sum
+      - name: order_count
+        type: count
+
+  - name: shipped_orders
+    extends: base_orders
+    public: true
+    description: Orders that shipped, built on the base cube.
+    measures:
+      - name: shipped_count
+        type: count
+        filters:
+          - sql: "{CUBE}.status = 'shipped'"
+      - name: shipped_amount
+        sql: amount
+        type: sum
+        filters:
+          - sql: "{CUBE}.status = 'shipped'"
+      - name: shipped_share
+        sql: "{shipped_count} * 1.0 / NULLIF({order_count}, 0)"
+        type: number
+        description: Share of orders that shipped.
+      - name: distinct_customers
+        sql: customer_id
+        type: count_distinct
+      - name: smallest
+        sql: amount
+        type: min
+      - name: largest
+        sql: amount
+        type: max
+      - name: mean_amount
+        sql: amount
+        type: avg
+    segments:
+      - name: big
+        sql: "{CUBE}.amount > 10000"
+
+  # a sql cube over one table with a filter: documented as that table, with a caveat
+  - name: completed_orders
+    sql: "SELECT * FROM analytics.orders WHERE status = 'completed'"
+    description: Completed orders only.
+    dimensions:
+      - name: order_id
+        sql: order_id
+        type: number
+        primary_key: true
+    measures:
+      - name: completed_count
+        type: count
+
+  # a sql cube that joins: queryable metric, but not documented as a table
+  - name: order_lines
+    sql: "SELECT o.order_id, p.amount FROM analytics.orders o JOIN analytics.payments p ON p.order_id = o.order_id"
+    dimensions:
+      - name: order_id
+        sql: order_id
+        type: number
+    measures:
+      - name: line_total
+        sql: amount
+        type: sum
+
+  # constructs that cannot be queryable
+  - name: tricky
+    sql_table: analytics.payments
+    dimensions:
+      - name: payment_id
+        sql: payment_id
+        type: number
+        primary_key: true
+      - name: region
+        sql: "{CUBE}.region || {COMPILE_CONTEXT.securityContext.org}"
+        type: string
+      - name: owner_name
+        sql: "{customers.first_name}"
+        type: string
+      - name: place
+        sql: location
+        type: geo
+      - name: latest
+        sql: "(SELECT max(created_at) FROM analytics.payments)"
+        sub_query: true
+        type: time
+    measures:
+      - name: payments
+        type: count
+      - name: running
+        sql: amount
+        type: sum
+        rolling_window:
+          trailing: unbounded
+      - name: share_of_other
+        sql: "{customers.customer_count}"
+        type: number
+      - name: median_amount
+        sql: amount
+        type: median
+    joins:
+      - name: customers
+        relationship: many_to_one
+        sql: "{CUBE}.payment_id > {customers}.customer_id"
+
+  - name: customers
+    sql_table: analytics.customers
+
+  - name: dynamic
+    sql_table: "{COMPILE_CONTEXT.securityContext.schema}.orders"
+    measures:
+      - name: n
+        type: count
+
+  - name: not_valid
+    sql_table: 5
+    measures: "oops"
+
+views:
+  - name: bi_orders
+    cubes:
+      - join_path: shipped_orders
+        includes: "*"

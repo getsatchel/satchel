@@ -1,0 +1,9 @@
+version: 1
+workspace: jaffle
+name: Jaffle Shop
+connections:
+  warehouse: { kind: duckdb, path: jaffle.duckdb }   # declared here; `satchel connection add` sets the real path/secret_ref
+evals: ["evals/*.yaml"]          # eval suites imported into the workspace (default glob)
+publish:
+  require_evals: [retrieval]     # a preview can't be published if these suites regress
+  eval_threshold: 0              # allowed drop in pass rate, in percentage points

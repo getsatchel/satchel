@@ -1,0 +1,156 @@
+name: floci
+
+# End-to-end deployment tests against the floci-gcp and floci (AWS) emulators (docs/deploy/floci.md).
+on:
+  workflow_dispatch:
+  # The union of the paths below (see the `changes` job). Server, UI and dbt-requirements
+  # changes are covered by the ci and image workflows and do not need a deploy e2e.
+  pull_request:
+    paths:
+      - "deploy/helm/**"
+      - "deploy/docker/Dockerfile"
+      - "deploy/floci/**"
+      - "deploy/floci-aws/**"
+      - "deploy/terraform/modules/**"
+      - "deploy/terraform/examples/floci-*/**"
+      - "scripts/floci-e2e.sh"
+      - "scripts/floci-aws-e2e.sh"
+      - ".github/workflows/floci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: floci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: 1.9.8
+  HELM_VERSION: v3.17.3
+  KUBECTL_VERSION: v1.34.2
+
+jobs:
+  # Which cloud's e2e a change needs. Shared inputs (the chart, the Dockerfile, the MCP smoke
+  # test, this workflow) run both; a manual run always runs both.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      gcp: ${{ steps.f.outputs.gcp }}
+      aws: ${{ steps.f.outputs.aws }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: f
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "$BASE" ]; then
+            echo "gcp=true" >> "$GITHUB_OUTPUT"; echo "aws=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "$BASE...HEAD")
+          echo "$files"
+          shared='^(deploy/helm/|deploy/docker/Dockerfile$|deploy/floci/mcp_smoke\.py$|\.github/workflows/floci\.yml$)'
+          gcp='^(deploy/floci/|scripts/floci-e2e\.sh$|deploy/terraform/modules/(foundation|cloud-run|gke|helm-values)/|deploy/terraform/examples/floci-(cloud-run|gke)/)'
+          aws='^(deploy/floci-aws/|scripts/floci-aws-e2e\.sh$|deploy/terraform/modules/(aws-foundation|aws-helm-values|eks)/|deploy/terraform/examples/floci-eks/)'
+          has() { echo "$files" | grep -Eq "$1" && echo true || echo false; }
+          s=$(has "$shared")
+          [ "$s" = true ] && g=true || g=$(has "$gcp")
+          [ "$s" = true ] && a=true || a=$(has "$aws")
+          echo "gcp=$g" >> "$GITHUB_OUTPUT"; echo "aws=$a" >> "$GITHUB_OUTPUT"
+          echo "gcp=$g aws=$a"
+
+  e2e:
+    name: tier ${{ matrix.tier }}
+    needs: changes
+    if: needs.changes.outputs.gcp == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1: control plane (Cloud Run mock + GKE on k3s with the Helm release)
+        # 2: real Cloud Run workloads (execution mode)
+        tier: ["1", "2"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          build-args: BAKE_EMBEDDINGS=false
+          tags: satchel:floci
+          load: true
+          # Read-only: the image workflow writes this cache (one writer, no thrashing).
+          cache-from: type=gha,scope=satchel
+
+      # Prints diagnostics (floci log, k8s state) itself before tearing down on failure.
+      - name: End-to-end
+        run: scripts/floci-e2e.sh --tier ${{ matrix.tier }} --skip-build
+
+  aws:
+    name: aws (EKS on k3s, RDS, S3, Secrets Manager)
+    needs: changes
+    if: needs.changes.outputs.aws == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The script's S3 / IAM / Secrets Manager checks talk to the emulator with boto3.
+      - name: boto3 for the checks
+        run: |
+          python -m venv /tmp/e2e-venv
+          /tmp/e2e-venv/bin/pip install -q boto3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          build-args: BAKE_EMBEDDINGS=false
+          tags: satchel:floci
+          load: true
+          # Read-only: the image workflow writes this cache (one writer, no thrashing).
+          cache-from: type=gha,scope=satchel
+
+      - name: End-to-end
+        env:
+          PYTHON: /tmp/e2e-venv/bin/python
+        run: scripts/floci-aws-e2e.sh --skip-build

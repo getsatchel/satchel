@@ -1,0 +1,147 @@
+{
+  "catalog": "jaffle",
+  "schema": "public",
+  "dataSource": "duckdb",
+  "models": [
+    {
+      "name": "customers",
+      "tableReference": {
+        "schema": "analytics",
+        "table": "customers"
+      },
+      "primaryKey": "customer_id",
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "integer"
+        },
+        {
+          "name": "first_name",
+          "type": "varchar"
+        },
+        {
+          "name": "last_name",
+          "type": "varchar"
+        },
+        {
+          "name": "email",
+          "type": "varchar"
+        },
+        {
+          "name": "first_order_date",
+          "type": "date"
+        },
+        {
+          "name": "full_name",
+          "type": "varchar",
+          "isCalculated": true,
+          "expression": "first_name || ' ' || last_name"
+        }
+      ]
+    },
+    {
+      "name": "valid_orders",
+      "refSql": "SELECT order_id, customer_id, order_date, status, amount FROM analytics.orders WHERE status NOT IN ('returned', 'return_pending') AND customer_id <> 0",
+      "primaryKey": "order_id",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "integer"
+        },
+        {
+          "name": "customer_id",
+          "type": "integer"
+        },
+        {
+          "name": "order_date",
+          "type": "date"
+        },
+        {
+          "name": "status",
+          "type": "varchar"
+        },
+        {
+          "name": "amount",
+          "type": "integer"
+        },
+        {
+          "name": "customer",
+          "type": "customers",
+          "relationship": "orders_customer"
+        },
+        {
+          "name": "customer_name",
+          "type": "varchar",
+          "isCalculated": true,
+          "expression": "customer.full_name"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "name": "orders_customer",
+      "models": [
+        "valid_orders",
+        "customers"
+      ],
+      "joinType": "MANY_TO_ONE",
+      "condition": "valid_orders.customer_id = customers.customer_id"
+    }
+  ],
+  "cubes": [
+    {
+      "name": "sales",
+      "baseObject": "valid_orders",
+      "measures": [
+        {
+          "name": "revenue",
+          "expression": "SUM(amount) / 100.0",
+          "type": "DOUBLE",
+          "description": "Sum of order amounts in AUD dollars (cents / 100) for valid orders."
+        },
+        {
+          "name": "order_count",
+          "expression": "COUNT(*)",
+          "type": "BIGINT",
+          "description": "Number of valid orders."
+        },
+        {
+          "name": "average_order_value",
+          "expression": "SUM(amount) / 100.0 / COUNT(*)",
+          "type": "DOUBLE",
+          "description": "Revenue divided by valid order count, in AUD dollars."
+        }
+      ],
+      "dimensions": [
+        {
+          "name": "customer_id",
+          "expression": "customer_id",
+          "type": "INTEGER",
+          "description": "Customer id."
+        },
+        {
+          "name": "customer_name",
+          "expression": "customer_name",
+          "type": "VARCHAR",
+          "description": "Customer full name."
+        },
+        {
+          "name": "status",
+          "expression": "status",
+          "type": "VARCHAR",
+          "description": "Order status (placed, shipped or completed for valid orders)."
+        }
+      ],
+      "timeDimensions": [
+        {
+          "name": "order_date",
+          "expression": "order_date",
+          "type": "DATE",
+          "description": "Order date (Australia/Sydney). Supports granularity year, quarter, month, week, day."
+        }
+      ],
+      "description": "Governed order metrics. Counts only valid orders: excludes returned and return_pending orders and the internal test customer (customer_id 0). Amounts are AUD."
+    }
+  ]
+}

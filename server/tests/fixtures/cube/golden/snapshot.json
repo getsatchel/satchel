@@ -1,0 +1,709 @@
+{
+  "assets": [
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": null,
+          "description": "Primary key of the customer.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "customer_id",
+            "cube_type": "number"
+          },
+          "name": "customer_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Contact email. Personal data.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "email",
+            "cube_type": "string"
+          },
+          "name": "email",
+          "not_null": false,
+          "pii": true,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Customer first name.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "first_name",
+            "cube_type": "string"
+          },
+          "name": "first_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Date of the customer's first order of any status.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "first_order_date",
+            "cube_type": "time"
+          },
+          "name": "first_order_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Customer last name.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "last_name",
+            "cube_type": "string"
+          },
+          "name": "last_name",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Aggregated by Cube measure lifetime_orders (sum).",
+          "enum_values": [],
+          "meta": {},
+          "name": "number_of_orders",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Date the customer registered.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "signup_date",
+            "cube_type": "time"
+          },
+          "name": "signup_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "One row per registered customer. Guest checkouts (customer_id 0) are not in this table.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.customers",
+      "grain": [
+        "customer_id"
+      ],
+      "key": "cube.customers",
+      "kind": "table",
+      "name": "customers",
+      "owner": "crm-team@jaffle.example",
+      "relationships": [],
+      "source_meta": {
+        "cubes": [
+          "customers"
+        ],
+        "files": [
+          "cubes/customers.yml"
+        ],
+        "measures": [
+          "customers.customer_count (count)",
+          "customers.lifetime_orders (sum)"
+        ]
+      },
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [
+        "Orders before 2023 predate the refund workflow; refund analysis is only reliable from 2023.",
+        "Cube segment valid_orders filters orders to rows where status NOT IN ('returned', 'return_pending') AND customer_id <> 0: Orders that count towards revenue."
+      ],
+      "columns": [
+        {
+          "data_type": null,
+          "description": "Order total including GST and shipping, in AUD cents.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "amount",
+            "cube_type": "number"
+          },
+          "name": "amount",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Customer who placed the order. 0 is the internal test customer, always exclude it.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "customer_id",
+            "cube_type": "number"
+          },
+          "name": "customer_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Date the order was placed in Australia/Sydney time.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "order_date",
+            "cube_type": "time"
+          },
+          "name": "order_date",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Primary key of the order.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "order_id",
+            "cube_type": "number"
+          },
+          "name": "order_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Order lifecycle state. returned and return_pending orders are excluded from revenue.",
+          "enum_values": [
+            "placed",
+            "shipped",
+            "completed",
+            "return_pending",
+            "returned"
+          ],
+          "meta": {
+            "cube_dimension": "status",
+            "cube_type": "string"
+          },
+          "name": "status",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "One row per customer order. The source of truth for orders and revenue (AUD cents).",
+      "endorsed": true,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.orders",
+      "grain": [
+        "order_id"
+      ],
+      "key": "cube.orders",
+      "kind": "table",
+      "name": "orders",
+      "owner": "data-team@jaffle.example",
+      "relationships": [
+        {
+          "column": "customer_id",
+          "to_asset": "analytics.customers",
+          "to_column": "customer_id"
+        }
+      ],
+      "source_meta": {
+        "cubes": [
+          "orders"
+        ],
+        "files": [
+          "cubes/orders.yml"
+        ],
+        "measures": [
+          "orders.average_order_value (number)",
+          "orders.order_count (count)",
+          "orders.revenue (sum)"
+        ],
+        "segments": [
+          "orders.valid_orders"
+        ]
+      },
+      "tags": [],
+      "used_by": [
+        "Cube view orders_view"
+      ]
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": null,
+          "description": "When the payment was created (UTC).",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "created_at",
+            "cube_type": "time"
+          },
+          "name": "created_at",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Order the payment belongs to.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "order_id",
+            "cube_type": "number"
+          },
+          "name": "order_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Primary key of the payment.",
+          "enum_values": [],
+          "meta": {
+            "cube_dimension": "payment_id",
+            "cube_type": "number"
+          },
+          "name": "payment_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": true,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "How the customer paid.",
+          "enum_values": [
+            "credit_card",
+            "bank_transfer",
+            "gift_card",
+            "coupon"
+          ],
+          "meta": {
+            "cube_dimension": "payment_method",
+            "cube_type": "string"
+          },
+          "name": "payment_method",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": null,
+          "description": "Payment outcome.",
+          "enum_values": [
+            "succeeded",
+            "failed",
+            "refunded"
+          ],
+          "meta": {
+            "cube_dimension": "status",
+            "cube_type": "string"
+          },
+          "name": "status",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "One row per payment attempt or refund against an order (AUD cents).",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "analytics.payments",
+      "grain": [
+        "payment_id"
+      ],
+      "key": "cube.payments",
+      "kind": "table",
+      "name": "payments",
+      "owner": null,
+      "relationships": [
+        {
+          "column": "order_id",
+          "to_asset": "analytics.orders",
+          "to_column": "order_id"
+        }
+      ],
+      "source_meta": {
+        "cubes": [
+          "payments"
+        ],
+        "files": [
+          "cubes/payments.yml"
+        ],
+        "measures": [
+          "payments.collected (sum)",
+          "payments.payment_count (count)"
+        ]
+      },
+      "tags": [],
+      "used_by": []
+    }
+  ],
+  "fingerprint": "3707972ce3f27a46d9e59a26ad7419ded1c33ba61d5151d7fea83a60d2e55e46",
+  "ir_version": "1.0.0",
+  "kind": "cube",
+  "project": "cube",
+  "queries": [],
+  "semantic_models": [
+    {
+      "description": "Metrics defined in the Cube data model cube",
+      "key": "semantic.cube",
+      "mdl": {
+        "catalog": "cube",
+        "cubes": [
+          {
+            "baseObject": "customers",
+            "description": "One row per registered customer. Guest checkouts (customer_id 0) are not in this table.",
+            "dimensions": [
+              {
+                "description": "Primary key of the customer.",
+                "expression": "customer_id",
+                "name": "customer_id",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "Contact email. Personal data.",
+                "expression": "email",
+                "name": "email",
+                "type": "VARCHAR"
+              },
+              {
+                "description": "Customer first name.",
+                "expression": "first_name",
+                "name": "first_name",
+                "type": "VARCHAR"
+              },
+              {
+                "description": "Customer last name.",
+                "expression": "last_name",
+                "name": "last_name",
+                "type": "VARCHAR"
+              }
+            ],
+            "measures": [
+              {
+                "description": "Number of registered customers.",
+                "expression": "COUNT(*)",
+                "name": "customer_count",
+                "type": "BIGINT"
+              },
+              {
+                "description": "Count of non-returned orders placed by the customers (sum of number_of_orders).",
+                "expression": "SUM(number_of_orders)",
+                "name": "lifetime_orders",
+                "type": "DOUBLE"
+              }
+            ],
+            "name": "customers",
+            "timeDimensions": [
+              {
+                "description": "Date of the customer's first order of any status.",
+                "expression": "first_order_date",
+                "name": "first_order_date",
+                "type": "DATE"
+              },
+              {
+                "description": "Date the customer registered.",
+                "expression": "signup_date",
+                "name": "signup_date",
+                "type": "DATE"
+              }
+            ]
+          },
+          {
+            "baseObject": "orders",
+            "description": "One row per customer order. The source of truth for orders and revenue (AUD cents).",
+            "dimensions": [
+              {
+                "description": "Order total including GST and shipping, in AUD cents.",
+                "expression": "amount",
+                "name": "amount",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "Customer who placed the order. 0 is the internal test customer, always exclude it.",
+                "expression": "customer_id",
+                "name": "customer_id",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "Primary key of the order.",
+                "expression": "order_id",
+                "name": "order_id",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "Order lifecycle state. returned and return_pending orders are excluded from revenue.",
+                "expression": "status",
+                "name": "status",
+                "type": "VARCHAR"
+              }
+            ],
+            "measures": [
+              {
+                "description": "Revenue divided by valid order count, in AUD dollars.",
+                "expression": "CAST((SUM(CASE WHEN (status NOT IN ('returned', 'return_pending') AND customer_id <> 0) THEN amount / 100.0 END)) AS DOUBLE) / NULLIF(CAST((COUNT(CASE WHEN (status NOT IN ('returned', 'return_pending') AND customer_id <> 0) THEN 1 END)) AS DOUBLE), 0)",
+                "name": "average_order_value",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "Number of valid orders.",
+                "expression": "COUNT(CASE WHEN (status NOT IN ('returned', 'return_pending') AND customer_id <> 0) THEN 1 END)",
+                "name": "order_count",
+                "type": "BIGINT"
+              },
+              {
+                "description": "Sum of order amounts in AUD dollars for valid orders (excludes returned, return_pending and the internal test customer).",
+                "expression": "SUM(CASE WHEN (status NOT IN ('returned', 'return_pending') AND customer_id <> 0) THEN amount / 100.0 END)",
+                "name": "revenue",
+                "type": "DOUBLE"
+              }
+            ],
+            "name": "orders",
+            "timeDimensions": [
+              {
+                "description": "Date the order was placed in Australia/Sydney time.",
+                "expression": "order_date",
+                "name": "order_date",
+                "type": "DATE"
+              }
+            ]
+          },
+          {
+            "baseObject": "payments",
+            "description": "One row per payment attempt or refund against an order (AUD cents).",
+            "dimensions": [
+              {
+                "description": "Order the payment belongs to.",
+                "expression": "order_id",
+                "name": "order_id",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "Primary key of the payment.",
+                "expression": "payment_id",
+                "name": "payment_id",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "How the customer paid.",
+                "expression": "payment_method",
+                "name": "payment_method",
+                "type": "VARCHAR"
+              },
+              {
+                "description": "Payment outcome.",
+                "expression": "status",
+                "name": "status",
+                "type": "VARCHAR"
+              }
+            ],
+            "measures": [
+              {
+                "description": "Payments that succeeded, in AUD dollars.",
+                "expression": "SUM(CASE WHEN (status = 'succeeded') THEN amount / 100.0 END)",
+                "name": "collected",
+                "type": "DOUBLE"
+              },
+              {
+                "description": "Number of payments of any outcome.",
+                "expression": "COUNT(*)",
+                "name": "payment_count",
+                "type": "BIGINT"
+              }
+            ],
+            "name": "payments",
+            "timeDimensions": [
+              {
+                "description": "When the payment was created (UTC).",
+                "expression": "created_at",
+                "name": "created_at",
+                "type": "DATE"
+              }
+            ]
+          }
+        ],
+        "models": [
+          {
+            "columns": [
+              {
+                "name": "customer_id",
+                "type": "integer"
+              },
+              {
+                "name": "email",
+                "type": "varchar"
+              },
+              {
+                "name": "first_name",
+                "type": "varchar"
+              },
+              {
+                "name": "first_order_date",
+                "type": "date"
+              },
+              {
+                "name": "last_name",
+                "type": "varchar"
+              },
+              {
+                "name": "number_of_orders",
+                "type": "double"
+              },
+              {
+                "name": "signup_date",
+                "type": "date"
+              }
+            ],
+            "description": "One row per registered customer. Guest checkouts (customer_id 0) are not in this table.",
+            "name": "customers",
+            "primaryKey": "customer_id",
+            "tableReference": {
+              "schema": "analytics",
+              "table": "customers"
+            }
+          },
+          {
+            "columns": [
+              {
+                "name": "amount",
+                "type": "double"
+              },
+              {
+                "name": "customer_id",
+                "type": "integer"
+              },
+              {
+                "name": "order_date",
+                "type": "date"
+              },
+              {
+                "name": "order_id",
+                "type": "integer"
+              },
+              {
+                "name": "status",
+                "type": "varchar"
+              }
+            ],
+            "description": "One row per customer order. The source of truth for orders and revenue (AUD cents).",
+            "name": "orders",
+            "primaryKey": "order_id",
+            "tableReference": {
+              "schema": "analytics",
+              "table": "orders"
+            }
+          },
+          {
+            "columns": [
+              {
+                "name": "amount",
+                "type": "double"
+              },
+              {
+                "name": "created_at",
+                "type": "date"
+              },
+              {
+                "name": "order_id",
+                "type": "integer"
+              },
+              {
+                "name": "payment_id",
+                "type": "integer"
+              },
+              {
+                "name": "payment_method",
+                "type": "varchar"
+              },
+              {
+                "name": "status",
+                "type": "varchar"
+              }
+            ],
+            "description": "One row per payment attempt or refund against an order (AUD cents).",
+            "name": "payments",
+            "primaryKey": "payment_id",
+            "tableReference": {
+              "schema": "analytics",
+              "table": "payments"
+            }
+          }
+        ],
+        "relationships": [],
+        "schema": "public"
+      },
+      "name": "cube",
+      "notes": [],
+      "queryable_metrics": [
+        "average_order_value",
+        "collected",
+        "customer_count",
+        "lifetime_orders",
+        "order_count",
+        "payment_count",
+        "revenue"
+      ]
+    }
+  ],
+  "terms": [],
+  "warnings": [
+    {
+      "code": "types_guessed",
+      "key": null,
+      "message": "Cube data models carry no column types: the metric model's column types were guessed from the dimension and measure types"
+    }
+  ]
+}

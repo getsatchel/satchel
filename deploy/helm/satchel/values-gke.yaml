@@ -1,0 +1,71 @@
+# GKE: Cloud SQL (private IP) via the Auth Proxy, Workload Identity, Gateway API, Secret Manager CSI.
+# Replace every PROJECT / REGION / INSTANCE / host placeholder.
+publicUrl: https://satchel.example.com
+env: production
+
+image:
+  repository: ghcr.io/getsatchel/satchel
+  tag: ""
+
+resultDir: gs://PROJECT-satchel-results/results
+
+oidc:
+  issuer: https://accounts.example.com
+  clientId: satchel
+
+web:
+  replicaCount: 2
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+
+serviceAccount:
+  # Needs roles/cloudsql.client and objectAdmin on the results bucket; bind with
+  # roles/iam.workloadIdentityUser for PROJECT.svc.id.goog[NAMESPACE/RELEASE-satchel].
+  gcpServiceAccount: satchel@PROJECT.iam.gserviceaccount.com
+
+cloudSqlProxy:
+  enabled: true
+  instanceConnectionName: PROJECT:REGION:INSTANCE
+  privateIp: true
+  autoIamAuthn: false
+
+# Secret key names equal env var names. DB URLs use 127.0.0.1:5432 (the proxy), for example
+#   postgresql+psycopg://satchel_app:PASS@127.0.0.1:5432/satchel
+secretManager:
+  enabled: true
+  secrets:
+    SATCHEL_DATABASE_URL: projects/PROJECT/secrets/satchel-database-url/versions/latest
+    SATCHEL_ADMIN_DATABASE_URL: projects/PROJECT/secrets/satchel-admin-database-url/versions/latest
+    SATCHEL_MIGRATION_DATABASE_URL: projects/PROJECT/secrets/satchel-migration-database-url/versions/latest
+    SATCHEL_OIDC_CLIENT_SECRET: projects/PROJECT/secrets/satchel-oidc-client-secret/versions/latest
+  bootstrapSecrets:
+    SATCHEL_BOOTSTRAP_DATABASE_URL: projects/PROJECT/secrets/satchel-bootstrap-database-url/versions/latest
+    SATCHEL_APP_DB_PASSWORD: projects/PROJECT/secrets/satchel-app-db-password/versions/latest
+    SATCHEL_WORKER_DB_PASSWORD: projects/PROJECT/secrets/satchel-worker-db-password/versions/latest
+
+bootstrap:
+  # First install only; set false afterwards to stop mounting the admin credential.
+  enabled: true
+
+firstWorkspace:
+  enabled: true
+  slug: acme
+  name: Acme
+  adminEmail: admin@example.com
+
+gke:
+  enabled: true
+exposure:
+  type: gateway
+  host: satchel.example.com
+  timeoutSec: 330
+gateway:
+  parentRefs:
+    - name: external-http
+      namespace: infra
+      sectionName: https
+
+networkPolicy:
+  enabled: true

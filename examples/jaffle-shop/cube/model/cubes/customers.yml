@@ -1,0 +1,51 @@
+cubes:
+  - name: customers
+    sql_table: analytics.customers
+    description: One row per registered customer. Guest checkouts (customer_id 0) are not in this table.
+    meta:
+      owner: crm-team@jaffle.example
+
+    dimensions:
+      - name: customer_id
+        sql: customer_id
+        type: number
+        primary_key: true
+        description: Primary key of the customer.
+
+      - name: first_name
+        sql: first_name
+        type: string
+        description: Customer first name.
+
+      - name: last_name
+        sql: last_name
+        type: string
+        description: Customer last name.
+
+      - name: email
+        sql: email
+        type: string
+        description: Contact email. Personal data.
+        meta:
+          satchel:
+            pii: true
+
+      - name: signup_date
+        sql: signup_date
+        type: time
+        description: Date the customer registered.
+
+      - name: first_order_date
+        sql: first_order_date
+        type: time
+        description: Date of the customer's first order of any status.
+
+    measures:
+      - name: customer_count
+        type: count
+        description: Number of registered customers.
+
+      - name: lifetime_orders
+        sql: number_of_orders
+        type: sum
+        description: Count of non-returned orders placed by the customers (sum of number_of_orders).

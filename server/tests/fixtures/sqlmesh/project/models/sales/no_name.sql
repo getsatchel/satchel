@@ -1,0 +1,2 @@
+MODEL (kind FULL);
+SELECT 1 AS x

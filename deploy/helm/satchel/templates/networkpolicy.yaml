@@ -1,0 +1,62 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "satchel.fullname" . }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "satchel.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- with .Values.networkPolicy.ingressFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range .Values.networkPolicy.allowCidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+        {{- if and .Values.networkPolicy.allowGkeLoadBalancers (not .Values.aws.enabled) }}
+        - ipBlock: {cidr: 130.211.0.0/22}
+        - ipBlock: {cidr: 35.191.0.0/16}
+        {{- end }}
+      ports:
+        - {protocol: TCP, port: {{ .Values.web.port }}}
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    # https (OIDC, Secret Manager, GCS / S3, STS, chat provider, git hosts for git sources), the Cloud SQL proxy to Cloud SQL
+    # (3307), and on AWS RDS directly (5432)
+    - ports:
+        - {protocol: TCP, port: 443}
+        - {protocol: TCP, port: 3307}
+        {{- if .Values.aws.enabled }}
+        - {protocol: TCP, port: 5432}
+        {{- end }}
+    # GKE metadata server (Workload Identity); on EKS, IMDS and the Pod Identity agent
+    - to:
+        - ipBlock: {cidr: 169.254.169.254/32}
+        - ipBlock: {cidr: 169.254.169.252/32}
+        - ipBlock: {cidr: 169.254.170.23/32}
+      ports:
+        - {protocol: TCP, port: 80}
+        - {protocol: TCP, port: 988}
+    {{- if .Values.devPostgres.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "satchel.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: postgres
+      ports:
+        - {protocol: TCP, port: 5432}
+    {{- end }}
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

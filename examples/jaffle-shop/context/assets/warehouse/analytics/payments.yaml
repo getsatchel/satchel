@@ -1,0 +1,15 @@
+table: analytics.payments
+description: One row per payment event from the payment provider. For reconciliation and payment method analysis, not for revenue.
+grain: payment_id
+caveats: [caveats/refunds-pre-2023.md]
+columns:
+  payment_id: { description: Primary key of the payment event }
+  order_id: { description: Order this payment relates to }
+  payment_method:
+    description: How the payment was made
+    enum_values: [credit_card, bank_transfer, gift_card, coupon]
+  status:
+    description: Payment outcome. Only succeeded rows are money received.
+    enum_values: [succeeded, failed, refunded]
+  amount: { description: Payment amount, unit: AUD cents }
+  created_at: { description: Timestamp of the payment event (UTC) }

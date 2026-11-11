@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Terraform maps from environment variable names to the names of stored secrets, not secret values"
+regexTarget = "line"
+regexes = ['''SATCHEL_[A-Z_]*_DB_PASSWORD\s*=\s*"[a-z_]+_password"''']

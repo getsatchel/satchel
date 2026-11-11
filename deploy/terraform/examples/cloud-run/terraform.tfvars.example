@@ -1,0 +1,26 @@
+project_id = "my-gcp-project"
+region     = "us-central1"
+
+# A released satchel image tag (ghcr.io/getsatchel/satchel:<tag>).
+image_tag = "0.1.0"
+
+# OIDC client you created in your identity provider.
+oidc_issuer    = "https://accounts.google.com"
+oidc_client_id = "1234567890-abc.apps.googleusercontent.com"
+# Prefer leaving the secret out of Terraform and adding it with gcloud (docs/deploy/cloud-run.md step 4).
+# oidc_client_secret = "..."
+
+# Optional: your own domain through an external HTTPS load balancer.
+# domain = "satchel.example.com"
+
+# Optional: run `satchel-migrate` from this machine on every image change (needs gcloud).
+# run_migrations_on_apply = true
+
+# Optional: curation LLM.
+# enable_chat_api_key = true
+# chat_provider       = "anthropic"
+# chat_model          = "claude-sonnet-5-5"
+
+# Smaller and cheaper, for a trial.
+# database_availability_type = "ZONAL"
+# min_instances              = 1

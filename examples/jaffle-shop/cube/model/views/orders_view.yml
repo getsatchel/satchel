@@ -1,0 +1,10 @@
+views:
+  - name: orders_view
+    description: Orders with their customer, the surface BI tools query.
+    cubes:
+      - join_path: orders
+        includes: "*"
+      - join_path: orders.customers
+        includes:
+          - first_name
+          - last_name

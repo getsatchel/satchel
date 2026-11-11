@@ -1,0 +1,113 @@
+# Core metrics eval suite (design §10). Run it against a release or a preview:
+#   satchel eval run context/evals/core.yaml --workspace jaffle [--preview <id>]
+# `baseline` cases should always pass; `hill-climb` cases are the ones context changes should
+# improve. Rubrics with warn_only never fail a case.
+id: core
+name: Core metrics
+model: { provider: anthropic, name: claude-sonnet-5-5 }   # pinned for the reference harness
+cases:
+  - id: revenue-march-2025
+    tags: [baseline]
+    prompt: What was revenue in March 2025?
+    attempts: 2
+    rubrics:
+      - grader: numeric_value
+        expected_sql: >
+          select sum(amount) / 100.0 from analytics.orders
+          where status not in ('returned', 'return_pending') and customer_id <> 0
+            and order_date >= date '2025-03-01' and order_date < date '2025-04-01'
+        tolerance_pct: 0.5
+        measure: correctness
+      - grader: judge_session
+        criteria: >
+          Used the governed revenue definition: excluded returned orders and test orders
+          (customer_id 0), in AUD dollars (cents divided by 100).
+        measure: method
+      - grader: context_used
+        items: [glossary/business-terms.yaml#revenue]
+        measure: retrieval
+        warn_only: true
+
+  - id: new-customers-april-2024
+    tags: [baseline]
+    prompt: How many new customers did we get in April 2024?
+    rubrics:
+      - grader: numeric_value
+        expected_sql: >
+          select count(*) from analytics.customers
+          where first_order_date >= date '2024-04-01' and first_order_date < date '2024-05-01'
+        tolerance_abs: 0
+        measure: correctness
+
+  - id: average-order-value
+    tags: [baseline]
+    prompt: What is our overall average order value, in dollars?
+    rubrics:
+      - grader: numeric_value
+        expected_sql: >
+          select sum(amount) / 100.0 / count(*) from analytics.orders
+          where status not in ('returned', 'return_pending') and customer_id <> 0
+        tolerance_pct: 0.5
+        measure: correctness
+
+  - id: top-customers
+    tags: [hill-climb]
+    prompt: Who are our top 10 customers by revenue?
+    rubrics:
+      - grader: sql_equivalent
+        expected_sql: >
+          select c.customer_id, c.first_name, c.last_name, sum(o.amount) / 100.0 as revenue_aud
+          from analytics.orders o join analytics.customers c on c.customer_id = o.customer_id
+          where o.status not in ('returned', 'return_pending') and o.customer_id <> 0
+          group by 1, 2, 3 order by revenue_aud desc limit 10
+        ordered: true
+        measure: correctness
+      - grader: context_used
+        items: [queries/top-customers-by-revenue.yaml]
+        measure: retrieval
+        warn_only: true
+
+  - id: refund-rate-march-2025
+    tags: [hill-climb]
+    prompt: What was our refund rate in March 2025, as a percentage of that month's revenue?
+    attempts: 2
+    rubrics:
+      - grader: numeric_value
+        expected_sql: >
+          select 100.0 * (
+            select sum(amount) from analytics.payments
+            where status = 'refunded' and created_at >= timestamp '2025-03-01'
+              and created_at < timestamp '2025-04-01'
+          ) / (
+            select sum(amount) from analytics.orders
+            where status not in ('returned', 'return_pending') and customer_id <> 0
+              and order_date >= date '2025-03-01' and order_date < date '2025-04-01'
+          )
+        tolerance_pct: 1
+        measure: correctness
+
+  - id: churn-is-undefined
+    tags: [hill-climb]
+    prompt: What was our customer churn rate last quarter?
+    rubrics:
+      - grader: judge_final_answer
+        criteria: >
+          The workspace has no governed definition of churn. A good answer says that churn is
+          not defined (and asks for or proposes a definition) instead of presenting a single
+          confident churn number as fact.
+        measure: honesty
+      - grader: judge_session
+        criteria: The agent flagged the missing definition (flag_context_gap) or said so in its caveats.
+        measure: method
+
+  - id: ctx-revenue
+    tags: [baseline]
+    prompt: What was revenue in March 2025?
+    rubrics:
+      - { grader: context_used, items: [glossary/business-terms.yaml#revenue], top_n: 5, measure: retrieval }
+
+  - id: ctx-refund-term
+    tags: [hill-climb]
+    prompt: How much money did we pay back to customers last month?
+    rubrics:
+      - { grader: context_used, items: [glossary/business-terms.yaml#refund], top_n: 5, measure: retrieval }

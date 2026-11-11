@@ -1,0 +1,90 @@
+{
+  "assets": [
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "integer",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "customer_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "One row per customer.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "shop.customers",
+      "grain": [],
+      "key": "table.Shop.Customers",
+      "kind": "table",
+      "name": null,
+      "owner": null,
+      "relationships": [],
+      "source_meta": {},
+      "tags": [],
+      "used_by": []
+    },
+    {
+      "caveats": [],
+      "columns": [
+        {
+          "data_type": "integer",
+          "description": "Primary key.",
+          "enum_values": [],
+          "meta": {},
+          "name": "order_id",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        },
+        {
+          "data_type": "varchar",
+          "description": null,
+          "enum_values": [],
+          "meta": {},
+          "name": "status",
+          "not_null": false,
+          "pii": false,
+          "tags": [],
+          "unique": false,
+          "unit": null
+        }
+      ],
+      "database": null,
+      "depends_on": [],
+      "description": "One row per order.",
+      "endorsed": null,
+      "endorsement_hint": null,
+      "enum_values": [],
+      "fqn": "shop.orders",
+      "grain": [],
+      "key": "table.Shop.Orders",
+      "kind": "table",
+      "name": null,
+      "owner": "data-team",
+      "relationships": [],
+      "source_meta": {},
+      "tags": [],
+      "used_by": []
+    }
+  ],
+  "fingerprint": "cf78137763d3b1108838052b89d02dfe90fd1979e01bbf757cb67d74308b6c08",
+  "ir_version": "1.0.0",
+  "kind": "example",
+  "project": null,
+  "queries": [],
+  "semantic_models": [],
+  "terms": [],
+  "warnings": []
+}

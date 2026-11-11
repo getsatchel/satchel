@@ -1,0 +1,68 @@
+{{- if .Values.devPostgres.enabled }}
+{{- $full := include "satchel.devPgHost" . }}
+# NOT FOR PRODUCTION: single-pod pgvector with dev passwords. Hook resources so the
+# migration Job can reach it (the Job waits for the port).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  annotations:
+    {{- include "satchel.preHook" (dict "weight" "-9") | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - {name: postgres, port: 5432}
+  selector:
+    {{- include "satchel.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $full }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  annotations:
+    {{- include "satchel.preHook" (dict "weight" "-9") | nindent 4 }}
+spec:
+  serviceName: {{ $full }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "satchel.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "satchel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.devPostgres.image }}
+          ports:
+            - {name: postgres, containerPort: 5432}
+          env:
+            - {name: POSTGRES_USER, value: postgres}
+            - {name: POSTGRES_DB, value: {{ .Values.devPostgres.database | quote }}}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.devPostgres.password | quote }}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "postgres"]}
+            periodSeconds: 5
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.devPostgres.storage }}
+{{- end }}

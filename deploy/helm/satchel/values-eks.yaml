@@ -1,0 +1,78 @@
+# EKS: RDS for PostgreSQL (pgvector), IRSA, AWS Load Balancer Controller (ALB Ingress),
+# AWS Secrets Manager through the Secrets Store CSI driver + AWS provider (ASCP).
+# Replace every ACCOUNT / REGION / host placeholder, or let the Terraform module
+# (deploy/terraform/modules/aws-helm-values) render this file for you.
+publicUrl: https://satchel.example.com
+env: production
+
+image:
+  repository: ghcr.io/getsatchel/satchel
+  tag: ""
+
+resultDir: s3://ACCOUNT-satchel-results/results
+
+oidc:
+  issuer: https://accounts.example.com
+  clientId: satchel
+
+web:
+  replicaCount: 2
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+
+serviceAccount:
+  # Trusts the cluster's OIDC provider for system:serviceaccount:NAMESPACE:RELEASE-satchel; allows
+  # S3 on the results and audit buckets, secretsmanager:GetSecretValue on the runtime secrets
+  # and kms:Decrypt.
+  awsRoleArn: arn:aws:iam::ACCOUNT:role/satchel-runtime
+  # The migrate Job's role: it alone can read the owner-level secrets (migration and bootstrap).
+  migration:
+    create: true
+    awsRoleArn: arn:aws:iam::ACCOUNT:role/satchel-migrate
+
+# Secret key names equal env var names. Each secret is a plain string. DB URLs point at the RDS
+# endpoint with TLS, for example
+#   postgresql+psycopg://satchel_app:PASS@satchel.xxxx.REGION.rds.amazonaws.com:5432/satchel?sslmode=require
+secretManager:
+  enabled: true
+  provider: aws
+  secrets:
+    SATCHEL_DATABASE_URL: satchel/database-url
+    SATCHEL_ADMIN_DATABASE_URL: satchel/admin-database-url
+    SATCHEL_OIDC_CLIENT_SECRET: satchel/oidc-client-secret
+  # Read by the migrate Job only, as the migrate role.
+  migrationSecrets:
+    SATCHEL_MIGRATION_DATABASE_URL: satchel/migration-database-url
+  bootstrapSecrets:
+    SATCHEL_BOOTSTRAP_DATABASE_URL: satchel/bootstrap-database-url
+    SATCHEL_APP_DB_PASSWORD: satchel/app-db-password
+    SATCHEL_WORKER_DB_PASSWORD: satchel/worker-db-password
+
+bootstrap:
+  # First install only; set false afterwards to stop mounting the admin credential.
+  enabled: true
+
+firstWorkspace:
+  enabled: true
+  slug: acme
+  name: Acme
+  adminEmail: admin@example.com
+
+aws:
+  enabled: true
+  region: REGION
+  alb:
+    scheme: internet-facing
+    certificateArn: arn:aws:acm:REGION:ACCOUNT:certificate/CERT-ID
+
+exposure:
+  type: ingress
+  host: satchel.example.com
+  timeoutSec: 330
+
+networkPolicy:
+  enabled: true
+  # The ALB reaches pods directly (target-type ip) from the VPC.
+  allowCidrs: [10.40.0.0/16]

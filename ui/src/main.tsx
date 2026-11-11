@@ -1,0 +1,32 @@
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter } from "react-router-dom";
+import { App } from "./App";
+import { ToastProvider } from "./components/Toast";
+import { ApiError } from "./api/client";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import "./index.css";
+
+const qc = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 10_000,
+      refetchOnWindowFocus: false,
+      retry: (n, err) => !(err instanceof ApiError && err.status < 500) && n < 2,
+    },
+  },
+});
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <QueryClientProvider client={qc}>
+      <BrowserRouter>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  </React.StrictMode>,
+);

@@ -1,0 +1,44 @@
+Satchel {{ .Values.image.tag | default .Chart.AppVersion }} installed as release "{{ .Release.Name }}".
+{{- if .Values.secrets.create }}
+
+WARNING: secrets.create=true stored database URLs and keys in the Helm release.
+Development only. Use existingSecret or secretManager.enabled in production.
+{{- end }}
+{{- if .Values.devPostgres.enabled }}
+
+WARNING: devPostgres is an in-cluster pgvector with dev passwords and no backups. Not for production.
+{{- end }}
+
+Public URL: {{ .Values.publicUrl }}
+{{- if eq .Values.exposure.type "none" }}
+No Gateway or Ingress was created. To try it locally:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "satchel.fullname" . }} 8080:{{ .Values.service.port }}
+{{- end }}
+
+Connect an MCP client to {{ trimSuffix "/" .Values.publicUrl }}/mcp
+
+  Claude Code:
+    claude mcp add --transport http satchel {{ trimSuffix "/" .Values.publicUrl }}/mcp
+
+  Claude Desktop: Settings > Connectors > Add custom connector, URL
+    {{ trimSuffix "/" .Values.publicUrl }}/mcp
+  (OAuth sign-in runs through your OIDC provider.)
+
+Check rollout:
+  kubectl --namespace {{ .Release.Namespace }} rollout status deploy/{{ include "satchel.fullname" . }}
+{{- if and .Values.firstWorkspace.enabled }}
+
+First workspace "{{ .Values.firstWorkspace.slug }}" is created by a post-install Job; {{ .Values.firstWorkspace.adminEmail }} becomes admin on first OIDC login.
+{{- else }}
+
+Create the first workspace:
+  kubectl --namespace {{ .Release.Namespace }} exec deploy/{{ include "satchel.fullname" . }} -- satchel workspace create <slug> --name <name> --admin-email <email>
+{{- end }}
+{{- if eq .Values.exposure.type "ingress" }}
+{{- if not .Values.gke.enabled }}
+
+Non-GKE ingress-nginx needs SSE-friendly settings on the Ingress annotations (see docs/deploy/helm.md):
+  nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  nginx.ingress.kubernetes.io/proxy-read-timeout: "{{ .Values.exposure.timeoutSec }}"
+{{- end }}
+{{- end }}

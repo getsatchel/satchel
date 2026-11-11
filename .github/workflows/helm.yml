@@ -1,0 +1,110 @@
+name: helm
+
+on:
+  pull_request:
+    paths:
+      - "deploy/helm/**"
+      - "deploy/docker/**"
+      - "server/**"
+      - ".github/workflows/helm.yml"
+  push:
+    branches: [main]
+    paths: ["deploy/helm/**"]
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: v3.17.3
+  KIND_VERSION: v0.31.0
+  KUBECONFORM_VERSION: v0.6.7
+  CHART: deploy/helm/satchel
+
+# A new push to a PR cancels that PR's previous run; runs on main are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: Install kubeconform
+        run: |
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar xz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+      - name: Lint
+        run: |
+          helm lint "$CHART" --strict
+          helm lint "$CHART" --strict -f "$CHART/values-gke.yaml"
+          helm lint "$CHART" --strict -f "$CHART/values-eks.yaml"
+          helm lint "$CHART" --strict -f "$CHART/values-dev.yaml"
+      - name: Template and validate
+        run: |
+          mkdir -p out
+          helm template r "$CHART" -n satchel > out/default.yaml
+          helm template r "$CHART" -n satchel -f "$CHART/values-gke.yaml" > out/gke.yaml
+          helm template r "$CHART" -n satchel -f "$CHART/values-eks.yaml" > out/eks.yaml
+          helm template r "$CHART" -n satchel -f "$CHART/values-dev.yaml" > out/dev.yaml
+          helm template r "$CHART" -n satchel --set worker.mode=cronjob --set exposure.type=ingress \
+            --set exposure.host=satchel.example.com --set gke.enabled=true --set ingress.managedCertificate=true > out/ingress.yaml
+          for f in out/*.yaml; do
+            echo "== $f"
+            kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.31.0 \
+              -schema-location default \
+              -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' "$f"
+          done
+      - name: Guard rails render as errors
+        run: |
+          ! helm template r "$CHART" --set web.replicaCount=3 2>/dev/null
+          ! helm template r "$CHART" --set env=production --set extraEnv.SATCHEL_DEV_AUTH=1 2>/dev/null
+          ! helm template r "$CHART" --set exposure.timeoutSec=60 2>/dev/null
+          ! helm template r "$CHART" --set aws.enabled=true --set gke.enabled=true 2>/dev/null
+          ! helm template r "$CHART" -f "$CHART/values-eks.yaml" --set resultDir=/var/lib/satchel/results 2>/dev/null
+          helm template r "$CHART" --set web.replicaCount=3 --set resultDir=s3://bucket/prefix >/dev/null
+
+  kind:
+    runs-on: ubuntu-latest
+    needs: chart
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          build-args: BAKE_EMBEDDINGS=false
+          tags: satchel:dev
+          load: true
+          # Read-only: the image workflow writes this cache (one writer, no thrashing).
+          cache-from: type=gha,scope=satchel
+      - uses: helm/kind-action@v1
+        with:
+          version: ${{ env.KIND_VERSION }}
+          cluster_name: satchel
+      - name: Load image
+        run: kind load docker-image satchel:dev --name satchel
+      - name: Install (runs bootstrap, migrate and workspace hooks)
+        run: |
+          helm install satchel "$CHART" -f "$CHART/values-dev.yaml" \
+            --set embedding.provider=hash --wait --timeout 10m
+      - name: Verify
+        run: |
+          kubectl port-forward svc/satchel 8080:80 &
+          sleep 3
+          curl -fsS localhost:8080/healthz
+          curl -fsS localhost:8080/readyz
+      - name: Diagnostics
+        if: failure()
+        run: |
+          kubectl get all,jobs
+          kubectl describe pods
+          kubectl logs -l app.kubernetes.io/instance=satchel --all-containers --tail=100 --prefix || true

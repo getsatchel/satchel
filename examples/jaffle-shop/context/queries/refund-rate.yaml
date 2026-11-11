@@ -1,0 +1,21 @@
+question: What is the monthly refund rate?
+variants: [refunds as a percentage of revenue, how much do we refund each month]
+connection: warehouse
+sql: |
+  with revenue as (
+    select date_trunc('month', order_date) as month, sum(amount) as revenue_cents
+    from analytics.orders
+    where status not in ('returned', 'return_pending') and customer_id <> 0
+    group by 1
+  ),
+  refunds as (
+    select date_trunc('month', created_at) as month, sum(amount) as refund_cents
+    from analytics.payments
+    where status = 'refunded'
+    group by 1
+  )
+  select r.month, coalesce(f.refund_cents, 0) * 1.0 / r.revenue_cents as refund_rate
+  from revenue r
+  left join refunds f using (month)
+  order by 1
+verified_by: sam@jaffle.example

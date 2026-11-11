@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>satchel result</title>
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<div id="app" class="wrap" hidden>
+  <header class="head">
+    <div class="title" id="title"></div>
+    <div class="meta" id="meta"></div>
+    <button type="button" class="btn small" id="view-btn" hidden></button>
+  </header>
+  <div class="chips" id="chips" aria-label="Filters and time range"></div>
+  <div id="kpi" class="kpi" hidden></div>
+  <div id="chart" class="chart" hidden></div>
+  <div class="tablewrap" id="tablewrap"><table id="grid"></table></div>
+  <div class="more" id="more" hidden>
+    <span id="more-text"></span>
+    <button type="button" id="more-btn" class="btn">Load more rows</button>
+  </div>
+  <details class="box" id="sqlbox">
+    <summary id="sql-summary">How this was calculated</summary>
+    <p class="qline" id="qline"></p>
+    <pre id="sql"></pre>
+    <details class="raw" id="rawbox"><summary>Raw metric query</summary><pre id="rawq"></pre></details>
+  </details>
+  <details class="box ctxbox" id="ctxbox" hidden>
+    <summary id="ctx-summary">Context</summary>
+    <div class="chips" id="ctx"></div>
+  </details>
+  <div class="fb" id="fb" role="group" aria-label="Rate this result">
+    <span class="fb-label" id="fb-label">Was this right? Your data team sees this.</span>
+    <button type="button" class="btn" id="fb-up" aria-label="Good result" title="Good result">&#128077;</button>
+    <button type="button" class="btn" id="fb-down" aria-label="Bad result" title="Bad result">&#128078;</button>
+    <span class="fb-status" id="fb-status" role="status" aria-live="polite"></span>
+  </div>
+  <div class="wrong" id="wrong" hidden role="group" aria-label="What was off?">
+    <span class="wlabel" id="wrong-label">What was off? (optional)</span>
+    <div class="chips" id="reasons">
+      <button type="button" class="btn" data-reason="wrong_number" aria-pressed="false">Wrong number</button>
+      <button type="button" class="btn" data-reason="wrong_definition" aria-pressed="false">Wrong definition</button>
+      <button type="button" class="btn" data-reason="missing_filter" aria-pressed="false">Missing a filter</button>
+      <button type="button" class="btn" data-reason="not_what_i_asked" aria-pressed="false">Not what I asked</button>
+    </div>
+    <textarea id="wrong-text" rows="2" maxlength="2000" aria-labelledby="wrong-label" placeholder="e.g. revenue should exclude refunds"></textarea>
+    <div class="row">
+      <button type="button" class="btn primary" id="wrong-send">Send</button>
+    </div>
+  </div>
+</div>
+</div>
+<div id="empty" class="empty">Waiting for the result&hellip;</div>
+<script>/*__JS__*/</script>
+</body>
+</html>

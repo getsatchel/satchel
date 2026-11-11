@@ -1,0 +1,99 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+# A new push to a PR cancels that PR's previous run; runs on main are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            server/uv.lock
+            deploy/docker/dbt-requirements.txt
+      - run: uv python install 3.12
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run mypy satchel
+      # dbt in its own virtualenv, as in the image, so tests/test_dbt_build.py runs real
+      # `dbt parse` (those tests skip without SATCHEL_DBT_BIN).
+      - name: dbt for the dbt parse tests
+        run: |
+          uv venv -q --python 3.12 "$RUNNER_TEMP/dbt"
+          uv pip install -q --python "$RUNNER_TEMP/dbt/bin/python" --require-hashes --no-deps \
+            -r ../deploy/docker/dbt-requirements.txt
+          echo "SATCHEL_DBT_BIN=$RUNNER_TEMP/dbt/bin/dbt" >> "$GITHUB_ENV"
+      # One Postgres container per xdist worker (session fixtures are per process).
+      - run: uv run pytest -q -n 4
+  # Adapter contributors need no Postgres: the SDK, its conformance kit, and an adapter's own
+  # conformance tests (the dbt adapter and the template) run without a database.
+  adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+      - name: SDK
+        working-directory: sdk
+        run: |
+          uv sync
+          uv run ruff check .
+          uv run mypy satchel_adapter_sdk
+          uv run pytest -q
+      - name: dbt, Cube and SQLMesh adapter conformance (no Postgres)
+        working-directory: server
+        run: |
+          uv sync
+          uv run pytest -q tests/test_source_dbt.py tests/test_source_cube.py \
+            tests/test_source_sqlmesh.py tests/test_source_host.py
+      - name: Adapter template
+        working-directory: templates/adapter
+        run: |
+          uv venv
+          uv pip install -e ../../sdk -e . pytest
+          uv run --no-sync pytest -q
+  ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+  widgets:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui-widgets
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui-widgets/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      # fails when server/satchel/resources/widgets/result.html is stale vs ui-widgets/src
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

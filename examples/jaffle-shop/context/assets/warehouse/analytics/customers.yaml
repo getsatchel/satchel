@@ -1,0 +1,12 @@
+table: analytics.customers
+description: One row per customer, with lifetime order summary columns.
+grain: customer_id
+caveats: [caveats/guest-checkout-customers.md]
+columns:
+  customer_id: { description: Primary key of the customer }
+  first_name: { description: Given name, pii: true }
+  last_name: { description: Family name, pii: true }
+  email: { description: Contact email (lower-cased), pii: true }
+  signup_date: { description: Date the account was created; often well before the first order }
+  first_order_date: { description: Date of the customer's first order; use this for new customer and cohorts }
+  number_of_orders: { description: Lifetime count of non-returned orders }

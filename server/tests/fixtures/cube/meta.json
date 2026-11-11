@@ -1,0 +1,434 @@
+{
+ "cubes": [
+  {
+   "description": "Refunds issued by the old checkout. Defined in a JavaScript model.",
+   "dimensions": [
+    {
+     "description": "How the refunded payment was made.",
+     "name": "legacy_refunds.reason",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Reason",
+     "title": "Legacy Refunds Reason",
+     "type": "string"
+    }
+   ],
+   "measures": [
+    {
+     "aggType": "sum",
+     "description": "Total refunded through the old checkout, in AUD dollars.",
+     "name": "legacy_refunds.refunded_total",
+     "public": true,
+     "shortTitle": "Refunded Total",
+     "title": "Legacy Refunds Refunded Total",
+     "type": "number"
+    },
+    {
+     "aggType": "count",
+     "name": "legacy_refunds.refund_count",
+     "public": true,
+     "shortTitle": "Refund Count",
+     "title": "Legacy Refunds Refund Count",
+     "type": "number"
+    }
+   ],
+   "name": "legacy_refunds",
+   "public": true,
+   "segments": [],
+   "title": "Legacy Refunds",
+   "type": "cube"
+  },
+  {
+   "description": "One row per registered customer. Guest checkouts (customer_id 0) are not in this table.",
+   "dimensions": [
+    {
+     "description": "Customer first name.",
+     "name": "customers.first_name",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "First Name",
+     "title": "Customers First Name",
+     "type": "string"
+    },
+    {
+     "description": "Customer last name.",
+     "name": "customers.last_name",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Last Name",
+     "title": "Customers Last Name",
+     "type": "string"
+    },
+    {
+     "description": "Contact email. Personal data.",
+     "meta": {
+      "satchel": {
+       "pii": true
+      }
+     },
+     "name": "customers.email",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Email",
+     "title": "Customers Email",
+     "type": "string"
+    },
+    {
+     "description": "Date the customer registered.",
+     "name": "customers.signup_date",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Signup Date",
+     "title": "Customers Signup Date",
+     "type": "time"
+    },
+    {
+     "description": "Date of the customer's first order of any status.",
+     "name": "customers.first_order_date",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "First Order Date",
+     "title": "Customers First Order Date",
+     "type": "time"
+    }
+   ],
+   "measures": [
+    {
+     "aggType": "count",
+     "description": "Number of registered customers.",
+     "name": "customers.customer_count",
+     "public": true,
+     "shortTitle": "Customer Count",
+     "title": "Customers Customer Count",
+     "type": "number"
+    },
+    {
+     "aggType": "sum",
+     "description": "Count of non-returned orders placed by the customers (sum of number_of_orders).",
+     "name": "customers.lifetime_orders",
+     "public": true,
+     "shortTitle": "Lifetime Orders",
+     "title": "Customers Lifetime Orders",
+     "type": "number"
+    }
+   ],
+   "meta": {
+    "owner": "crm-team@jaffle.example"
+   },
+   "name": "customers",
+   "public": true,
+   "segments": [],
+   "title": "Customers",
+   "type": "cube"
+  },
+  {
+   "description": "One row per customer order. The source of truth for orders and revenue (AUD cents).",
+   "dimensions": [
+    {
+     "description": "Customer who placed the order. 0 is the internal test customer, always exclude it.",
+     "name": "orders.customer_id",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Customer ID",
+     "title": "Orders Customer ID",
+     "type": "number"
+    },
+    {
+     "description": "Date the order was placed in Australia/Sydney time.",
+     "name": "orders.order_date",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Order Date",
+     "title": "Orders Order Date",
+     "type": "time"
+    },
+    {
+     "description": "Order lifecycle state. returned and return_pending orders are excluded from revenue.",
+     "meta": {
+      "satchel": {
+       "enum_values": [
+        "placed",
+        "shipped",
+        "completed",
+        "return_pending",
+        "returned"
+       ]
+      }
+     },
+     "name": "orders.status",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Status",
+     "title": "Orders Status",
+     "type": "string"
+    },
+    {
+     "description": "Order total including GST and shipping, in AUD cents.",
+     "name": "orders.amount",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Amount",
+     "title": "Orders Amount",
+     "type": "number"
+    }
+   ],
+   "measures": [
+    {
+     "aggType": "sum",
+     "description": "Sum of order amounts in AUD dollars for valid orders (excludes returned, return_pending and the internal test customer).",
+     "name": "orders.revenue",
+     "public": true,
+     "shortTitle": "Revenue",
+     "title": "Orders Revenue",
+     "type": "number"
+    },
+    {
+     "aggType": "count",
+     "description": "Number of valid orders.",
+     "name": "orders.order_count",
+     "public": true,
+     "shortTitle": "Order Count",
+     "title": "Orders Order Count",
+     "type": "number"
+    },
+    {
+     "aggType": "number",
+     "description": "Revenue divided by valid order count, in AUD dollars.",
+     "name": "orders.average_order_value",
+     "public": true,
+     "shortTitle": "Average Order Value",
+     "title": "Orders Average Order Value",
+     "type": "number"
+    }
+   ],
+   "meta": {
+    "satchel": {
+     "caveats": [
+      "Orders before 2023 predate the refund workflow; refund analysis is only reliable from 2023."
+     ],
+     "endorsed": true
+    },
+    "owner": "data-team@jaffle.example"
+   },
+   "name": "orders",
+   "public": true,
+   "segments": [
+    {
+     "description": "Orders that count towards revenue.",
+     "name": "orders.valid_orders",
+     "public": true,
+     "shortTitle": "Valid Orders",
+     "title": "Orders Valid Orders"
+    }
+   ],
+   "title": "Orders",
+   "type": "cube"
+  },
+  {
+   "description": "One row per payment attempt or refund against an order (AUD cents).",
+   "dimensions": [
+    {
+     "description": "Order the payment belongs to.",
+     "name": "payments.order_id",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Order ID",
+     "title": "Payments Order ID",
+     "type": "number"
+    },
+    {
+     "description": "How the customer paid.",
+     "meta": {
+      "satchel": {
+       "enum_values": [
+        "credit_card",
+        "bank_transfer",
+        "gift_card",
+        "coupon"
+       ]
+      }
+     },
+     "name": "payments.payment_method",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Payment Method",
+     "title": "Payments Payment Method",
+     "type": "string"
+    },
+    {
+     "description": "Payment outcome.",
+     "meta": {
+      "satchel": {
+       "enum_values": [
+        "succeeded",
+        "failed",
+        "refunded"
+       ]
+      }
+     },
+     "name": "payments.status",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Status",
+     "title": "Payments Status",
+     "type": "string"
+    },
+    {
+     "description": "When the payment was created (UTC).",
+     "name": "payments.created_at",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Created at",
+     "title": "Payments Created at",
+     "type": "time"
+    }
+   ],
+   "measures": [
+    {
+     "aggType": "count",
+     "description": "Number of payments of any outcome.",
+     "name": "payments.payment_count",
+     "public": true,
+     "shortTitle": "Payment Count",
+     "title": "Payments Payment Count",
+     "type": "number"
+    },
+    {
+     "aggType": "sum",
+     "description": "Payments that succeeded, in AUD dollars.",
+     "name": "payments.collected",
+     "public": true,
+     "shortTitle": "Collected",
+     "title": "Payments Collected",
+     "type": "number"
+    }
+   ],
+   "name": "payments",
+   "public": true,
+   "segments": [],
+   "title": "Payments",
+   "type": "cube"
+  },
+  {
+   "description": "Orders with their customer, the surface BI tools query.",
+   "dimensions": [
+    {
+     "description": "Primary key of the order.",
+     "name": "orders_view.order_id",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Order ID",
+     "title": "Orders View Order ID",
+     "type": "number"
+    },
+    {
+     "description": "Customer who placed the order. 0 is the internal test customer, always exclude it.",
+     "name": "orders_view.customer_id",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Customer ID",
+     "title": "Orders View Customer ID",
+     "type": "number"
+    },
+    {
+     "description": "Date the order was placed in Australia/Sydney time.",
+     "name": "orders_view.order_date",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Order Date",
+     "title": "Orders View Order Date",
+     "type": "time"
+    },
+    {
+     "description": "Order lifecycle state. returned and return_pending orders are excluded from revenue.",
+     "meta": {
+      "satchel": {
+       "enum_values": [
+        "placed",
+        "shipped",
+        "completed",
+        "return_pending",
+        "returned"
+       ]
+      }
+     },
+     "name": "orders_view.status",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Status",
+     "title": "Orders View Status",
+     "type": "string"
+    },
+    {
+     "description": "Order total including GST and shipping, in AUD cents.",
+     "name": "orders_view.amount",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Amount",
+     "title": "Orders View Amount",
+     "type": "number"
+    },
+    {
+     "description": "Customer first name.",
+     "name": "orders_view.first_name",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "First Name",
+     "title": "Orders View First Name",
+     "type": "string"
+    },
+    {
+     "description": "Customer last name.",
+     "name": "orders_view.last_name",
+     "primaryKey": false,
+     "public": true,
+     "shortTitle": "Last Name",
+     "title": "Orders View Last Name",
+     "type": "string"
+    }
+   ],
+   "measures": [
+    {
+     "aggType": "sum",
+     "description": "Sum of order amounts in AUD dollars for valid orders (excludes returned, return_pending and the internal test customer).",
+     "name": "orders_view.revenue",
+     "public": true,
+     "shortTitle": "Revenue",
+     "title": "Orders View Revenue",
+     "type": "number"
+    },
+    {
+     "aggType": "count",
+     "description": "Number of valid orders.",
+     "name": "orders_view.order_count",
+     "public": true,
+     "shortTitle": "Order Count",
+     "title": "Orders View Order Count",
+     "type": "number"
+    },
+    {
+     "aggType": "number",
+     "description": "Revenue divided by valid order count, in AUD dollars.",
+     "name": "orders_view.average_order_value",
+     "public": true,
+     "shortTitle": "Average Order Value",
+     "title": "Orders View Average Order Value",
+     "type": "number"
+    }
+   ],
+   "name": "orders_view",
+   "public": true,
+   "segments": [
+    {
+     "description": "Orders that count towards revenue.",
+     "name": "orders_view.valid_orders",
+     "public": true,
+     "shortTitle": "Valid Orders",
+     "title": "Orders View Valid Orders"
+    }
+   ],
+   "title": "Orders View",
+   "type": "view"
+  }
+ ]
+}

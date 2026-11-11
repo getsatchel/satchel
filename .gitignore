@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+.next/
+*.log
+
+# Local data
+.satchel/
+*.duckdb
+*.parquet
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Private design docs (kept local, not pushed)

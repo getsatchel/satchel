@@ -1,0 +1,99 @@
+name: image
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "deploy/docker/**"
+      - ".dockerignore"
+      - "server/**"
+      - "sdk/**"
+      - "ui/**"
+      - ".github/workflows/image.yml"
+env:
+  IMAGE: ghcr.io/getsatchel/satchel
+# A new push to a PR cancels that PR's previous run; runs on main are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: satchel
+          POSTGRES_PASSWORD: satchel
+          POSTGRES_DB: satchel
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U satchel" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,format=short,prefix=sha-
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      # Always build and load for the smoke test; push (below) reuses the cache.
+      - name: Build (loaded locally, not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          load: true
+          tags: satchel:ci
+          # PRs skip baking the embedding model (a large download; the smoke test uses the
+          # hash embedder). main and tags bake it, as published.
+          build-args: BAKE_EMBEDDINGS=${{ github.event_name == 'pull_request' && 'false' || 'true' }}
+          # The only writer of the shared cache the e2e workflows read (scope=satchel).
+          cache-from: type=gha,scope=satchel
+          cache-to: type=gha,scope=satchel,mode=max
+      - name: Smoke test
+        run: |
+          set -eu
+          DB='postgresql+psycopg://satchel:satchel@127.0.0.1:5432/satchel'
+          run() { docker run --rm --network host -e SATCHEL_DATABASE_URL="$DB" "$@"; }
+          run satchel:ci db upgrade
+          run satchel:ci workspace create smoke --name Smoke --admin-email admin@example.com
+          docker run -d --name satchel --network host -e SATCHEL_DATABASE_URL="$DB" \
+            -e SATCHEL_EMBEDDING_PROVIDER=hash -e PORT=8080 satchel:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/readyz && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/healthz
+          curl -fsS http://127.0.0.1:8080/readyz
+          curl -fsS http://127.0.0.1:8080/ | grep -qi '<!doctype html'
+          curl -fsS http://127.0.0.1:8080/.well-known/oauth-protected-resource/mcp
+          docker logs satchel | tail -20
+          docker stop satchel
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: BAKE_EMBEDDINGS=true
+          cache-from: type=gha,scope=satchel

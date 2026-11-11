@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "satchel.fullname" . }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.web.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels:
+      {{- include "satchel.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "satchel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+        {{- with .Values.web.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.web.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "satchel.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.web.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "satchel.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.cloudSqlProxy.enabled }}
+      initContainers:
+        {{- include "satchel.cloudSqlProxy" . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: web
+          image: {{ include "satchel.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: {{ toJson .Values.web.command }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.port }}
+          envFrom:
+            {{- include "satchel.envFrom" . | nindent 12 }}
+          env:
+            {{- include "satchel.runtimeSecretEnv" (dict "root" . "role" "web") | nindent 12 }}
+            {{- with .Values.web.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet: {path: /readyz, port: http}
+            {{- toYaml .Values.web.probes.startup | nindent 12 }}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            {{- toYaml .Values.web.probes.readiness | nindent 12 }}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            {{- toYaml .Values.web.probes.liveness | nindent 12 }}
+          lifecycle:
+            preStop:
+              exec: {command: ["sleep", "10"]}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          securityContext:
+            {{- include "satchel.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            {{- include "satchel.volumeMounts" (dict "root" . "results" true "sm" true) | nindent 12 }}
+      volumes:
+        {{- include "satchel.volumes" (dict "root" . "results" true "sm" true) | nindent 8 }}
+      {{- if .Values.web.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "satchel.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: web
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "satchel.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: web
+      {{- end }}
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

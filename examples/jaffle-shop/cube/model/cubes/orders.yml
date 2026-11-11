@@ -1,0 +1,69 @@
+cubes:
+  - name: orders
+    sql_table: analytics.orders
+    description: One row per customer order. The source of truth for orders and revenue (AUD cents).
+    meta:
+      owner: data-team@jaffle.example
+      satchel:
+        endorsed: true
+        caveats:
+          - "Orders before 2023 predate the refund workflow; refund analysis is only reliable from 2023."
+
+    joins:
+      - name: customers
+        relationship: many_to_one
+        sql: "{CUBE}.customer_id = {customers}.customer_id"
+
+    dimensions:
+      - name: order_id
+        sql: order_id
+        type: number
+        primary_key: true
+        description: Primary key of the order.
+
+      - name: customer_id
+        sql: customer_id
+        type: number
+        description: Customer who placed the order. 0 is the internal test customer, always exclude it.
+
+      - name: order_date
+        sql: order_date
+        type: time
+        description: Date the order was placed in Australia/Sydney time.
+
+      - name: status
+        sql: status
+        type: string
+        description: Order lifecycle state. returned and return_pending orders are excluded from revenue.
+        meta:
+          satchel:
+            enum_values: [placed, shipped, completed, return_pending, returned]
+
+      - name: amount
+        sql: amount
+        type: number
+        description: Order total including GST and shipping, in AUD cents.
+
+    measures:
+      - name: revenue
+        sql: "amount / 100.0"
+        type: sum
+        description: Sum of order amounts in AUD dollars for valid orders (excludes returned, return_pending and the internal test customer).
+        filters:
+          - sql: "{CUBE}.status NOT IN ('returned', 'return_pending') AND {CUBE}.customer_id <> 0"
+
+      - name: order_count
+        type: count
+        description: Number of valid orders.
+        filters:
+          - sql: "{CUBE}.status NOT IN ('returned', 'return_pending') AND {CUBE}.customer_id <> 0"
+
+      - name: average_order_value
+        sql: "CAST({revenue} AS DOUBLE) / NULLIF(CAST({order_count} AS DOUBLE), 0)"
+        type: number
+        description: Revenue divided by valid order count, in AUD dollars.
+
+    segments:
+      - name: valid_orders
+        sql: "{CUBE}.status NOT IN ('returned', 'return_pending') AND {CUBE}.customer_id <> 0"
+        description: Orders that count towards revenue.

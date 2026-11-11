@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Satchel tokens. RGB triplets so Tailwind can apply alpha (`bg-accent/40`). See DESIGN.md. */
+:root {
+  --backdrop: 240 233 223;
+  --backdrop-from: 246 241 233;
+  --backdrop-to: 230 198 174;
+  --bg: 251 250 248;
+  --surface: 255 255 255;
+  --sunken: 245 243 239;
+  --line: 233 229 222;
+  --ink: 28 25 23;
+  --muted: 113 107 101;
+  --primary: 28 25 23;
+  --primary-ink: 251 250 248;
+  --accent: 168 90 50;
+  --accent-ink: 255 255 255;
+  --accent-soft: 248 236 227;
+  --good: 31 125 76;
+  --warn: 171 104 11;
+  --bad: 190 50 38;
+  --info: 79 91 213;
+  --good-soft: 226 242 232;
+  --warn-soft: 250 237 211;
+  --bad-soft: 251 228 224;
+  --info-soft: 232 234 252;
+  --shadow: 60 40 25;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --backdrop: 20 17 15;
+  --backdrop-from: 17 15 13;
+  --backdrop-to: 52 36 25;
+  --bg: 24 22 20;
+  --surface: 31 29 27;
+  --sunken: 38 35 32;
+  --line: 52 48 44;
+  --ink: 238 234 228;
+  --muted: 163 155 146;
+  --primary: 238 234 228;
+  --primary-ink: 24 22 20;
+  --accent: 224 148 106;
+  --accent-ink: 33 19 10;
+  --accent-soft: 56 37 27;
+  --good: 106 196 138;
+  --warn: 228 176 84;
+  --bad: 240 128 112;
+  --info: 147 160 245;
+  --good-soft: 25 50 35;
+  --warn-soft: 57 44 20;
+  --bad-soft: 62 29 25;
+  --info-soft: 33 36 66;
+  --shadow: 0 0 0;
+  color-scheme: dark;
+}
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-bg font-sans text-base text-ink antialiased;
+  font-feature-settings: "ss01";
+}
+/* md+: the app floats as a panel on a soft sand-to-cognac backdrop. Mobile stays full-bleed. */
+@media (min-width: 768px) {
+  body {
+    background:
+      radial-gradient(1200px 700px at 100% 100%, rgb(var(--backdrop-to)) 0%, transparent 70%),
+      radial-gradient(900px 600px at 0% 0%, rgb(var(--backdrop-from)) 0%, transparent 70%),
+      rgb(var(--backdrop));
+  }
+}
+::selection { background: rgb(var(--accent) / 0.22); }
+:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; border-radius: 4px; }
+code, pre, .mono { @apply font-mono; font-size: 12.5px; }
+
+@layer components {
+  /* Caps mono label: section headings, sidebar groups, stat labels, column headers, status words. */
+  .label-caps { @apply font-mono text-2xs font-medium uppercase tracking-[0.08em] text-muted; }
+
+  .btn {
+    @apply inline-flex h-9 touch-manipulation items-center gap-1.5 whitespace-nowrap rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink
+      transition-colors hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-50 sm:h-8;
+  }
+  .btn-primary { @apply border-primary bg-primary text-primary-ink shadow-sm hover:border-primary/85 hover:bg-primary/85; }
+  .btn-danger { @apply border-bad/40 text-bad hover:bg-bad-soft; }
+  .btn-ghost { @apply border-transparent bg-transparent hover:bg-sunken; }
+  .btn-sm { @apply h-7 rounded px-2 text-xs; }
+  /* Outline caps pill: "VIEW SESSIONS >" at the foot of a card. */
+  .btn-pill {
+    @apply inline-flex h-9 touch-manipulation items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3.5 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-ink
+      transition-colors hover:border-ink/25 hover:bg-sunken sm:h-8;
+  }
+  .input {
+    @apply h-9 rounded-md border border-line bg-surface px-2.5 text-base text-ink transition-colors placeholder:text-muted/70
+      hover:border-ink/20 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20 sm:h-8 sm:text-sm;
+  }
+  textarea.input { @apply h-auto py-1.5; }
+  .card { @apply rounded-xl border border-line bg-surface; }
+  .th { @apply whitespace-nowrap bg-sunken/40 px-3 py-2 text-left font-mono text-2xs font-medium uppercase tracking-[0.08em] text-muted; }
+  .td { @apply px-3 py-2.5 align-middle; }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded border border-line bg-sunken px-1.5 py-px text-xs font-medium text-muted;
+  }
+  .badge-accent { @apply border-accent/25 bg-accent-soft text-accent; }
+  .badge-good { @apply border-good/25 bg-good-soft text-good; }
+  .badge-warn { @apply border-warn/25 bg-warn-soft text-warn; }
+  .badge-bad { @apply border-bad/25 bg-bad-soft text-bad; }
+  .badge-info { @apply border-info/25 bg-info-soft text-info; }
+  .label { @apply mb-1 block text-xs font-medium text-muted; }
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-sunken px-1 font-mono text-2xs font-medium text-muted;
+  }
+}
+
+/* rendered markdown */
+.prose-satchel { @apply text-base leading-relaxed; }
+.prose-satchel h1 { @apply mb-3 mt-5 text-xl font-semibold; }
+.prose-satchel h2 { @apply mb-2 mt-5 text-lg font-semibold; }
+.prose-satchel h3 { @apply mb-1.5 mt-4 text-base font-semibold; }
+.prose-satchel p { @apply my-2; }
+.prose-satchel ul { @apply my-2 list-disc pl-5; }
+.prose-satchel ol { @apply my-2 list-decimal pl-5; }
+.prose-satchel code { @apply rounded bg-sunken px-1 py-px; }
+.prose-satchel pre { @apply my-3 overflow-x-auto rounded border border-line bg-sunken p-3; }
+.prose-satchel pre code { @apply bg-transparent p-0; }
+.prose-satchel table { @apply my-3 w-full border-collapse text-sm; }
+.prose-satchel th, .prose-satchel td { @apply border border-line px-2 py-1 text-left; }
+.prose-satchel blockquote { @apply my-2 border-l-2 border-accent/40 pl-3 text-muted; }
+.prose-satchel a { @apply text-accent underline underline-offset-2; }
+
+/* recharts follows the theme */
+.recharts-cartesian-axis-tick-value { fill: rgb(var(--muted)); font-size: 11px; }
+.recharts-cartesian-grid line { stroke: rgb(var(--line)); }
+.recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line { stroke: rgb(var(--line)); }
+.recharts-default-tooltip { background: rgb(var(--surface)) !important; border: 1px solid rgb(var(--line)) !important; border-radius: 8px; font-size: 12px; }

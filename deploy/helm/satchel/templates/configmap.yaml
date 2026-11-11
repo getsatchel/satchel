@@ -1,0 +1,42 @@
+{{- include "satchel.validate" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "satchel.fullname" . }}
+  labels:
+    {{- include "satchel.labels" . | nindent 4 }}
+  annotations:
+    {{- include "satchel.preHook" (dict "weight" "-10") | nindent 4 }}
+data:
+  SATCHEL_ENV: {{ .Values.env | quote }}
+  SATCHEL_LOG_FORMAT: {{ .Values.logFormat | quote }}
+  SATCHEL_PUBLIC_URL: {{ .Values.publicUrl | quote }}
+  SATCHEL_RESULT_DIR: {{ .Values.resultDir | quote }}
+  {{- with .Values.sessionRetentionDays }}
+  SATCHEL_SESSION_RETENTION_DAYS: {{ . | quote }}
+  {{- end }}
+  SATCHEL_EMBEDDING_PROVIDER: {{ .Values.embedding.provider | quote }}
+  PORT: {{ .Values.web.port | quote }}
+  HOME: /tmp
+  {{- with .Values.aws.region }}
+  AWS_REGION: {{ . | quote }}
+  AWS_DEFAULT_REGION: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.oidc.issuer }}
+  SATCHEL_OIDC_ISSUER: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.oidc.clientId }}
+  SATCHEL_OIDC_CLIENT_ID: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.chat.provider }}
+  SATCHEL_CHAT_PROVIDER: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.chat.model }}
+  SATCHEL_CHAT_MODEL: {{ . | quote }}
+  {{- end }}
+  {{- range $k, $v := .Values.embedding.extra }}
+  SATCHEL_EMBEDDING_{{ $k }}: {{ $v | quote }}
+  {{- end }}
+  {{- range $k, $v := .Values.extraEnv }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

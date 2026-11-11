@@ -1,0 +1,70 @@
+version: 2
+
+semantic_models:
+  - name: orders
+    description: Customer orders, one row per order.
+    model: ref('orders')
+    defaults:
+      agg_time_dimension: order_date
+    entities:
+      - name: order_id
+        type: primary
+      - name: customer
+        type: foreign
+        expr: customer_id
+    dimensions:
+      - name: order_date
+        type: time
+        type_params:
+          time_granularity: day
+        description: Date the order was placed (Australia/Sydney).
+      - name: status
+        type: categorical
+        description: Order status (placed, shipped or completed for valid orders).
+    measures:
+      - name: order_total
+        description: Order amount in AUD dollars (cents / 100).
+        agg: sum
+        expr: amount / 100.0
+      - name: order_count
+        description: Number of orders.
+        agg: count
+        expr: order_id
+
+metrics:
+  - name: revenue
+    label: Revenue
+    description: Sum of order amounts in AUD dollars for valid orders (excludes returned, return_pending and the internal test customer).
+    type: simple
+    type_params:
+      measure: order_total
+    filter: |
+      {{ Dimension('order_id__status') }} NOT IN ('returned', 'return_pending')
+      AND {{ Entity('customer') }} <> 0
+  - name: order_count
+    label: Order count
+    description: Number of valid orders.
+    type: simple
+    type_params:
+      measure: order_count
+    filter: |
+      {{ Dimension('order_id__status') }} NOT IN ('returned', 'return_pending')
+      AND {{ Entity('customer') }} <> 0
+  - name: average_order_value
+    label: Average order value
+    description: Revenue divided by valid order count, in AUD dollars.
+    type: ratio
+    type_params:
+      numerator: revenue
+      denominator: order_count
+
+saved_queries:
+  - name: monthly_revenue
+    description: Revenue and order count by month.
+    query_params:
+      metrics:
+        - revenue
+        - order_count
+      group_by:
+        - "TimeDimension('metric_time', 'month')"
+    exports: []

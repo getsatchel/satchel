@@ -1,0 +1,9 @@
+# Copy to backend.tf. Create the bucket first (versioning on):
+#   gcloud storage buckets create gs://my-tfstate-bucket --location=us-central1 --uniform-bucket-level-access
+#   gcloud storage buckets update gs://my-tfstate-bucket --versioning
+terraform {
+  backend "gcs" {
+    bucket = "my-tfstate-bucket"
+    prefix = "satchel/gke"
+  }
+}

@@ -1,0 +1,256 @@
+# Satchel Helm chart defaults. Production-oriented: see values-gke.yaml and values-dev.yaml.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/getsatchel/satchel
+  # Defaults to the chart appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# External https URL users reach Satchel on. OAuth issuer; the MCP resource is <publicUrl>/mcp.
+publicUrl: https://satchel.example.com
+
+# SATCHEL_ENV. Production refuses to start without OIDC, with SATCHEL_DEV_AUTH, or with a non-https publicUrl.
+env: production
+logFormat: json
+
+# SATCHEL_RESULT_DIR. Must be gs://bucket/prefix or s3://bucket/prefix when more than one web
+# replica can run.
+resultDir: /var/lib/satchel/results
+
+# SATCHEL_SESSION_RETENTION_DAYS: the worker deletes agent sessions older than this (7-3650).
+# Sessions with feedback are kept. null keeps them forever. Workspace admins can set a shorter
+# or longer limit for their workspace in Settings -> Limits.
+sessionRetentionDays: null
+
+oidc:
+  issuer: ""
+  clientId: ""
+
+embedding:
+  provider: fastembed
+  # Extra SATCHEL_EMBEDDING_* settings, as {SUFFIX: value} (for example {MODEL: "..."}).
+  extra: {}
+
+chat:
+  provider: ""
+  model: ""
+
+# Extra non-secret environment (ConfigMap). Keys are full names, for example SATCHEL_DEV_AUTH: "1".
+extraEnv: {}
+
+# Secrets. The container reads these keys from one Secret; the key name equals the env var name:
+#   SATCHEL_DATABASE_URL, SATCHEL_ADMIN_DATABASE_URL, SATCHEL_MIGRATION_DATABASE_URL, SATCHEL_OIDC_CLIENT_SECRET, SATCHEL_CHAT_API_KEY,
+#   SATCHEL_ENCRYPTION_KEY (optional; needed to store LLM API keys from the UI)
+# Pick ONE source: existingSecret (default), secrets.create (dev only) or secretManager.enabled.
+existingSecret: satchel-secrets
+
+secrets:
+  # Chart-created Secret from the values below. For development only: the values land in
+  # Helm release state. Use existingSecret or secretManager in production.
+  create: false
+  databaseUrl: ""
+  adminDatabaseUrl: ""
+  migrationDatabaseUrl: ""
+  oidcClientSecret: ""
+  chatApiKey: ""
+  # SATCHEL_ENCRYPTION_KEY (64 hex characters, `openssl rand -hex 32`): encrypts the LLM API keys
+  # admins add in Settings → Models. Without it those keys cannot be stored.
+  encryptionKey: ""
+
+# Secrets Store CSI driver (SecretProviderClass), synced into a Kubernetes Secret (secretObjects)
+# so the same secretKeyRef path is used.
+#   provider: gke  GCP Secret Manager through the GKE-managed driver (secrets-store-gke.csi.k8s.io)
+#   provider: aws  AWS Secrets Manager through the upstream driver plus the AWS provider (ASCP),
+#                  authenticated with the pod's IRSA role or EKS Pod Identity
+secretManager:
+  enabled: false
+  provider: gke
+  # Map of Secret key (env var name) to the secret.
+  #   gke: resource path, e.g. projects/my-proj/secrets/satchel-database-url/versions/latest
+  #   aws: secret name or ARN, e.g. satchel/database-url (a plain-string secret)
+  secrets: {}
+  # Owner-level secrets mounted by the migrate Job only (SATCHEL_MIGRATION_DATABASE_URL). Put the
+  # migration URL here instead of in secrets so web and worker identities never need to read it.
+  migrationSecrets: {}
+  # Same for the bootstrap Job (SATCHEL_BOOTSTRAP_DATABASE_URL, SATCHEL_APP_DB_PASSWORD, SATCHEL_WORKER_DB_PASSWORD).
+  bootstrapSecrets: {}
+  aws:
+    # true: EKS Pod Identity; false: IRSA (serviceAccount.awsRoleArn).
+    usePodIdentity: false
+
+web:
+  replicaCount: 1
+  command: ["satchel", "serve", "api", "--host", "0.0.0.0"]
+  port: 8080
+  terminationGracePeriodSeconds: 60
+  resources:
+    requests: {cpu: 250m, memory: 768Mi}
+    limits: {memory: 1536Mi}
+  probes:
+    startup: {periodSeconds: 5, failureThreshold: 60, timeoutSeconds: 3}
+    readiness: {periodSeconds: 10, failureThreshold: 3, timeoutSeconds: 3}
+    liveness: {periodSeconds: 20, failureThreshold: 3, timeoutSeconds: 3}
+  topologySpreadConstraints: true
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}
+  extraEnv: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+# worker.mode: deployment (satchel worker loop) | cronjob (satchel worker --once on a schedule) | disabled
+worker:
+  mode: deployment
+  replicaCount: 1
+  schedule: "*/15 * * * *"
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {memory: 1Gi}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# Pre-install / pre-upgrade hook Job: optional `satchel db bootstrap`, then `satchel db upgrade`.
+migration:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 600
+  activeDeadlineSeconds: 900
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}
+
+bootstrap:
+  enabled: false
+  # Secret with SATCHEL_BOOTSTRAP_DATABASE_URL (admin URL), SATCHEL_APP_DB_PASSWORD, SATCHEL_WORKER_DB_PASSWORD.
+  # Kept separate from existingSecret so the admin credential never reaches web or worker pods.
+  existingSecret: ""
+
+# Post-install Job: satchel workspace create (idempotent).
+firstWorkspace:
+  enabled: false
+  slug: ""
+  name: ""
+  adminEmail: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  # Workload Identity: GSA email (iam.gke.io/gcp-service-account), for GCS results and Cloud SQL IAM.
+  gcpServiceAccount: ""
+  # IRSA: IAM role ARN (eks.amazonaws.com/role-arn), for S3 results, audit export and Secrets Manager.
+  awsRoleArn: ""
+  # A separate identity for the migrate Job, so only it can read owner-level secrets.
+  migration:
+    create: false
+    name: ""
+    annotations: {}
+    awsRoleArn: ""
+    gcpServiceAccount: ""
+
+# Cloud SQL Auth Proxy as a native sidecar (initContainer, restartPolicy Always) so Jobs terminate.
+# Point the DB URLs at 127.0.0.1:5432.
+cloudSqlProxy:
+  enabled: false
+  image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+  instanceConnectionName: ""
+  privateIp: false
+  autoIamAuthn: false
+  port: 5432
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+
+# gke.enabled adds GKE-specific resources (HealthCheckPolicy, GCPBackendPolicy, BackendConfig, ManagedCertificate).
+gke:
+  enabled: false
+
+# aws.enabled adds EKS specifics: ALB annotations on the Ingress (AWS Load Balancer Controller,
+# ingressClassName alb, idle timeout = exposure.timeoutSec, /readyz health checks) and RDS egress
+# in the NetworkPolicy.
+aws:
+  enabled: false
+  # AWS_REGION for the pods (S3, STS) and the region of Secrets Manager secrets. IRSA injects it
+  # too; set it explicitly for EKS Pod Identity or when secrets live in another region.
+  region: ""
+  alb:
+    scheme: internet-facing
+    # ACM certificate for exposure.host; empty lets the controller discover one by host name.
+    certificateArn: ""
+    sslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    # Share one ALB between Ingresses (alb.ingress.kubernetes.io/group.name).
+    groupName: ""
+    wafv2AclArn: ""
+    # Extra security groups for the ALB (e.g. to restrict source ranges).
+    securityGroups: []
+
+# exposure.type: gateway (Gateway API HTTPRoute) | ingress (classic Ingress) | none
+exposure:
+  type: none
+  host: ""
+  # Request timeout in seconds on the load balancer. Must be >= 300 for /mcp SSE.
+  timeoutSec: 330
+
+gateway:
+  # Attach the HTTPRoute to an existing Gateway.
+  parentRefs: []
+  # e.g. [{name: external-http, namespace: infra, sectionName: https}]
+  # Or have the chart create a Gateway.
+  create: false
+  className: gke-l7-global-external-managed
+  annotations: {}
+  # Certificate Manager map (GKE) or a TLS Secret name.
+  certificateMap: ""
+  tlsSecretName: ""
+  # Name of a reserved global static IP (`gcloud compute addresses create ... --global`). Only used
+  # when create is true.
+  staticIpName: ""
+  healthCheckPath: /readyz
+
+ingress:
+  className: ""
+  annotations: {}
+  tlsSecretName: ""
+  # GKE: create a ManagedCertificate for exposure.host and reference it from the Ingress.
+  managedCertificate: false
+  # GKE: static IP name for kubernetes.io/ingress.global-static-ip-name.
+  staticIpName: ""
+
+networkPolicy:
+  enabled: false
+  # Peers allowed to reach the web port (NetworkPolicyPeer list), e.g. the gateway/ingress namespace.
+  ingressFrom: []
+  # Allow GKE load balancer / health check ranges (130.211.0.0/22, 35.191.0.0/16). Ignored when aws.enabled.
+  allowGkeLoadBalancers: true
+  # Extra source CIDRs for the web port, e.g. the VPC CIDR so an ALB in ip target mode reaches pods.
+  allowCidrs: []
+  extraEgress: []
+
+# In-cluster pgvector for kind and demos. NOT for production: no backups, no HA, dev passwords.
+devPostgres:
+  enabled: false
+  image: pgvector/pgvector:pg16
+  database: satchel
+  password: satchel-dev
+  appPassword: satchel-app-dev
+  workerPassword: satchel-worker-dev
+  storage: 1Gi

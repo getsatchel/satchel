@@ -1,0 +1,10 @@
+question: How many active customers do we have?
+variants: [active customers in the last 90 days, number of active buyers]
+connection: warehouse
+sql: |
+  select count(distinct customer_id) as active_customers
+  from analytics.orders
+  where status not in ('returned', 'return_pending')
+    and customer_id <> 0
+    and order_date >= current_date - interval 90 day
+verified_by: jane@jaffle.example
