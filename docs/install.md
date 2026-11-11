@@ -5,11 +5,11 @@ This is the canonical getting-started guide. You need [uv](https://docs.astral.s
 ## 1. Install Satchel as a tool
 
 ```bash
-uv tool install "satchel @ git+https://github.com/getsatchel/satchel#subdirectory=server"
+uv tool install "satchel @ git+https://github.com/getsatchel/satchel@v0.1.0#subdirectory=server"
 satchel version
 ```
 
-The repository is private, so git must be able to read it: sign in with `gh auth login` (HTTPS) or have an SSH key registered on GitHub and use the SSH form of the URL (`git+ssh://git@github.com/getsatchel/satchel#subdirectory=server`). This installs a stable copy at `~/.local/bin/satchel`, independent of any checkout. Do not point Claude at a development checkout (`uv run --project`): uncommitted code and an un-migrated database break every call. `satchel connect` refuses to do that unless you pass `--dev`.
+`@v0.1.0` pins the release; see the [release notes](releases/0.1.0.md). Drop it to install the latest commit on `main` instead. This installs a stable copy at `~/.local/bin/satchel`, independent of any checkout. Do not point Claude at a development checkout (`uv run --project`): uncommitted code and an un-migrated database break every call. `satchel connect` refuses to do that unless you pass `--dev`.
 
 Hacking on Satchel itself? Use `cd server && uv sync` and `uv run satchel ...`, and see the README.
 
@@ -91,9 +91,12 @@ Prints a check mark or a cross for each of: Docker, database connection, app rol
 ## 6. Upgrade
 
 ```bash
-satchel upgrade                         # uv tool upgrade satchel, then migrate the database
-satchel upgrade --from /path/to/satchel    # or a git URL: install that version instead
+satchel upgrade --from git+https://github.com/getsatchel/satchel@v0.2.0   # install that release, then migrate the database
+satchel upgrade --from /path/to/satchel                                  # or a local checkout
+satchel upgrade                                                          # uv tool upgrade satchel, then migrate
 ```
+
+A plain `satchel upgrade` keeps the version you installed when you pinned a tag (`@v0.1.0`), so pass the new release with `--from`. Releases are listed on the [GitHub releases page](https://github.com/getsatchel/satchel/releases).
 
 `mcp stdio`, `serve api` and `serve mcp` check the database revision when they start. If the database is behind the installed code they say so (`database is at 0005 but this satchel needs 0006 — run: satchel upgrade`); over stdio every tool call returns that message so your agent can tell you.
 

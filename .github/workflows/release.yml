@@ -1,0 +1,65 @@
+name: release
+# Runs when a server release tag like v0.1.0 is pushed. The image workflow builds and pushes
+# ghcr.io/getsatchel/satchel:<version> for the same tag; this workflow publishes the Helm chart
+# to oci://ghcr.io/getsatchel/charts/satchel and creates the GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: v3.17.3
+  CHART: deploy/helm/satchel
+  CHART_REGISTRY: oci://ghcr.io/getsatchel/charts
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub release
+      packages: write   # push the chart to ghcr.io
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: Tag matches the server, chart and app versions
+        id: version
+        run: |
+          set -eu
+          tag="$GITHUB_REF_NAME"
+          version="${tag#v}"
+          server="$(sed -n 's/^version = "\(.*\)"/\1/p' server/pyproject.toml)"
+          chart="$(sed -n 's/^version: *//p' "$CHART/Chart.yaml")"
+          app="$(sed -n 's/^appVersion: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/p' "$CHART/Chart.yaml")"
+          fail=0
+          for pair in "server/pyproject.toml:$server" "Chart.yaml version:$chart" "Chart.yaml appVersion:$app"; do
+            if [ "${pair##*:}" != "$version" ]; then
+              echo "::error::tag $tag does not match ${pair%:*} (${pair##*:})"; fail=1
+            fi
+          done
+          notes="docs/releases/$version.md"
+          [ -f "$notes" ] || { echo "::error::release notes $notes are missing"; fail=1; }
+          [ "$fail" = 0 ]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "notes=$notes" >> "$GITHUB_OUTPUT"
+      - name: Lint and package the chart
+        run: |
+          helm lint "$CHART" --strict
+          helm package "$CHART" --version "${{ steps.version.outputs.version }}" \
+            --app-version "${{ steps.version.outputs.version }}" --destination dist
+      - name: Push the chart
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm push "dist/satchel-${{ steps.version.outputs.version }}.tgz" "$CHART_REGISTRY"
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prerelease=""
+          case "${{ steps.version.outputs.version }}" in 0.*|*-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" "dist/satchel-${{ steps.version.outputs.version }}.tgz" \
+            --title "Satchel $GITHUB_REF_NAME" --notes-file "${{ steps.version.outputs.notes }}" \
+            --verify-tag $prerelease
