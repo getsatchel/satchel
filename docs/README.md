@@ -36,6 +36,7 @@ Configure and operate it:
 ## 3. Integrate
 
 - Clients: [Claude](integrations/claude.md) (Desktop, Code), Cursor and others via `satchel connect`.
+- CI: the [GitHub Action](integrations/github-action.md) previews context repo pull requests, runs the eval gate and publishes on merge.
 - Sources: [dbt](integrations/dbt.md), [Cube](integrations/cube.md), [SQLMesh](integrations/sqlmesh.md).
 - [Writing a source adapter](adapters/writing-an-adapter.md) with `satchel-adapter-sdk`. Rules for community adapters: [compatibility](adapters/compatibility.md), [maturity tiers](adapters/maturity.md), [naming and listing](adapters/naming.md), and [wanted integrations](adapters/wanted.md).
 

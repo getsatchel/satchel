@@ -103,7 +103,7 @@ def _release_out(s: Session, rel: Release, current_id: uuid.UUID | None) -> Rele
     return ReleaseOut(
         id=rel.id, seq=rel.seq, kind=rel.kind, note=rel.note, created_by=rel.created_by,
         created_at=rel.created_at, parent_release_id=rel.parent_release_id,
-        item_count=n or 0, is_current=rel.id == current_id,
+        item_count=n or 0, is_current=rel.id == current_id, ref=rel.ref,
     )
 
 
@@ -353,6 +353,10 @@ def make_router(auth: Auth) -> APIRouter:
             rel = _get_release(s, release_id)
             if rel.kind != "preview":
                 raise HTTPException(409, "this release is already published")
+            if rel.ref is not None:
+                raise HTTPException(
+                    409, f"this preview was built from {rel.ref}; it is published when the pull "
+                    "request merges (the GitHub Action imports the default branch)")
             head = latest_published(s, who.workspace_id)
             if rel.parent_release_id != (head.id if head else None):
                 raise HTTPException(

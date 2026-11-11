@@ -40,7 +40,7 @@ jobs:
           {
             # server tests also read the Jaffle example, the committed OpenAPI document, the
             # widget sources and the pinned dbt requirements.
-            echo "server=$(has '^(server/|sdk/|examples/|ui/openapi\.json$|ui-widgets/src/|deploy/docker/dbt-requirements\.txt$)')"
+            echo "server=$(has '^(server/|sdk/|examples/|action/|ui/openapi\.json$|ui-widgets/src/|deploy/docker/dbt-requirements\.txt$)')"
             echo "adapters=$(has '^(server/|sdk/|templates/adapter/)')"
             echo "ui=$(has '^ui/')"
             echo "widgets=$(has '^(ui-widgets/|server/satchel/resources/widgets/)')"

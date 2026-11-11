@@ -196,6 +196,8 @@ class ReleaseOut(BaseModel):
     parent_release_id: uuid.UUID | None
     item_count: int
     is_current: bool = False
+    ref: str | None = Field(
+        default=None, description="Pull-request previews: the git ref it was built from")
 
 
 class PreviewOut(ReleaseOut):
