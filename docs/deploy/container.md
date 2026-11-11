@@ -1,6 +1,6 @@
 # Running Satchel from the container image
 
-One image, `ghcr.io/getsatchel/satchel`, runs every role; the command picks the role. Tags: `sha-<short>` for every push to `main`, `main`, and the semver tag for `v*` releases. It runs as uid/gid 10001 and needs no writable root filesystem when `SATCHEL_RESULT_DIR` points at `gs://`, `s3://` or a mounted volume. It includes the `gcp` and `aws` extras (google-cloud-storage, boto3).
+One image, `ghcr.io/getsatchel/satchel`, runs every role; the command picks the role. Tags: for each `v*` release, the version (`0.1.0`), the minor line (`0.1`) and `latest`; for every push to `main`, `main` and `sha-<short>`. Pin a release version in production; `main` moves with every merge. It runs as uid/gid 10001 and needs no writable root filesystem when `SATCHEL_RESULT_DIR` points at `gs://`, `s3://` or a mounted volume. It includes the `gcp` and `aws` extras (google-cloud-storage, boto3).
 
 ## Build
 
@@ -25,9 +25,9 @@ docker build -f deploy/docker/Dockerfile --build-arg BAKE_EMBEDDINGS=false -t sa
 Example, local:
 
 ```bash
-docker run --rm -e SATCHEL_DATABASE_URL=... ghcr.io/getsatchel/satchel db upgrade
-docker run --rm -e SATCHEL_DATABASE_URL=... ghcr.io/getsatchel/satchel workspace create main --name Main --admin-email you@example.com
-docker run -p 8080:8080 -e SATCHEL_DATABASE_URL=... -e SATCHEL_PUBLIC_URL=http://localhost:8080 ghcr.io/getsatchel/satchel
+docker run --rm -e SATCHEL_DATABASE_URL=... ghcr.io/getsatchel/satchel:0.1.0 db upgrade
+docker run --rm -e SATCHEL_DATABASE_URL=... ghcr.io/getsatchel/satchel:0.1.0 workspace create main --name Main --admin-email you@example.com
+docker run -p 8080:8080 -e SATCHEL_DATABASE_URL=... -e SATCHEL_PUBLIC_URL=http://localhost:8080 ghcr.io/getsatchel/satchel:0.1.0
 ```
 
 ## Probes

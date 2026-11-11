@@ -46,6 +46,7 @@ jobs:
             type=sha,format=short,prefix=sha-
             type=ref,event=branch
             type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
       # Always build and load for the smoke test; push (below) reuses the cache.
       - name: Build (loaded locally, not pushed)
         uses: docker/build-push-action@v6
