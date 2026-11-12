@@ -15,6 +15,8 @@ Claude / browser ──https──▶ Global external Gateway created by the cha
 
 Test locally: `scripts/floci-e2e.sh` applies this stack on a k3s cluster from the floci-gcp emulator and installs the chart for real ([floci.md](floci.md)).
 
+<!-- site: InteractiveCloudDiagram initialCloud=gcp -->
+
 ## 1. Prerequisites
 
 - A Google Cloud project with billing and `roles/owner` for the first apply; `gcloud auth login && gcloud auth application-default login`.

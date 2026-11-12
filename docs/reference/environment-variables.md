@@ -58,3 +58,5 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_SESSION_TTL_S` | `43200` | UI session cookie lifetime (s). |
 | `SATCHEL_OAUTH_CIMD_ENABLED` | `True` | Accept client ID metadata documents as OAuth clients. |
 | `SATCHEL_OAUTH_CIMD_ALLOW_PRIVATE_HOSTS` | `False` | Allow CIMD fetches from private hosts (leave off). |
+
+<!-- site: EnvVarExplorer -->

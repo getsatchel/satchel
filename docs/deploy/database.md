@@ -29,6 +29,8 @@ role.
 `oauth_client` and `auth_flow` hold pre-authentication state, so only `satchel_worker` can read
 them. `satchel_app` sees no rows there.
 
+<!-- site: DatabaseRolesDiagram -->
+
 ## `satchel db bootstrap`
 
 Run it once before the first `satchel db upgrade`. It is safe to run again.

@@ -30,6 +30,8 @@ Claude / browser ──https──▶ ALB (ACM certificate, AWS WAF, 3600 s idle
 
 Test locally: `scripts/floci-aws-e2e.sh` applies this stack against the floci AWS emulator. It installs the chart on a k3s cluster that stands in for the EKS data plane, then stores a query result in emulated S3 over MCP ([floci.md](floci.md#aws-floci)).
 
+<!-- site: InteractiveCloudDiagram initialCloud=aws -->
+
 ## 1. Prerequisites
 
 - An AWS account and an IAM principal that can create VPC, EKS, RDS, IAM, KMS, S3, Secrets Manager, ACM and WAF resources. `AdministratorAccess` works for the first apply.

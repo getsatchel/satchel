@@ -44,3 +44,5 @@ The authoritative schemas are in `server/satchel/tools/definitions.py`; clients 
 
 If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics` and `get_result` also return
 `structuredContent` rendered by the `ui://satchel/result` widget.
+
+<!-- site: McpToolsExplorer -->
