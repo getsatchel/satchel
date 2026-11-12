@@ -59,6 +59,11 @@ cases are `skipped`.
   `satchel eval compare <run-a> <run-b> --workspace acme` compares two runs.
 - **API:** `POST /v1/evals/runs` with `suite_key` and `release_id`.
 
+A run started from the UI or the API (without `wait`) is queued, and returns at once with
+status `running`. Each web server runs queued runs on `SATCHEL_WEB_JOB_THREADS` threads (default
+2), and so does `satchel worker`. If the process running it stops (a deploy, a crash), the run is
+started again from the beginning once, then marked failed with "the run was interrupted".
+
 Analysts and above run evals; curators and above add suites. Run history lists every run with
 what started it: by hand, the publish gate, or the schedule. Tick two completed runs to compare
 pass rates per measure and see which cases started or stopped passing.
@@ -70,8 +75,8 @@ the workspace's latest published release every N hours. The Suites tab shows the
 the next run is due.
 
 - **When.** The worker checks every `SATCHEL_EVAL_TICK_MIN` minutes (default 15; `0` turns
-  scheduled evals off on that worker) on its own thread, so a long eval never delays curation or
-  source syncs. A suite is due when its last scheduled run started N hours ago, or it has never
+  scheduled evals off on that worker) and queues the suites that are due; its job threads run
+  them, so a long eval never delays curation or source syncs. A suite is due when its last scheduled run started N hours ago, or it has never
   run on a schedule. Runs you start by hand and gate runs do not move the schedule.
 - **Who it runs as.** The reference agent's sessions belong to a user: the user who saved the
   suite's latest version if they are still an analyst or above, else the workspace's oldest
@@ -81,8 +86,8 @@ the next run is due.
   **Compare with previous** on the run page shows what changed since then.
 - **No model.** A suite that needs an LLM is not run while no model is configured; the worker logs
   a warning instead of filling the history with skipped runs.
-- **`--once`.** `satchel worker --once` (a CronJob or Cloud Run Job) runs the suites that are due
-  after the curation pass, in the same process, so give the job a timeout long enough for them.
+- **`--once`.** `satchel worker --once` (a CronJob or Cloud Run Job) queues the suites that are
+  due after the curation pass and runs every queued job in the same process, so give the job a timeout long enough for them.
   Its schedule is the shortest interval it can honour.
 - **Replicas.** Each suite's run is started under a Postgres advisory lock, so several workers
   never start the same scheduled run twice.

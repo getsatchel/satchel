@@ -43,7 +43,7 @@ flowchart LR
   end
 
   subgraph Worker["satchel worker / satchel curate run"]
-    Jobs["built: curate pipeline (embed signals → hygiene → golden candidates → gap clustering → drafting), interval loop or --once, advisory lock per workspace · after each pass: expired result purge, session retention (per-workspace limit) · scheduled source syncs on their own thread every SATCHEL_SOURCE_TICK_MIN (sync_interval_hours due, failures retried with backoff, advisory lock per source, unchanged git commit skipped) · scheduled eval runs on a third thread every SATCHEL_EVAL_TICK_MIN (suite schedule.interval_hours due, latest published release, advisory lock per suite, skipped without an LLM, previous scheduled run linked)<br/>planned: job queue · schema crawl schedule"]:::wip
+    Jobs["built: curate pipeline (embed signals → hygiene → golden candidates → gap clustering → drafting), interval loop or --once, advisory lock per workspace · after each pass: expired result purge, session retention (per-workspace limit) · scheduled source syncs on their own thread every SATCHEL_SOURCE_TICK_MIN (sync_interval_hours due, failures retried with backoff, advisory lock per source, unchanged git commit skipped) · scheduled evals: a third thread every SATCHEL_EVAL_TICK_MIN queues due suites (schedule.interval_hours, latest published release, advisory lock per suite, skipped without an LLM, previous scheduled run linked)<br/>job queue (satchel.jobs, table job): claim with FOR UPDATE SKIP LOCKED, lease renewed by a heartbeat (expired lease → claimed again), retries with backoff, dedupe key, give-up hook per kind; consumers: SATCHEL_WORKER_JOB_THREADS here (every kind), SATCHEL_WEB_JOB_THREADS in each web process (eval.run); --once drains it; finished jobs purged after 14 days · kinds: eval.run (API, gate, schedule; retried once from scratch, then failed)<br/>planned: source syncs, crawls and curation as jobs · schema crawl schedule"]:::wip
   end
 
   subgraph DataPlane["Data plane (optional)"]
@@ -94,6 +94,7 @@ flowchart LR
   Evals -->|"reference agent calls tools in-process (invoke_tool, release pinned, session tagged eval_run_id)"| Registry
   Evals -->|"agent loop + LLM judge"| LLM
   Evals -->|"eval_suite · eval_run · eval_case_result"| PG
+  API -->|"job (eval.run) queued; web consumers run it"| PG
   Sync <--> Repo
   Sync --> Items --> PG
   Jobs --> PG
@@ -205,6 +206,7 @@ erDiagram
   release ||--o{ eval_run : "evaluated (preview or published)"
   eval_run ||--o{ eval_case_result : grades
   eval_run ||--o{ session : "tags (session.eval_run_id)"
+  workspace ||--o{ job : queues
 
   context_item {
     uuid id PK
@@ -215,6 +217,18 @@ erDiagram
     text managed_by "ui | git | source"
     uuid source_id FK "nullable, migration 0009"
     text source_key "id in the upstream tool"
+  }
+  job {
+    bigint id PK
+    text kind "eval.run"
+    jsonb payload
+    text dedupe_key "unique while queued or running"
+    text status "queued | running | done | failed"
+    int attempts
+    int max_attempts
+    timestamptz run_after "backoff"
+    text locked_by
+    timestamptz locked_until "lease"
   }
   llm_connection {
     uuid id PK

@@ -15,6 +15,7 @@ from fastapi import Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import Engine, select
 
+from satchel.jobs.runner import JobRunner
 from satchel.llm.chat import ChatProvider
 from satchel.llm.embeddings import EmbeddingProvider
 from satchel.mcp.auth import ROLE_RANK, authenticate_bearer
@@ -30,6 +31,7 @@ class ApiContext:
     embedder: EmbeddingProvider
     settings: Settings
     chat: ChatProvider | None = None  # overrides the configured chat provider (tests)
+    jobs: JobRunner | None = None  # this process's job consumers (satchel.jobs)
 
 
 class Caller(BaseModel):
