@@ -2,7 +2,7 @@
 # Published on PyPI as satchel-server (PyPI's `satchel` is an unrelated project). The command
 # and the import package are both `satchel`.
 name = "satchel-server"
-version = "0.1.1"
+version = "0.2.0"
 description = "Satchel: an open-source, self-hosted context server for data agents (MCP)"
 readme = "README.md"
 requires-python = ">=3.12"

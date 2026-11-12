@@ -9,7 +9,7 @@ uv tool install satchel-server
 satchel version
 ```
 
-The PyPI package is `satchel-server` and includes the built curator UI. The command it installs is `satchel`. The PyPI project named `satchel` is unrelated, so don't install that one. To pin a release, use `uv tool install "satchel-server==0.1.1"` ([release notes](https://github.com/getsatchel/satchel/releases)). To run the latest commit on `main`, install from git: `uv tool install "satchel-server @ git+https://github.com/getsatchel/satchel#subdirectory=server"`. A git install has no built UI. This installs a stable copy at `~/.local/bin/satchel`, independent of any checkout. Do not point Claude at a development checkout (`uv run --project`): uncommitted code and an un-migrated database break every call. `satchel connect` refuses to do that unless you pass `--dev`.
+The PyPI package is `satchel-server` and includes the built curator UI. The command it installs is `satchel`. The PyPI project named `satchel` is unrelated, so don't install that one. To pin a release, use `uv tool install "satchel-server==0.2.0"` ([release notes](https://github.com/getsatchel/satchel/releases)). To run the latest commit on `main`, install from git: `uv tool install "satchel-server @ git+https://github.com/getsatchel/satchel#subdirectory=server"`. A git install has no built UI. This installs a stable copy at `~/.local/bin/satchel`, independent of any checkout. Do not point Claude at a development checkout (`uv run --project`): uncommitted code and an un-migrated database break every call. `satchel connect` refuses to do that unless you pass `--dev`.
 
 Hacking on Satchel itself? Use `cd server && uv sync` and `uv run satchel ...`, and see the README.
 

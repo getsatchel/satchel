@@ -1,5 +1,5 @@
 region    = "eu-west-2"
-image_tag = "0.1.1"
+image_tag = "0.2.0"
 
 domain = "satchel.example.com"
 # With a Route 53 public zone the ACM certificate validates itself.
