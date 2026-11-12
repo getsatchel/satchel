@@ -104,6 +104,13 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
     Object.fromEntries(fields.map((f) => [f.name, cfg[f.name] == null || cfg[f.name] === MASK ? "" : String(cfg[f.name])])),
   );
   const [cleared, setCleared] = useState<Record<string, boolean>>({});
+  // File inputs whose saved location is a path on the server (set with the CLI). The UI can't set
+  // or change such a path, so it is shown read-only until the curator replaces it.
+  const [replaced, setReplaced] = useState<Record<string, boolean>>({});
+  const serverPath = (name: string) => {
+    const saved = cfg[name];
+    return Boolean(e) && where === "bucket" && !cfg.git_url && typeof saved === "string" && saved !== "" && !/^(s3|gs):\/\//.test(saved) && !replaced[name] && values[name] === saved;
+  };
   // Where the files come from: a git repository, or a bucket / upload. Cube and SQLMesh
   // projects live in git; a dbt manifest is a build artifact, so dbt defaults to a bucket.
   const [where, setWhere] = useState<Where>(cfg.git_url ? "git" : e ? "bucket" : kind === "dbt" ? "bucket" : "git");
@@ -381,29 +388,63 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
                 )}
               </>
             ) : (
-              <p className="-mt-2 text-xs text-muted">
-                An <span className="font-mono">s3://</span> or <span className="font-mono">gs://</span> location the server reads on every sync, or leave it empty and upload the files when you sync (CI can do that on every build).
-              </p>
+              <>
+                <p className="-mt-2 text-xs text-muted">
+                  An <span className="font-mono">s3://</span> or <span className="font-mono">gs://</span> location the server reads on every sync, or leave it empty and upload the files when you sync (CI can do that on every build).
+                </p>
+                {fileFields.some((f) => serverPath(f.name)) && (
+                  <Notice>
+                    Some files are read from paths on the Satchel server, which only the CLI can set. To point them somewhere else on the server, run{" "}
+                    <code className="font-mono text-xs [overflow-wrap:anywhere]">
+                      satchel source add {kind} {e?.name} --{fileFields.find((f) => serverPath(f.name))?.name.replace(/_/g, "-")} PATH …
+                    </code>{" "}
+                    with all of the source&apos;s options, since it replaces the whole configuration.
+                  </Notice>
+                )}
+              </>
             )}
-            {fileFields.filter((f) => !(building && BUILT_INPUTS.has(f.name))).map((f) => (
-              <label key={f.name} className="block">
-                <span className="label">
-                  {human(f.name)}
-                  {where === "git" ? " path" : ""}
-                  {requiredFiles.has(f.name) ? "" : " (optional)"}
-                </span>
-                <input
-                  className="input mono w-full"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={values[f.name] ?? ""}
-                  onChange={(ev) => setValues({ ...values, [f.name]: ev.target.value })}
-                  placeholder={filePlaceholder(f.name, folders.has(f.name), where, kind)}
-                  required={where === "git" && requiredFiles.has(f.name)}
-                />
-                {f.prop.description && <span className="mt-1 block text-xs text-muted">{fileHelp(f.prop.description, requiredFiles.has(f.name), where)}</span>}
-              </label>
-            ))}
+            {fileFields.filter((f) => !(building && BUILT_INPUTS.has(f.name))).map((f) =>
+              serverPath(f.name) ? (
+                <div key={f.name}>
+                  <span className="label">
+                    {human(f.name)}
+                    {requiredFiles.has(f.name) ? "" : " (optional)"}
+                  </span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <code className="min-w-0 flex-1 rounded-md border border-line bg-sunken px-2.5 py-1.5 text-xs [overflow-wrap:anywhere]">{values[f.name]}</code>
+                    <button
+                      type="button"
+                      className="btn btn-sm shrink-0"
+                      onClick={() => {
+                        setReplaced({ ...replaced, [f.name]: true });
+                        setValues({ ...values, [f.name]: "" });
+                      }}
+                    >
+                      Replace
+                    </button>
+                  </div>
+                  <span className="mt-1 block text-xs text-muted">Path on the Satchel server. Saving keeps it; Replace it to use a bucket or uploads instead.</span>
+                </div>
+              ) : (
+                <label key={f.name} className="block">
+                  <span className="label">
+                    {human(f.name)}
+                    {where === "git" ? " path" : ""}
+                    {requiredFiles.has(f.name) ? "" : " (optional)"}
+                  </span>
+                  <input
+                    className="input mono w-full"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={values[f.name] ?? ""}
+                    onChange={(ev) => setValues({ ...values, [f.name]: ev.target.value })}
+                    placeholder={filePlaceholder(f.name, folders.has(f.name), where, kind)}
+                    required={where === "git" && requiredFiles.has(f.name)}
+                  />
+                  {f.prop.description && <span className="mt-1 block text-xs text-muted">{fileHelp(f.prop.description, requiredFiles.has(f.name), where)}</span>}
+                </label>
+              ),
+            )}
           </section>
         )}
 

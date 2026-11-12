@@ -240,7 +240,10 @@ Restrictions that apply to sources created or edited over REST (the CLI is uncha
 
 - File inputs accept only paths inside the source's git repository, `s3://` / `gs://` locations,
   or nothing (for upload). A server path set
-  with the CLI is kept when the UI saves the source unchanged, but cannot be set or changed there.
+  with the CLI is kept when the UI saves the source unchanged, but cannot be set or changed there:
+  the source form shows it read-only, with **Replace** to switch that input to a bucket or uploads.
+  To point it at another server path, run `satchel source add` again with all of the source's
+  options (it replaces the whole configuration).
 - `*_env` fields (the *name* of a server environment variable, such as Cube's `meta_token_env`)
   are refused, because they could send a server secret to a URL the caller chose. Use the secret
   field (`meta_token`) instead; it is encrypted.
