@@ -94,6 +94,12 @@ class Settings(BaseSettings):
     # ...and for eval suites whose schedule (schedule.interval_hours) is due this often, on a
     # third thread. 0 turns scheduled eval runs off on this worker.
     eval_tick_min: int = 15
+    # Job queue (satchel.jobs): consumer threads in the worker and in each web server process
+    # (the web server runs eval runs started from the UI, the API and the publish gate), and how
+    # often an idle consumer looks for jobs other processes queued. 0 threads = no consumer.
+    worker_job_threads: int = 2
+    web_job_threads: int = 2
+    job_poll_s: float = 5.0
 
     # Data plane (design §11). Results are Parquet files under result_dir: a local directory, or
     # gs://bucket/prefix / s3://bucket/prefix for multi-replica deployments.

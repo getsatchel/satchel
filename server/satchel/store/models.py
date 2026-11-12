@@ -728,3 +728,44 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String)
     target: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = _created()
+
+
+class Job(Base):
+    """A unit of background work (``satchel.jobs``, migration 0015). The web server and the worker
+    both claim due jobs with ``FOR UPDATE SKIP LOCKED``; a running job holds a lease
+    (``locked_until``) that its heartbeat renews, so a job whose process died is claimed again."""
+
+    __tablename__ = "job"
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('queued','running','done','failed')", name="job_status_ck"
+        ),
+        # The claim scan: due queued jobs, then running jobs whose lease ran out.
+        Index("job_queued_idx", "run_after", "id", postgresql_where=text("status = 'queued'")),
+        Index("job_running_idx", "locked_until", postgresql_where=text("status = 'running'")),
+        # At most one unfinished job per (kind, dedupe_key).
+        Index(
+            "job_dedupe_uq", "kind", "dedupe_key", unique=True,
+            postgresql_where=text(
+                "status in ('queued','running') and dedupe_key is not null"
+            ),
+        ),
+        Index("job_ws_created_idx", "workspace_id", "created_at"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    workspace_id: Mapped[uuid.UUID] = _fk("workspace.id")
+    kind: Mapped[str] = mapped_column(Text)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    dedupe_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'queued'"))
+    attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    max_attempts: Mapped[int] = mapped_column(Integer, server_default=text("3"))
+    run_after: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    locked_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = _created()
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

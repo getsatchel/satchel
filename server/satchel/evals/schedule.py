@@ -14,7 +14,8 @@ latest published release every N hours, from ``satchel worker``.
   ``summary.previous_run_id``; the run page links the comparison.
 - **One at a time.** The due check and the insert of the ``running`` row happen under a
   transaction-level advisory lock per (workspace, suite), so replicas never start the same
-  scheduled run twice. Cases then run outside the lock.
+  scheduled run twice. The run is then queued as an ``eval.run`` job (``satchel.evals.jobs``)
+  and the worker's job consumers run its cases.
 """
 
 from __future__ import annotations
@@ -31,10 +32,10 @@ from sqlalchemy.orm import Session
 
 from satchel import audit
 from satchel.curation.releases import latest_published
+from satchel.evals.jobs import enqueue_runs
 from satchel.evals.providers import resolve_provider
-from satchel.evals.runner import EvalProvider, create_run, execute_run
+from satchel.evals.runner import EvalProvider, create_run
 from satchel.evals.store import latest_suites, suite_of
-from satchel.llm.embeddings import EmbeddingProvider, make_embedder
 from satchel.mcp.auth import Principal
 from satchel.settings import Settings, get_settings
 from satchel.store.db import admin_session, get_engine
@@ -44,7 +45,7 @@ log = logging.getLogger("satchel.evals")
 
 TRIGGER = "schedule"
 RUN_ROLES = ("admin", "curator", "analyst")
-Outcome = Literal["completed", "failed", "no_release", "no_user", "no_llm", "not_due", "error"]
+Outcome = Literal["queued", "no_release", "no_user", "no_llm", "not_due", "error"]
 ProviderFor = Callable[[EvalSuite], EvalProvider | None]
 
 
@@ -111,8 +112,8 @@ class ScheduledResult:
     message: str = ""
 
     def line(self) -> str:
-        what = {"completed": f"run {self.run_id}", "failed": f"run {self.run_id} FAILED"}.get(
-            self.outcome, self.outcome.replace("_", " "))
+        what = (f"run {self.run_id} queued" if self.outcome == "queued"
+                else self.outcome.replace("_", " "))
         return f"eval {self.workspace}/{self.suite} (scheduled): {what}" + (
             f": {self.message}" if self.message else "")
 
@@ -163,15 +164,15 @@ def _start(
             audit.record(s2, row.workspace_id, None, "eval.run.start",
                          {"run_id": str(run_id), "suite": row.key, "release_id": str(rel.id),
                           "trigger": TRIGGER})
-        return res("completed", run_id=run_id), principal, provider
+        return res("queued", run_id=run_id), principal, provider
 
 
 def run_due_evals(
-    *, engine: Engine | None = None, embedder: EmbeddingProvider | None = None,
+    *, engine: Engine | None = None,
     settings: Settings | None = None, workspace_id: uuid.UUID | None = None,
     provider_for: ProviderFor | None = None, now: datetime | None = None,
 ) -> list[ScheduledResult]:
-    """Run every scheduled suite that is due, one after another. Never raises for one suite."""
+    """Queue a run of every scheduled suite that is due. Never raises for one suite."""
     eng = engine or get_engine()
     st = settings or get_settings()
     when = now or datetime.now(UTC)
@@ -187,21 +188,15 @@ def run_due_evals(
                     s.expunge(row)
                     due.append((row, slug))
     out: list[ScheduledResult] = []
-    emb: EmbeddingProvider | None = embedder
     for row, slug in due:
         try:
-            r, principal, provider = _start(eng, row, slug, pick, when)
+            r, principal, _provider = _start(eng, row, slug, pick, when)
             if principal is not None and r.run_id is not None:
-                emb = emb or make_embedder(st)
-                execute_run(eng, emb, principal, r.run_id, provider=provider)
-                with admin_session(engine=eng) as s:
-                    run = s.get(EvalRun, r.run_id)
-                    if run is not None and run.status != "completed":
-                        r.outcome, r.message = "failed", str((run.summary or {}).get("error", ""))
+                enqueue_runs(eng, principal, [r.run_id])
         except Exception as e:  # noqa: BLE001 - one broken suite never stops the others
             log.exception("scheduled eval of %s/%s failed", slug, row.key)
             r = ScheduledResult(row.key, slug, "error", message=f"{type(e).__name__}: {e}")
         if r.outcome != "not_due":
-            (log.info if r.outcome == "completed" else log.warning)(r.line())
+            (log.info if r.outcome == "queued" else log.warning)(r.line())
         out.append(r)
     return out

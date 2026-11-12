@@ -2,12 +2,13 @@
 sync sources whose schedule is due (``satchel.sources.automation``) and run eval suites whose
 schedule is due (``satchel.evals.schedule``).
 
-Deliberately small: no queue, one process, a per-workspace Postgres advisory lock so it can
-run beside the API or as a Cloud Run Job / Kubernetes CronJob (``--once``). Scheduled source
-syncs run on their own thread every ``source_tick_min`` minutes (a per-source advisory lock),
-so a long curation pass never delays them; scheduled evals run on a third thread every
-``eval_tick_min`` minutes, so a long eval never delays a sync. ``--once`` runs one check of each
-after the pass.
+A per-workspace Postgres advisory lock lets it run beside the API or as a Cloud Run Job /
+Kubernetes CronJob (``--once``). Scheduled source syncs run on their own thread every
+``source_tick_min`` minutes (a per-source advisory lock), so a long curation pass never delays
+them; a third thread queues the eval suites whose schedule is due every ``eval_tick_min``
+minutes. Job consumers (``satchel.jobs``, ``worker_job_threads``) run queued jobs: scheduled
+eval runs, and eval runs the web server queued. ``--once`` runs one check of each after the
+pass, then runs every due job.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from types import FrameType
 from sqlalchemy import Engine, select
 
 from satchel.curation.run import CurationReport, run_curation
+from satchel.jobs.runner import JobRunner, Runtime
 from satchel.llm.chat import ChatProvider
 from satchel.llm.embeddings import EmbeddingProvider, make_embedder
 from satchel.settings import Settings, get_settings
@@ -116,6 +118,26 @@ def run_evals(workspace: str | None = None) -> None:
         log.exception("scheduled eval runs failed")
 
 
+def purge_jobs() -> None:
+    """Delete finished jobs older than two weeks. Never fails the pass."""
+    from satchel.jobs.queue import purge
+
+    try:
+        with admin_session() as s:
+            n = purge(s)
+    except Exception:
+        log.exception("job purge failed")
+        return
+    if n:
+        log.info("purged %d finished job(s)", n)
+
+
+def default_jobs(settings: Settings) -> JobRunner:
+    """The worker's consumers: every job kind."""
+    return JobRunner(Runtime(get_engine(), settings), threads=settings.worker_job_threads,
+                     poll_s=settings.job_poll_s, name="worker")
+
+
 def _tick_loop(stop: threading.Event, every_s: float, fn: Callable[[], object],
                what: str = "source") -> None:
     while not stop.is_set():
@@ -131,7 +153,7 @@ def run_forever(
     stop: threading.Event | None = None, pass_fn: Callable[[], object] | None = None,
     use_llm: bool = True, sources_fn: Callable[[], object] | None = None,
     tick_min: int | None = None, evals_fn: Callable[[], object] | None = None,
-    eval_tick_min: int | None = None,
+    eval_tick_min: int | None = None, jobs: JobRunner | None = None,
 ) -> None:
     """Loop until ``stop`` is set (SIGINT/SIGTERM set it). ``once`` runs a single pass.
 
@@ -139,7 +161,9 @@ def run_forever(
     thread every ``tick_min`` minutes (``SATCHEL_SOURCE_TICK_MIN``; 0 = off). A caller that
     passes its own ``pass_fn`` (tests) gets no source ticks unless it passes ``sources_fn``.
     Scheduled evals (``evals_fn``, default :func:`run_evals`) work the same way with
-    ``eval_tick_min`` (``SATCHEL_EVAL_TICK_MIN``)."""
+    ``eval_tick_min`` (``SATCHEL_EVAL_TICK_MIN``). ``jobs`` (default: :func:`default_jobs`
+    unless ``pass_fn`` is given) runs queued jobs on its threads, or all due jobs after a
+    ``once`` pass."""
     st = get_settings()
     interval = (interval_min if interval_min is not None else st.curate_interval_min) * 60
     tick = (tick_min if tick_min is not None else st.source_tick_min) * 60
@@ -151,6 +175,13 @@ def run_forever(
     eval_fn = evals_fn or (None if pass_fn else (lambda: run_evals(workspace)))
     if not eval_tick:
         eval_fn = None
+    runner = jobs or (None if pass_fn else default_jobs(st))
+    if eval_fn is not None and runner is not None:
+        queue_evals = eval_fn
+
+        def eval_fn() -> None:
+            queue_evals()
+            runner.nudge()
 
     def _halt(_sig: int, _frame: FrameType | None) -> None:
         stop.set()
@@ -164,9 +195,12 @@ def run_forever(
         finally:
             purge_results()
             purge_sessions()
+            purge_jobs()
 
     do = pass_fn or default_pass
     tickers: list[threading.Thread] = []
+    if not once and runner is not None:
+        runner.start()
     if not once:
         for fn, every, name in ((tick_fn, tick, "source"), (eval_fn, eval_tick, "eval")):
             if fn is not None:
@@ -184,6 +218,8 @@ def run_forever(
                 for fn in (tick_fn, eval_fn):
                     if fn is not None:
                         fn()
+                if runner is not None:
+                    runner.drain()
                 return
             log.info("next curation pass in %d minute(s)", interval // 60)
             stop.wait(interval)
@@ -191,3 +227,5 @@ def run_forever(
         stop.set()
         for t in tickers:
             t.join(timeout=5)
+        if runner is not None:
+            runner.stop()

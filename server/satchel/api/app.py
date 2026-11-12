@@ -6,8 +6,10 @@ too. Auth lives in :mod:`satchel.api.auth`; routers in the sibling modules. ``/o
 the contract the web UI generates its TypeScript types from (``satchel openapi``).
 """
 
+import contextlib
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
@@ -40,6 +42,8 @@ from satchel.api.schemas import (
     SearchHitOut,
     SearchRequest,
 )
+from satchel.evals.jobs import KIND as EVAL_RUN
+from satchel.jobs.runner import JobRunner, Runtime
 from satchel.llm.chat import ChatProvider
 from satchel.llm.embeddings import EmbeddingProvider, make_embedder
 from satchel.oauth.clients import CimdFetcher
@@ -125,7 +129,23 @@ def create_app(
         mount_mcp(app, McpHttp(eng, emb, st))  # Streamable HTTP at /mcp, bearer auth
     mount_oauth(app, OAuthApp(eng, st, oidc, cimd_fetcher))  # /oauth/*, /auth/*, /.well-known/*
 
-    auth = Auth(ApiContext(eng, emb, st, chat))
+    # Job consumers for work a person starts here (eval runs): started with the app, or by the
+    # first enqueue (TestClient without a lifespan), and stopped on shutdown.
+    jobs = JobRunner(Runtime(eng, st, emb, chat), kinds={EVAL_RUN}, threads=st.web_job_threads,
+                     poll_s=st.job_poll_s, name="web")
+    inner = app.router.lifespan_context
+
+    @contextlib.asynccontextmanager
+    async def lifespan(a: Any) -> AsyncIterator[Any]:
+        jobs.start()
+        try:
+            async with inner(a) as state:
+                yield state
+        finally:
+            jobs.stop()
+
+    app.router.lifespan_context = lifespan
+    auth = Auth(ApiContext(eng, emb, st, chat, jobs))
     Who = Annotated[Caller, Depends(auth.require("explorer"))]
 
     @app.get("/healthz")
