@@ -7,8 +7,7 @@ Runs execute in a background thread unless ``wait`` is set; poll ``GET /v1/evals
 
 import logging
 import uuid
-from concurrent.futures import ThreadPoolExecutor
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -37,7 +36,7 @@ from satchel.api.eval_schemas import (
 )
 from satchel.evals import schedule
 from satchel.evals.gate import evaluate_gate, load_gate_config, start_gate_runs
-from satchel.evals.providers import resolve_provider
+from satchel.evals.jobs import enqueue_runs, eval_provider
 from satchel.evals.runner import EvalProvider, compare_summaries, create_run, execute_run
 from satchel.evals.store import latest_suite, latest_suites, save_suite, suite_of
 from satchel.evals.suite import SuiteError, parse_suite_text
@@ -46,7 +45,6 @@ from satchel.store.db import workspace_session
 from satchel.store.models import EvalCaseResult, EvalRun, EvalSuite, Release
 
 log = logging.getLogger("satchel.evals")
-_BG = ThreadPoolExecutor(max_workers=2, thread_name_prefix="satchel-eval")
 
 
 def _stat(name: str, m: dict[str, Any]) -> MeasureStat:
@@ -120,11 +118,7 @@ def make_router(auth: Auth) -> APIRouter:
         return Principal(who.workspace_id, who.user_id, who.effective_role)
 
     def provider_for(row: EvalSuite, override: str | None = None) -> EvalProvider | None:
-        injected = auth.ctx.chat
-        if injected is not None and hasattr(injected, "complete_with_tools"):
-            return cast(EvalProvider, injected)
-        return resolve_provider(suite_of(row).model, override, st,
-                                workspace_id=row.workspace_id, engine=eng)
+        return eval_provider(row, override, st, eng, auth.ctx.chat)
 
     def execute_ids(p: Principal, ids: list[uuid.UUID], override: str | None) -> None:
         for rid in ids:
@@ -137,10 +131,14 @@ def make_router(auth: Auth) -> APIRouter:
             execute_run(eng, emb, p, rid, provider=provider_for(row, override))
 
     def dispatch(p: Principal, ids: list[uuid.UUID], override: str | None, wait: bool) -> None:
+        """``wait``: run here, in the request. Otherwise queue ``eval.run`` jobs for this
+        process's consumers (or any other web server or worker)."""
         if wait:
             execute_ids(p, ids, override)
-        else:
-            _BG.submit(execute_ids, p, ids, override)
+            return
+        enqueue_runs(eng, p, ids, override)
+        if auth.ctx.jobs is not None:
+            auth.ctx.jobs.wake()
 
     # ---- suites ------------------------------------------------------------------------------
 

@@ -12,11 +12,13 @@ from sqlalchemy import Engine, select, text
 
 from satchel.evals.schedule import run_due_evals
 from satchel.evals.suite import SuiteError, parse_suite_text
+from satchel.jobs.runner import JobRunner, Runtime
+from satchel.settings import Settings
 from satchel.store.db import admin_session
 from satchel.store.models import AuditEvent, EvalRun
 from satchel.worker.main import run_forever
 from tests.helpers import build_jaffle_db
-from tests.test_evals import SUITE_YAML, Env, fake_agent, make_env, put_suite, run_eval
+from tests.test_evals import EMB, SUITE_YAML, Env, fake_agent, make_env, put_suite, run_eval
 
 RETRIEVAL = """
 id: nightly
@@ -47,9 +49,14 @@ def env(app_engine: Engine, tmp_path: Path, warehouse: Path) -> Env:
 
 
 def due(env: Env, now: datetime | None = None, provider: object = None) -> list[str]:
+    """Queue the due suites, run the queued jobs, and report each run's final status."""
     out = run_due_evals(engine=env.engine, workspace_id=env.ws_id, now=now,
                         provider_for=lambda _row: provider)  # type: ignore[arg-type,return-value]
-    return [f"{r.suite}:{r.outcome}" for r in out]
+    JobRunner(Runtime(env.engine, Settings(), EMB, provider),  # type: ignore[arg-type]
+              threads=0).drain()
+    with admin_session(engine=env.engine) as s:
+        return [f"{r.suite}:{s.get(EvalRun, r.run_id).status if r.run_id else r.outcome}"
+                for r in out]
 
 
 def runs(env: Env) -> list[EvalRun]:
