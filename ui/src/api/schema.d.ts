@@ -4828,6 +4828,8 @@ export interface operations {
                 limit?: number;
                 /** @description ids below this (paging) */
                 before?: number | null;
+                /** @description only jobs about this source, connection or eval run */
+                subject_id?: string | null;
             };
             header?: {
                 authorization?: string | null;

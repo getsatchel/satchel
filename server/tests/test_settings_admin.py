@@ -213,6 +213,8 @@ def test_jobs_list_filters_names_and_retries(env: Env) -> None:
     assert not by_id[ev]["retryable"]
     failed = env.client.get("/v1/jobs?status=failed&kind=connection.crawl", headers=h).json()
     assert [r["id"] for r in failed] == [lost]
+    about = env.client.get(f"/v1/jobs?subject_id={cid}", headers=h).json()
+    assert [r["id"] for r in about] == [ok]
     page = env.client.get(f"/v1/jobs?before={lost}", headers=h).json()
     assert all(r["id"] < lost for r in page)
     assert env.client.get("/v1/jobs", headers=env.h("explorer")).status_code == 403

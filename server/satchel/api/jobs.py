@@ -1,6 +1,7 @@
 """The job queue over REST (``satchel.jobs``), curator and above, scoped to the workspace by RLS:
 
-- ``GET /v1/jobs``: recent jobs, newest first, filtered by ``status`` and ``kind`` (the Jobs page).
+- ``GET /v1/jobs``: recent jobs, newest first, filtered by ``status``, ``kind`` and ``subject_id``
+  (the source, connection or eval run a job is about): the Jobs page, and a source's sync history.
 - ``GET /v1/jobs/{id}``: one job and, once it is done, its result. The UI polls it after "Sync
   now", "Crawl" or "Run curation".
 - ``POST /v1/jobs/{id}/retry``: queue a failed sync, crawl or curation job again.
@@ -13,7 +14,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -22,6 +23,8 @@ from satchel.api.common import audit
 from satchel.store.db import workspace_session
 from satchel.store.models import Connection, ContextSource, EvalRun, EvalSuite, Job
 
+# The payload key that names what each kind of job is about.
+_SUBJECT_KEYS = ("source_id", "connection_id", "run_id")
 JobStatus = Literal["queued", "running", "done", "failed"]
 # Kinds a person can retry. A failed eval run is already marked failed: start a new run instead.
 RETRYABLE = {"source.sync", "connection.crawl", "curation.run"}
@@ -99,6 +102,8 @@ def make_router(auth: Auth) -> APIRouter:
         who: Cur, status: JobStatus | None = None, kind: str | None = None,
         limit: Annotated[int, Query(ge=1, le=200)] = 50,
         before: Annotated[int | None, Query(description="ids below this (paging)")] = None,
+        subject_id: Annotated[uuid.UUID | None, Query(
+            description="only jobs about this source, connection or eval run")] = None,
     ) -> list[JobOut]:
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             q = select(Job).order_by(Job.id.desc()).limit(limit)
@@ -108,6 +113,9 @@ def make_router(auth: Auth) -> APIRouter:
                 q = q.where(Job.kind == kind)
             if before is not None:
                 q = q.where(Job.id < before)
+            if subject_id is not None:
+                sid = str(subject_id)
+                q = q.where(or_(*(Job.payload[k].astext == sid for k in _SUBJECT_KEYS)))
             jobs = list(s.scalars(q))
             names = _subjects(s, jobs)
             return [job_out(j, names.get(j.id)) for j in jobs]

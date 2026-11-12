@@ -10063,6 +10063,25 @@
             }
           },
           {
+            "description": "only jobs about this source, connection or eval run",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only jobs about this source, connection or eval run",
+              "title": "Subject Id"
+            }
+          },
+          {
             "in": "header",
             "name": "authorization",
             "required": false,

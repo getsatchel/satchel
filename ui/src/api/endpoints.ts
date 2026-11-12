@@ -149,6 +149,9 @@ export const endpoints = {
 
   listJobs: (status?: JobOut["status"]) =>
     api.get<JobOut[]>(`/v1/jobs?limit=100${status ? `&status=${status}` : ""}`),
+  /** One source's recent syncs (its source.sync jobs), newest first. */
+  listSourceSyncs: (sourceId: string, limit = 20) =>
+    api.get<JobOut[]>(`/v1/jobs?kind=source.sync&subject_id=${encodeURIComponent(sourceId)}&limit=${limit}`),
   retryJob: (id: number) => api.post<JobOut>(`/v1/jobs/${id}/retry`),
 
   listChanges: () => api.get<ChangesOut>("/v1/changes"),
