@@ -2517,6 +2517,98 @@
         "title": "ItemUsage",
         "type": "object"
       },
+      "JobOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_attempts": {
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "attempts",
+          "max_attempts",
+          "created_at"
+        ],
+        "title": "JobOut",
+        "type": "object"
+      },
       "KindFieldOut": {
         "properties": {
           "default": {
@@ -7907,6 +7999,7 @@
     },
     "/v1/connections/{connection_id}/crawl": {
       "post": {
+        "description": "Crawl the connection into the catalog. ``wait=true`` crawls in the request and\nreturns the report; otherwise it queues a ``connection.crawl`` job (202): poll\n``GET /v1/jobs/{id}``; its ``result`` is the report.",
         "operationId": "crawl",
         "parameters": [
           {
@@ -7917,6 +8010,16 @@
               "format": "uuid",
               "title": "Connection Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Wait",
+              "type": "boolean"
             }
           },
           {
@@ -7973,11 +8076,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CrawlOut"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CrawlOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobOut"
+                    }
+                  ],
+                  "title": "Response Crawl"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "queued (without wait)"
           },
           "422": {
             "content": {
@@ -9798,6 +9919,96 @@
         "summary": "Get Item Version",
         "tags": [
           "library"
+        ]
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "jobs"
         ]
       }
     },
@@ -12921,6 +13132,7 @@
     },
     "/v1/sources/{source_id}/sync": {
       "post": {
+        "description": "Sync the source. With uploaded files, or ``wait=true``, it syncs in the request and\nreturns the report. Otherwise it queues a ``source.sync`` job and returns it (202):\npoll ``GET /v1/jobs/{id}``; its ``result.report`` is the report.",
         "operationId": "sync",
         "parameters": [
           {
@@ -12931,6 +13143,16 @@
               "format": "uuid",
               "title": "Source Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Wait",
+              "type": "boolean"
             }
           },
           {
@@ -12987,11 +13209,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SyncReportOut"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SyncReportOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobOut"
+                    }
+                  ],
+                  "title": "Response Sync"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "queued (no files and no wait)"
           },
           "422": {
             "content": {

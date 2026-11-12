@@ -24,7 +24,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -32,12 +32,14 @@ from sqlalchemy.orm import Session
 
 from satchel.api.auth import Auth, Caller
 from satchel.api.common import audit
+from satchel.api.jobs import JobOut, job_of
 from satchel.core.crypto import EncryptionUnavailable, Keyring, configured
 from satchel.sources import admin as source_admin
 from satchel.sources import dbt_build, git
 from satchel.sources.admin import SourceAdminError, masked
 from satchel.sources.apply import SourceSyncError
 from satchel.sources.automation import interval_of, next_sync_at, sync_lock, webhook_url
+from satchel.sources.jobs import queue_sync
 from satchel.sources.registry import AdapterEntry, discover
 from satchel.sources.service import plain_config, record_failure, sync_in_session
 from satchel.store.db import workspace_session
@@ -258,8 +260,15 @@ def make_router(auth: Auth) -> APIRouter:
                 ))
             return out
 
-    @r.post("/v1/sources/{source_id}/sync", response_model=SyncReportOut)
-    async def sync(source_id: uuid.UUID, request: Request, who: Cur) -> SyncReportOut:
+    @r.post(
+        "/v1/sources/{source_id}/sync", response_model=SyncReportOut | JobOut,
+        responses={202: {"model": JobOut, "description": "queued (no files and no wait)"}},
+    )
+    async def sync(source_id: uuid.UUID, request: Request, response: Response, who: Cur,
+                   wait: bool = False) -> SyncReportOut | JobOut:
+        """Sync the source. With uploaded files, or ``wait=true``, it syncs in the request and
+        returns the report. Otherwise it queues a ``source.sync`` job and returns it (202):
+        poll ``GET /v1/jobs/{id}``; its ``result.report`` is the report."""
         sent: list[tuple[str, str, bytes]] = []
         ctype = request.headers.get("content-type", "")
         if ctype.startswith(("multipart/form-data", "application/x-www-form-urlencoded")):
@@ -271,7 +280,25 @@ def make_router(auth: Auth) -> APIRouter:
                 if len(data) > MAX_UPLOAD:
                     raise HTTPException(413, f"{name} is larger than {MAX_UPLOAD >> 20} MB")
                 sent.append((name, str(getattr(value, "filename", "") or name), data))
-        return await run_in_threadpool(_sync, source_id, who, sent)
+        if sent or wait:
+            return await run_in_threadpool(_sync, source_id, who, sent)
+        response.status_code = 202
+        return await run_in_threadpool(_queue, source_id, who)
+
+    def _queue(source_id: uuid.UUID, who: Caller) -> JobOut:
+        with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
+            src = s.get(ContextSource, source_id)
+            if src is None:
+                raise HTTPException(404, "no such source")
+            name = src.name
+        jid, queued = queue_sync(eng, who.workspace_id, source_id, trigger="manual",
+                                 actor=who.user_id)
+        if queued:
+            with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
+                audit(s, who, "source.queue_sync", {"source": name, "job_id": jid})
+        if auth.ctx.jobs is not None:
+            auth.ctx.jobs.wake()
+        return job_of(eng, who.workspace_id, jid)
 
     def _sync(
         source_id: uuid.UUID, who: Caller, sent: list[tuple[str, str, bytes]]

@@ -12,13 +12,13 @@ over 1 MiB are refused (413) before the source is looked up.
 
 For a git source, a push to another branch than the one the source follows (``git_ref``, else
 the repository's default branch from the payload) is acknowledged and ignored (200), as are
-other events; GitHub's ``ping`` gets 200. A matching push gets 202 and the sync runs after the
-response (GitHub gives up after 10 s), under the source's advisory lock, waiting up to
-10 minutes for a running sync to finish; ``satchel.sources.automation.run_sync`` skips the work
-when the ref still points at the last synced commit. Deliveries coalesce per source in the
-process: while a webhook sync of a source is queued or waiting, further deliveries get 202
-without adding another (the pending one resolves the ref when it runs, so it gets the newest
-commit).
+other events; GitHub's ``ping`` gets 200. A matching push gets 202 and queues a
+``source.sync`` job (``satchel.sources.jobs``; GitHub gives up after 10 s), which a web server's
+or the worker's job thread runs under the source's advisory lock;
+``satchel.sources.automation.run_sync`` skips the work when the ref still points at the last
+synced commit. Deliveries coalesce per source across replicas: while a sync of the source is
+queued, further deliveries get 202 without adding another (it resolves the ref when it runs, so
+it gets the newest commit); while one runs, one more is queued after it.
 """
 
 from __future__ import annotations
@@ -28,13 +28,12 @@ import hmac
 import json
 import logging
 import re
-import threading
 import uuid
 from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from starlette.datastructures import Headers
@@ -42,32 +41,14 @@ from starlette.datastructures import Headers
 from satchel.api.auth import ApiContext
 from satchel.core.crypto import Keyring, configured
 from satchel.secrets import source_aad
-from satchel.sources.automation import run_sync
 from satchel.sources.config import WEBHOOK_KEY
+from satchel.sources.jobs import queue_sync
 from satchel.store.db import admin_session
 from satchel.store.models import ContextSource
 
 log = logging.getLogger("satchel.sources")
 
 MAX_BODY = 1 << 20
-WAIT_FOR_RUNNING_S = 600.0
-# Sources with a webhook sync queued, waiting for the lock or running in this process.
-_pending: set[uuid.UUID] = set()
-_pending_lock = threading.Lock()
-
-
-def claim(source_id: uuid.UUID) -> bool:
-    """Mark a webhook sync of the source pending; False when one already is."""
-    with _pending_lock:
-        if source_id in _pending:
-            return False
-        _pending.add(source_id)
-        return True
-
-
-def release(source_id: uuid.UUID) -> None:
-    with _pending_lock:
-        _pending.discard(source_id)
 _UNVERIFIED = "missing or invalid webhook signature"
 _DUMMY_KEY = b"satchel-no-such-webhook"  # keeps the unknown-source path doing the same work
 _SHA = re.compile(r"[0-9a-f]{7,40}")
@@ -82,6 +63,7 @@ class HookOut(BaseModel):
 @dataclass(frozen=True)
 class Target:
     id: uuid.UUID
+    workspace_id: uuid.UUID
     secret: str
     git_url: str | None
     git_ref: str | None
@@ -174,27 +156,15 @@ def make_router(ctx: ApiContext) -> APIRouter:
                 log.exception("cannot decrypt the webhook secret of source %s", sid)
                 return None
             cfg = src.config
-            return Target(src.id, secret, cfg.get("git_url") or None, cfg.get("git_ref") or None)
-
-    def run(source_id: uuid.UUID, detail: dict[str, Any]) -> None:
-        try:
-            res = run_sync(source_id, trigger="webhook", engine=ctx.engine,
-                           embedder=ctx.embedder, settings=ctx.settings, detail=detail,
-                           wait_s=WAIT_FOR_RUNNING_S)
-        except Exception:
-            log.exception("webhook sync of source %s failed", source_id)
-            return
-        finally:
-            release(source_id)
-        log.info("webhook: %s", res.line())
+            return Target(src.id, src.workspace_id, secret, cfg.get("git_url") or None,
+                          cfg.get("git_ref") or None)
 
     @r.post(
         "/v1/hooks/sources/{source_id}", response_model=HookOut, status_code=202,
         responses={200: {"model": HookOut, "description": "ping, or an event that is ignored"},
                    401: {"description": _UNVERIFIED}, 413: {"description": "body over 1 MiB"}},
     )
-    async def source_webhook(source_id: str, request: Request, response: Response,
-                             background: BackgroundTasks) -> HookOut:
+    async def source_webhook(source_id: str, request: Request, response: Response) -> HookOut:
         """Push-event receiver for GitHub (``X-Hub-Signature-256``) and GitLab
         (``X-Gitlab-Token``). No satchel auth: the webhook secret is the credential."""
         body = await _read_body(request)
@@ -220,14 +190,14 @@ def make_router(ctx: ApiContext) -> APIRouter:
         detail = {"provider": provider, "event": (event or "push")[:64],
                   **({"ref": ref[:200]} if isinstance(ref, str) else {}),
                   **({"delivery": delivery[:100]} if delivery else {})}
-        if not claim(target.id):
+        _jid, queued = await run_in_threadpool(
+            lambda: queue_sync(ctx.engine, target.workspace_id, target.id, trigger="webhook",
+                               detail=detail))
+        if ctx.jobs is not None:
+            ctx.jobs.wake()
+        if not queued:
             return HookOut(status="queued", reason="a sync of this source is already queued; "
                            "it will pick up the newest commit")
-        try:
-            background.add_task(run, target.id, detail)
-        except BaseException:
-            release(target.id)
-            raise
         return HookOut(status="queued")
 
     return r

@@ -44,8 +44,8 @@ def server(app_engine: Engine, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-    srv = uvicorn.Server(uvicorn.Config(create_app(app_engine, EMB, settings=Settings()),
-                                        host="127.0.0.1", port=port, log_level="warning"))
+    app = create_app(app_engine, EMB, settings=Settings(web_job_threads=2))
+    srv = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     t = threading.Thread(target=srv.run, daemon=True)
     t.start()
     deadline = time.monotonic() + 10

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "command": "[ ! -f '/Users/nathanberrett/.cursor/skills/impeccable/scripts/impeccable' ] || '/Users/nathanberrett/.cursor/skills/impeccable/scripts/impeccable' hook",
+        "matcher": "^Write$",
+        "timeout": 5
+      }
+    ]
+  }
+}

@@ -385,7 +385,7 @@ def test_real_dbt_parse_end_to_end(env: Env, repo: tuple[str, str],  # noqa: F81
     r = create(env, {"git_url": url, "dbt_project_dir": "analytics/dbt",
                      "dbt_target_schema": "analytics", "dbt_vars": {"order_tag": "from_vars"}})
     assert r.status_code == 201, r.text
-    sync = env.client.post(f"/v1/sources/{r.json()['id']}/sync", headers=env.h())
+    sync = env.client.post(f"/v1/sources/{r.json()['id']}/sync?wait=true", headers=env.h())
     assert sync.status_code == 200, sync.text
     body = sync.json()
     assert body["git_commit"] == head and body["dbt_version"]

@@ -10,16 +10,21 @@ import threading
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, update
 
 from satchel.api.app import create_app
 from satchel.api.hooks import Target, ignored_because
 from satchel.llm.embeddings import HashEmbedder
 from satchel.secrets import is_sealed
-from satchel.sources.automation import run_sync, sync_due_sources, sync_lock
+from satchel.sources.automation import AutoResult, run_sync, sync_due_sources, sync_lock
+from satchel.sources.jobs import queue_sync
+from satchel.store.db import admin_session
+from satchel.store.models import Job
 from satchel.worker.main import run_forever
 from tests.test_git_sources import repo, sh  # noqa: F401 - fixture
 from tests.test_settings_admin import Env, env, st  # noqa: F401 - fixture
@@ -39,8 +44,25 @@ def git_source(env: Env, url: str, **extra: Any) -> str:  # noqa: F811
 
 
 def due(env: Env, now: datetime | None = None) -> list[Any]:  # noqa: F811
-    return sync_due_sources(engine=env.engine, embedder=HashEmbedder(), settings=st(),
-                            workspace_id=env.ws_id, now=now)
+    """Queue the due sources, run the jobs, and return each sync's outcome (``busy`` while the
+    job is waiting to retry)."""
+    queued = sync_due_sources(engine=env.engine, embedder=HashEmbedder(), settings=st(),
+                              workspace_id=env.ws_id, now=now)
+    env.drain()
+    out: list[Any] = []
+    with admin_session(engine=env.engine) as s:
+        for r in queued:
+            j = s.get(Job, r.job_id) if r.job_id else None
+            if j is None:
+                out.append(r)
+            elif j.status == "done" and j.result:
+                out.append(SimpleNamespace(source_id=r.source_id, outcome=j.result["outcome"],
+                                           error=j.result["error"], counts=j.result["counts"],
+                                           commit=j.result["commit"]))
+            else:
+                out.append(SimpleNamespace(source_id=r.source_id, outcome="busy", error=j.error,
+                                           counts={}))
+    return out
 
 
 def commit(url: str, text: str) -> str:
@@ -172,10 +194,45 @@ def test_lock_prevents_double_sync(env: Env, repo: tuple[str, str]) -> None:  # 
         assert run_sync(sid, trigger="webhook", engine=env.engine, settings=st()).outcome \
             == "busy"
         assert [r.outcome for r in due(env)] == ["busy"]
-        manual = env.client.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"))
+        manual = env.client.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("curator"))
         assert manual.status_code == 409 and "being synced" in manual.json()["detail"]
     assert env.src("auto").last_synced_at is None
     assert [r.outcome for r in due(env)] == ["synced"]
+
+
+def test_sync_now_is_queued_and_forced(env: Env, repo: tuple[str, str]) -> None:  # noqa: F811
+    _url, head = repo
+    sid = git_source(env, repo[0])
+    first = env.client.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("curator"))
+    assert first.status_code == 200, first.text
+    q = env.client.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"))
+    assert q.status_code == 202 and q.json()["kind"] == "source.sync", q.text
+    again = env.client.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"))
+    assert again.json()["id"] == q.json()["id"]  # already queued
+    assert env.drain() == 1
+    done = env.client.get(f"/v1/jobs/{q.json()['id']}", headers=env.h("curator")).json()
+    # Same commit, but a sync someone asked for runs anyway (no unchanged-commit skip).
+    assert done["status"] == "done" and done["result"]["outcome"] == "synced"
+    assert done["result"]["report"]["git_commit"] == head
+    assert done["result"]["report"]["counts"]["unchanged"] > 0
+    (queued,) = env.actions("source.queue_sync")
+    assert queued.actor_user_id == env.users["curator"]
+    last = env.actions("source.sync")[-1]
+    assert last.actor_user_id == env.users["curator"] and last.target["trigger"] == "manual"
+    gone = env.client.post(f"/v1/sources/{uuid.uuid4()}/sync", headers=env.h("curator"))
+    assert gone.status_code == 404
+
+
+def test_a_busy_source_is_retried_later(env: Env, repo: tuple[str, str]) -> None:  # noqa: F811
+    sid = git_source(env, repo[0])
+    jid = env.client.post(f"/v1/sources/{sid}/sync", headers=env.h("curator")).json()["id"]
+    with sync_lock(env.engine, uuid.UUID(sid)) as got:  # a CI upload syncing in a request
+        assert got
+        env.drain()
+        waiting = env.client.get(f"/v1/jobs/{jid}", headers=env.h("curator")).json()
+        assert waiting["status"] == "queued" and "another sync" in waiting["error"]
+    env.drain()
+    assert env.client.get(f"/v1/jobs/{jid}", headers=env.h("curator")).json()["status"] == "done"
 
 
 def test_worker_runs_source_ticks_on_their_own_thread() -> None:
@@ -280,7 +337,9 @@ def test_github_push_syncs_after_responding(env: Env, repo: tuple[str, str]) -> 
 
     r = github(env, sid, PUSH_MAIN, secret)
     assert r.status_code == 202 and r.json()["status"] == "queued"
-    src = env.src("auto")  # the TestClient runs background tasks before returning
+    assert env.src("auto").last_synced_at is None  # queued, not run in the request
+    assert env.drain() == 1
+    src = env.src("auto")
     assert src.last_status == "ok" and src.last_report["trigger"] == "webhook"
     a = env.actions("source.sync")[-1].target
     assert a["trigger"] == "webhook" and a["provider"] == "github" and a["delivery"] == "d-1"
@@ -288,54 +347,41 @@ def test_github_push_syncs_after_responding(env: Env, repo: tuple[str, str]) -> 
 
     # A redelivery at the same commit does no work.
     assert github(env, sid, PUSH_MAIN, secret).status_code == 202
+    env.drain()
     assert len(env.actions("source.sync")) == 1
     assert env.src("auto").last_report["checked"]["trigger"] == "webhook"
 
 
 def test_quick_deliveries_coalesce_into_one_sync(env: Env, repo: tuple[str, str],  # noqa: F811
                                                  monkeypatch: pytest.MonkeyPatch) -> None:
-    from satchel.api import hooks
+    from satchel.sources import jobs as source_jobs
 
     url, _ = repo
     sid = git_source(env, url)
     secret = env.post(f"/v1/sources/{sid}/webhook", {}).json()["secret"]
-    started, release = threading.Event(), threading.Event()
     calls: list[uuid.UUID] = []
 
-    def slow(source_id: uuid.UUID, **_k: Any) -> Any:
+    def fake(source_id: uuid.UUID, **_k: Any) -> Any:
         calls.append(source_id)
-        started.set()
-        assert release.wait(10)
-        return _Res()
+        return AutoResult(source_id, "synced", "auto")
 
-    monkeypatch.setattr(hooks, "run_sync", slow)
-    # The TestClient runs the background task inside the call, so the first delivery blocks
-    # in the (slow) sync while the second one arrives.
-    first: list[Any] = []
-    t = threading.Thread(target=lambda: first.append(github(env, sid, PUSH_MAIN, secret)))
-    t.start()
-    assert started.wait(10)
-    second = github(env, sid, PUSH_MAIN, secret)
+    monkeypatch.setattr(source_jobs, "run_sync", fake)
+    first = github(env, sid, PUSH_MAIN, secret)
+    assert first.status_code == 202 and first.json()["reason"] is None
+    second = github(env, sid, PUSH_MAIN, secret)  # the first is still queued
     assert second.status_code == 202 and "already queued" in second.json()["reason"]
-    release.set()
-    t.join(10)
-    assert first[0].status_code == 202 and first[0].json()["reason"] is None
-    assert calls == [uuid.UUID(sid)] and uuid.UUID(sid) not in hooks._pending
+    assert env.drain() == 1 and calls == [uuid.UUID(sid)]
 
-    def boom(source_id: uuid.UUID, **_k: Any) -> Any:
-        calls.append(source_id)
-        raise RuntimeError("broken")
-
-    monkeypatch.setattr(hooks, "run_sync", boom)
-    assert github(env, sid, PUSH_MAIN, secret).status_code == 202
-    assert uuid.UUID(sid) not in hooks._pending  # cleared after a failure
-    assert github(env, sid, PUSH_MAIN, secret).status_code == 202
-    assert len(calls) == 3  # so the next delivery queues a new sync
-
-
-class _Res:
-    def line(self) -> str:
-        return "ok"
+    # While a sync runs, one more delivery queues exactly one sync after it.
+    with admin_session(engine=env.engine) as s:
+        running = queue_sync(env.engine, env.ws_id, uuid.UUID(sid), trigger="webhook")[0]
+        s.execute(update(Job).where(Job.id == running).values(
+            status="running", locked_by="other", locked_until=func.now() + timedelta(minutes=5)))
+    assert github(env, sid, PUSH_MAIN, secret).json()["reason"] is None
+    assert "already queued" in github(env, sid, PUSH_MAIN, secret).json()["reason"]
+    assert env.drain() == 1 and len(calls) == 2
+    with admin_session(engine=env.engine) as s:
+        s.execute(update(Job).where(Job.id == running).values(status="done"))
 
 
 def test_lock_waiters_do_not_hold_connections(env: Env,  # noqa: F811
@@ -402,12 +448,13 @@ def test_gitlab_token_and_default_branch(env: Env, repo: tuple[str, str]) -> Non
     assert other.status_code == 200 and "default branch (main)" in other.json()["reason"]
     ok = gitlab(env, sid, push, token)
     assert ok.status_code == 202, ok.text
+    env.drain()
     assert env.src("auto").last_report["git_commit"] == head
     assert env.actions("source.sync")[-1].target["provider"] == "gitlab"
 
 
 def test_non_git_source_syncs_on_any_verified_call() -> None:
-    t = Target(uuid.uuid4(), "s", None, None)
+    t = Target(uuid.uuid4(), uuid.uuid4(), "s", None, None)
     assert ignored_because(t, {"ref": "refs/heads/anything"}) is None
 
 
@@ -422,7 +469,8 @@ def test_non_git_source_syncs_on_any_verified_call() -> None:
     ("main", {}, None),  # a CI call without a payload
 ])
 def test_branch_filter(ref: str | None, payload: dict[str, Any], ignored: str | None) -> None:
-    got = ignored_because(Target(uuid.uuid4(), "s", "https://g.example/r.git", ref), payload)
+    target = Target(uuid.uuid4(), uuid.uuid4(), "s", "https://g.example/r.git", ref)
+    got = ignored_because(target, payload)
     assert (got is None) if ignored is None else (got is not None and ignored in got)
 
 

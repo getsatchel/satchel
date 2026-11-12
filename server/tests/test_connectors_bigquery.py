@@ -216,7 +216,7 @@ def test_settings_api(env: Env, fake: FakeBigQuery, sa_key: str) -> None:  # noq
     assert r.status_code == 201 and r.json()["secret"] is None, r.text
     cid = r.json()["id"]
     assert env.post("/v1/connections/test", {"connection_id": cid}).json()["ok"]
-    crawl = env.post(f"/v1/connections/{cid}/crawl", {}, role="curator")
+    crawl = env.post(f"/v1/connections/{cid}/crawl?wait=true", {}, role="curator")
     assert crawl.status_code == 200 and crawl.json()["created"] > 5, crawl.text
     with admin_session(engine=env.engine) as s:
         fqns = set(s.scalars(select(Asset.fqn).where(Asset.connection_id == uuid.UUID(cid))))

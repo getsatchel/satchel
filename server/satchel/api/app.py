@@ -32,6 +32,7 @@ from satchel.api import (
     workbench,
     workspace_settings,
 )
+from satchel.api import jobs as jobs_api
 from satchel.api.auth import ApiContext, Auth, Caller
 from satchel.api.health import mount_readyz
 from satchel.api.schemas import (
@@ -42,8 +43,7 @@ from satchel.api.schemas import (
     SearchHitOut,
     SearchRequest,
 )
-from satchel.evals.jobs import KIND as EVAL_RUN
-from satchel.jobs.runner import JobRunner, Runtime
+from satchel.jobs.runner import WEB_KINDS, JobRunner, Runtime
 from satchel.llm.chat import ChatProvider
 from satchel.llm.embeddings import EmbeddingProvider, make_embedder
 from satchel.oauth.clients import CimdFetcher
@@ -129,9 +129,10 @@ def create_app(
         mount_mcp(app, McpHttp(eng, emb, st))  # Streamable HTTP at /mcp, bearer auth
     mount_oauth(app, OAuthApp(eng, st, oidc, cimd_fetcher))  # /oauth/*, /auth/*, /.well-known/*
 
-    # Job consumers for work a person starts here (eval runs): started with the app, or by the
-    # first enqueue (TestClient without a lifespan), and stopped on shutdown.
-    jobs = JobRunner(Runtime(eng, st, emb, chat), kinds={EVAL_RUN}, threads=st.web_job_threads,
+    # Job consumers for work a person or a webhook starts here (eval runs, syncs, crawls):
+    # started with the app, or by the first enqueue (TestClient without a lifespan), and stopped
+    # on shutdown.
+    jobs = JobRunner(Runtime(eng, st, emb, chat), kinds=WEB_KINDS, threads=st.web_job_threads,
                      poll_s=st.job_poll_s, name="web")
     inner = app.router.lifespan_context
 
@@ -178,6 +179,7 @@ def create_app(
     app.include_router(evals.make_router(auth))
     app.include_router(sources.make_router(auth))
     app.include_router(sync.make_router(auth))
+    app.include_router(jobs_api.make_router(auth))
     app.include_router(hooks.make_router(auth.ctx))  # unauthenticated push webhooks
     app.include_router(audit.make_router(auth))
     app.include_router(llm.make_router(auth))

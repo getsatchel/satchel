@@ -9,7 +9,7 @@ start (its partial case results are deleted) once, then marked failed.
 from __future__ import annotations
 
 import uuid
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import Engine, delete
 
@@ -54,22 +54,23 @@ def enqueue_runs(engine: Engine, principal: Principal, run_ids: list[uuid.UUID],
             )
 
 
-def _handle(rt: Runtime, job: Claimed) -> None:
+def _handle(rt: Runtime, job: Claimed) -> dict[str, Any] | None:
     p = job.payload
     rid = uuid.UUID(p["run_id"])
     with admin_session(engine=rt.engine) as s:
         run = s.get(EvalRun, rid)
         if run is None or run.status != "running":
-            return  # deleted, or finished by an attempt that lost its lease late
+            return None  # deleted, or finished by an attempt that lost its lease late
         row = s.get(EvalSuite, run.suite_id)
         if row is None:
-            return
+            return None
         if job.attempts > 1:
             s.execute(delete(EvalCaseResult).where(EvalCaseResult.run_id == rid))
         s.expunge(row)
     principal = Principal(job.workspace_id, uuid.UUID(p["user_id"]), str(p["role"]))
     provider = eval_provider(row, p.get("model"), rt.settings, rt.engine, rt.chat)
     execute_run(rt.engine, rt.embedder, principal, rid, provider=provider)
+    return {"run_id": str(rid)}
 
 
 def _give_up(rt: Runtime, job: Claimed, error: str) -> None:

@@ -36,7 +36,7 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_SOURCE_TICK_MIN` | `5` | Minutes between the worker's checks for scheduled source syncs; `0` turns them off. |
 | `SATCHEL_EVAL_TICK_MIN` | `15` | Minutes between the worker's checks for scheduled eval runs; `0` turns them off ([evals](../concepts/evals.md#scheduled-runs)). |
 | `SATCHEL_WORKER_JOB_THREADS` | `2` | Threads in `satchel worker` that run queued jobs (every kind); `0` = none. |
-| `SATCHEL_WEB_JOB_THREADS` | `2` | Threads in each web server process that run queued eval runs started from the UI, the API or the publish gate; `0` leaves them to the worker. |
+| `SATCHEL_WEB_JOB_THREADS` | `2` | Threads in each web server process that run queued eval runs, source syncs (Sync now, push webhooks) and connection crawls; `0` leaves them to the worker. |
 | `SATCHEL_JOB_POLL_S` | `5.0` | Seconds an idle job thread waits before looking for jobs other processes queued. |
 | `SATCHEL_RESULT_DIR` | `~/.cache/satchel/results` | Result cache location: local path, `gs://` or `s3://`. |
 | `SATCHEL_RESULT_TTL_DAYS` | `7` | Default result cache lifetime. |

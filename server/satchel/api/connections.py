@@ -21,10 +21,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from satchel.api.auth import Auth, Caller
+from satchel.api.jobs import JobOut, job_of
 from satchel.core.crypto import EncryptionUnavailable, Keyring, configured
 from satchel.data import connection_admin as ca
 from satchel.data.connections import ConnectionError_
 from satchel.data.crawl import crawl_connection
+from satchel.data.jobs import queue_crawl
 from satchel.store.db import workspace_session
 from satchel.store.models import Connection, Workspace
 
@@ -209,14 +211,27 @@ def make_router(auth: Auth) -> APIRouter:
         res = await run_in_threadpool(ca.test, kind, config, secret, req.passphrase)
         return ConnectionTestOut(ok=res.ok, latency_ms=res.latency_ms, error=res.error)
 
-    @r.post("/v1/connections/{connection_id}/crawl", response_model=CrawlOut)
-    async def crawl(connection_id: uuid.UUID, who: Cur) -> CrawlOut:
+    @r.post(
+        "/v1/connections/{connection_id}/crawl", response_model=CrawlOut | JobOut,
+        responses={202: {"model": JobOut, "description": "queued (without wait)"}},
+    )
+    async def crawl(connection_id: uuid.UUID, who: Cur, response: Response,
+                    wait: bool = False) -> CrawlOut | JobOut:
+        """Crawl the connection into the catalog. ``wait=true`` crawls in the request and
+        returns the report; otherwise it queues a ``connection.crawl`` job (202): poll
+        ``GET /v1/jobs/{id}``; its ``result`` is the report."""
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             c = get_conn(s, connection_id)
             name = c.name
             ws = s.get(Workspace, who.workspace_id)
             assert ws is not None
             slug = ws.slug
+        if not wait:
+            jid, _ = await run_in_threadpool(queue_crawl, eng, who.workspace_id, connection_id)
+            if auth.ctx.jobs is not None:
+                auth.ctx.jobs.wake()
+            response.status_code = 202
+            return await run_in_threadpool(job_of, eng, who.workspace_id, jid)
         try:
             rep = await run_in_threadpool(crawl_connection, slug, name, engine=eng, settings=st)
         except ConnectionError_ as e:

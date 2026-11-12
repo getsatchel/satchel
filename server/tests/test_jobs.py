@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import time
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select, text, update
 
+from satchel.api.app import create_app
 from satchel.evals.jobs import KIND as EVAL_RUN
 from satchel.evals.jobs import enqueue_runs
 from satchel.evals.runner import create_run
@@ -250,11 +253,14 @@ def eval_job(env: Env, run_id: uuid.UUID) -> Job:
 
 
 def test_an_api_run_is_queued_and_run_by_the_web_server(env: Env) -> None:
-    out = run_eval(env, "retrieval", env.head(), wait=False)
-    rid = uuid.UUID(out["id"])
-    deadline = time.monotonic() + 60
-    while run_status(env, rid).status == "running" and time.monotonic() < deadline:
-        time.sleep(0.2)
+    app = create_app(env.engine, EMB, settings=Settings(dev_auth=True, web_job_threads=1))
+    with TestClient(app) as client:  # the lifespan starts and stops the job threads
+        env = replace(env, client=client)
+        out = run_eval(env, "retrieval", env.head(), wait=False)
+        rid = uuid.UUID(out["id"])
+        deadline = time.monotonic() + 60
+        while run_status(env, rid).status == "running" and time.monotonic() < deadline:
+            time.sleep(0.2)
     assert run_status(env, rid).status == "completed"
     j = eval_job(env, rid)
     assert j.status == "done" and j.locked_by and j.locked_by.startswith("web:")
