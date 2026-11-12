@@ -69,7 +69,7 @@ class Kind:
 
 KINDS: dict[str, Kind] = {}
 # The kinds each web server process runs too: what a person or a webhook starts there.
-WEB_KINDS = {"eval.run", "source.sync", "connection.crawl"}
+WEB_KINDS = {"eval.run", "source.sync", "connection.crawl", "curation.run"}
 
 
 def register(name: str, handle: Handler, *, give_up: GiveUp | None = None) -> Kind:
@@ -82,6 +82,7 @@ def register(name: str, handle: Handler, *, give_up: GiveUp | None = None) -> Ki
 
 def load_kinds() -> dict[str, Kind]:
     """Import the modules that register the built-in kinds."""
+    import satchel.curation.jobs  # noqa: F401
     import satchel.data.jobs  # noqa: F401
     import satchel.evals.jobs  # noqa: F401
     import satchel.sources.jobs  # noqa: F401

@@ -15,7 +15,7 @@ from typing import Any
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, func, select, update
 
 from satchel.api.app import create_app
 from satchel.curation.config import CurationConfig, load_config
@@ -41,6 +41,7 @@ from satchel.store.models import (
     ContextEntityLink,
     ContextItem,
     Feedback,
+    Job,
     Signal,
     Suggestion,
     SuggestionChange,
@@ -700,7 +701,7 @@ def _drafted_suggestion(ws: Ws, reply: dict[str, Any]) -> tuple[TestClient, dict
     ws.churn_cluster()
     chat = FakeChatProvider([reply])
     c = ws.client(chat)
-    r = c.post("/v1/curate/run", json={}, headers=ws.h("admin"))
+    r = c.post("/v1/curate/run?wait=true", json={}, headers=ws.h("admin"))
     assert r.status_code == 200, r.text
     out = r.json()
     assert out["suggestions_created"] == 1 and out["drafted"] == 1
@@ -915,3 +916,73 @@ def test_a_human_thumbs_down_blocks_golden_promotion(ws: Ws) -> None:
         s.add(Feedback(session_id=sid, user_id=ws.users["u2"], rating=-1, source="human"))
     rep = run_curation(ws.id, engine=ws.engine, embedder=EMB, use_llm=False)
     assert rep is not None and rep.golden_candidates == 0
+
+
+# ---- curation as a job --------------------------------------------------------------------------
+
+
+def _drain(ws: Ws, chat: FakeChatProvider | None = None) -> int:
+    """Run queued curation passes. Passes other tests queued (the role checks) are finished
+    first, so they never run with this test's chat provider."""
+    from satchel.jobs.runner import JobRunner, Runtime
+
+    with admin_session(engine=ws.engine) as s:
+        s.execute(update(Job).where(Job.kind == "curation.run", Job.workspace_id != ws.id,
+                                    Job.status.in_(["queued", "running"]))
+                  .values(status="done", finished_at=func.now()))
+    return JobRunner(Runtime(ws.engine, Settings(), EMB, chat), kinds={"curation.run"},
+                     threads=0).drain()
+
+
+def test_run_curation_is_queued_and_its_counts_kept_on_the_job(ws: Ws) -> None:
+    ws.churn_cluster()
+    chat = FakeChatProvider([_draft_reply("guides/customers.md")])
+    c = ws.client(chat)
+    q = c.post("/v1/curate/run", json={}, headers=ws.h("admin"))
+    assert q.status_code == 202 and q.json()["kind"] == "curation.run", q.text
+    again = c.post("/v1/curate/run", json={"use_llm": False}, headers=ws.h("admin"))
+    assert again.json()["id"] == q.json()["id"]  # one pass per workspace at a time
+    assert _drain(ws, chat) == 1
+    done = c.get(f"/v1/jobs/{q.json()['id']}", headers=ws.h("curator")).json()
+    assert done["status"] == "done" and done["subject"] == "workspace"
+    assert done["result"]["suggestions_created"] == 1 and done["result"]["drafted"] == 1
+    with admin_session(engine=ws.engine) as s:
+        ev = s.scalars(select(AuditEvent).where(AuditEvent.workspace_id == ws.id,
+                                                AuditEvent.action == "curate.run")).one()
+        assert ev.actor_user_id == ws.users["admin"] and ev.target["job_id"] == q.json()["id"]
+
+
+def test_a_queued_pass_waits_for_a_run_holding_the_workspace(ws: Ws) -> None:
+    from satchel.curation.jobs import queue_curation
+    from satchel.curation.run import run_lock
+
+    jid, _ = queue_curation(ws.engine, ws.id, use_llm=False)
+    with run_lock(ws.engine, ws.id) as got:  # the CLI is running curation
+        assert got
+        _drain(ws)
+    with admin_session(engine=ws.engine) as s:
+        j = s.get(Job, jid)
+        assert j is not None and j.status == "queued" and "in progress" in (j.error or "")
+        s.execute(update(Job).where(Job.id == jid).values(run_after=func.now()))
+    _drain(ws)
+    with admin_session(engine=ws.engine) as s:
+        assert s.get(Job, jid).status == "done"  # type: ignore[union-attr]
+
+
+def test_the_worker_pass_queues_curation_and_once_runs_it(ws: Ws,
+                                                          monkeypatch: pytest.MonkeyPatch) -> None:
+    from satchel.jobs.runner import JobRunner, Runtime
+    from satchel.worker import main as worker
+
+    monkeypatch.setattr(worker, "get_engine", lambda: ws.engine)
+    monkeypatch.setattr(worker, "purge_results", lambda: None)
+    monkeypatch.setattr(worker, "purge_sessions", lambda: None)
+    monkeypatch.setattr(worker, "purge_jobs", lambda: None)
+    runner = JobRunner(Runtime(ws.engine, Settings(), EMB), kinds={"curation.run"}, threads=0)
+    worker.run_forever(once=True, workspace=ws.slug, use_llm=False, jobs=runner,
+                       tick_min=0, eval_tick_min=0)
+    with admin_session(engine=ws.engine) as s:
+        (j,) = s.scalars(select(Job).where(Job.workspace_id == ws.id)).all()
+        assert j.kind == "curation.run" and j.status == "done" and j.payload["use_llm"] is False
+    with pytest.raises(LookupError):
+        worker.queue_curations(workspace="no-such-workspace", engine=ws.engine)

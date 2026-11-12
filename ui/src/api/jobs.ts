@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { CrawlOut, JobOut, SyncReportOut } from "./types";
+import type { CrawlOut, CurateRunOut, JobOut, SyncReportOut } from "./types";
 
 const POLL_MS = 1000;
 const MAX_WAIT_MS = 60 * 60 * 1000;
@@ -34,4 +34,9 @@ export async function syncReportOf(job: JobOut): Promise<SyncReportOut> {
 /** A queued connection.crawl job's report. */
 export async function crawlReportOf(job: JobOut): Promise<CrawlOut> {
   return (await waitForJob(job)) as unknown as CrawlOut;
+}
+
+/** A queued curation.run job's counts. */
+export async function curationReportOf(job: JobOut): Promise<CurateRunOut> {
+  return (await waitForJob(job)) as unknown as CurateRunOut;
 }

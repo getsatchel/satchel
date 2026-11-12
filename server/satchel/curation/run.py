@@ -1,9 +1,10 @@
 """The curation pipeline for one workspace (design §7): embed signals -> hygiene -> golden
 candidates -> gap detection -> suggestion drafting.
 
-A simple in-process runner (the design's pgmq worker comes later). Each phase has its own
-transaction, so a failing LLM never rolls back clustering; a Postgres advisory lock stops two
-runs (CLI, worker, ``POST /v1/curate/run``) from clustering the same workspace at once.
+Runs in-process: from the CLI, or as a ``curation.run`` job (``satchel.curation.jobs``) that the
+worker's pass and ``POST /v1/curate/run`` queue. Each phase has its own transaction, so a failing
+LLM never rolls back clustering; a Postgres advisory lock stops two runs from clustering the same
+workspace at once.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Engine, select, text
 
@@ -44,6 +46,24 @@ class CurationReport:
     drafts: list[DraftResult] = field(default_factory=list)
     undrafted_left: int = 0
     errors: list[str] = field(default_factory=list)
+
+    def summary(self) -> dict[str, Any]:
+        """The counts ``POST /v1/curate/run`` returns (``CurateRunOut``) and the audit logs."""
+        drafted = [d for d in self.drafts if d.status == "drafted"]
+        return {
+            "workspace": self.workspace, "llm": self.llm, "embedded": self.embedded,
+            "hygiene": dict(self.hygiene.emitted), "hygiene_notes": list(self.hygiene.notes),
+            "golden_candidates": self.golden_candidates,
+            "signals_considered": self.gaps.signals_considered,
+            "clusters_found": self.gaps.clusters_found,
+            "below_threshold": self.gaps.below_threshold,
+            "suggestions_created": len(self.gaps.created),
+            "suggestions_extended": len(self.gaps.attached),
+            "drafted": len(drafted), "changes_proposed": sum(d.changes for d in drafted),
+            "invalid_dropped": sum(d.dropped for d in drafted),
+            "draft_failed": sum(1 for d in self.drafts if d.status == "failed"),
+            "undrafted_left": self.undrafted_left, "errors": list(self.errors),
+        }
 
     def lines(self) -> list[str]:
         out = [

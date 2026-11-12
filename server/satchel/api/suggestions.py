@@ -12,12 +12,13 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from satchel.api.auth import Auth, Caller
 from satchel.api.common import audit, diff_bodies
+from satchel.api.jobs import JobOut, job_of
 from satchel.api.observability import evidence_level
 from satchel.api.schemas import (
     AcceptChangeRequest,
@@ -35,6 +36,7 @@ from satchel.api.schemas import (
     SuggestionSummary,
 )
 from satchel.curation.apply import ApplyError, apply_change
+from satchel.curation.jobs import queue_curation
 from satchel.curation.redact import view_obj, view_text
 from satchel.curation.run import run_curation
 from satchel.curation.signal_text import signal_text
@@ -330,30 +332,30 @@ def make_router(auth: Auth) -> APIRouter:
             audit(s, who, "suggestion.complete", {"suggestion": sug.id, "auto": False})
             return summary_of(s, sug)
 
-    @r.post("/v1/curate/run", response_model=CurateRunOut)
-    def curate_run(who: Adm, req: CurateRunRequest | None = None) -> CurateRunOut:
+    @r.post(
+        "/v1/curate/run", response_model=CurateRunOut | JobOut,
+        responses={202: {"model": JobOut, "description": "queued (without wait)"}},
+    )
+    def curate_run(who: Adm, response: Response, req: CurateRunRequest | None = None,
+                   wait: bool = False) -> CurateRunOut | JobOut:
+        """Run curation for the workspace. ``wait=true`` runs it in the request and returns the
+        counts (409 while another run holds the workspace). Otherwise it queues a
+        ``curation.run`` job (202; one per workspace at a time): poll ``GET /v1/jobs/{id}``;
+        its ``result`` has the counts."""
         use_llm = True if req is None else req.use_llm
+        if not wait:
+            jid, _ = queue_curation(eng, who.workspace_id, use_llm=use_llm, actor=who.user_id)
+            if auth.ctx.jobs is not None:
+                auth.ctx.jobs.wake()
+            response.status_code = 202
+            return job_of(eng, who.workspace_id, jid)
         report = run_curation(
             who.workspace_id, engine=eng, embedder=emb, chat=auth.ctx.chat,
             settings=auth.ctx.settings, use_llm=use_llm,
         )
         if report is None:
             raise HTTPException(409, "a curation run for this workspace is already in progress")
-        drafted = [d for d in report.drafts if d.status == "drafted"]
-        out = CurateRunOut(
-            workspace=report.workspace, llm=report.llm, embedded=report.embedded,
-            hygiene=report.hygiene.emitted, hygiene_notes=report.hygiene.notes,
-            golden_candidates=report.golden_candidates,
-            signals_considered=report.gaps.signals_considered,
-            clusters_found=report.gaps.clusters_found,
-            below_threshold=report.gaps.below_threshold,
-            suggestions_created=len(report.gaps.created),
-            suggestions_extended=len(report.gaps.attached),
-            drafted=len(drafted), changes_proposed=sum(d.changes for d in drafted),
-            invalid_dropped=sum(d.dropped for d in drafted),
-            draft_failed=sum(1 for d in report.drafts if d.status == "failed"),
-            undrafted_left=report.undrafted_left, errors=report.errors,
-        )
+        out = CurateRunOut(**report.summary())
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             audit(s, who, "curate.run", {**out.model_dump(exclude={"errors"}), "use_llm": use_llm})
         return out

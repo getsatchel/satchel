@@ -65,7 +65,9 @@ that is already gone does not block deleting the row. The command exits 1 if any
 |---|---|
 | `item.create`, `item.update`, `item.overlay`, `item.deprecate` | curator API |
 | `release.publish`, `release.rollback`, `release.publish_override` | curator API |
-| `proposal.accept`, `proposal.reject`, `suggestion.*`, `curate.run` | curator API |
+| `proposal.accept`, `proposal.reject`, `suggestion.*` | curator API |
+| `curate.run` | **Run curation** (`POST /v1/curate/run`, admin) or the worker's pass; a queued run has `job_id` and the admin who asked as actor, a scheduled one no actor |
+| `job.retry` | **Retry** on the Jobs page (`POST /v1/jobs/{id}/retry`, curator), with `job_id` and `kind` |
 | `eval.suite.save`, `eval.run.start`, `eval.gate.start` | evals API; scheduled runs write `eval.run.start` from the worker (`trigger: schedule`, no actor) |
 | `session.sensitive` | observability API |
 | `source.queue_sync` | **Sync now** / `POST /v1/sources/{id}/sync` without files: the sync was queued (`job_id`); the `source.sync` event follows when it runs, with the same actor |

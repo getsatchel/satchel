@@ -31,6 +31,7 @@ from satchel.store.models import (
     Connection,
     ContextItem,
     ContextSource,
+    Job,
 )
 from satchel.sync.importer import get_or_create_workspace
 from tests.helpers import MemoryBucket, build_jaffle_db, unique_slug
@@ -190,6 +191,55 @@ def test_jobs_of_another_workspace_are_not_found(env: Env, app_engine: Engine,
     jid = env.post(f"/v1/connections/{cid}/crawl", {}).json()["id"]
     other = make_env(app_engine, tmp_path / "other")  # a second workspace
     assert other.client.get(f"/v1/jobs/{jid}", headers=other.h()).status_code == 404
+
+
+def test_jobs_list_filters_names_and_retries(env: Env) -> None:
+    from satchel.data.jobs import queue_crawl
+    from satchel.jobs import queue
+
+    cid = duckdb_conn(env).json()["id"]
+    ok = env.post(f"/v1/connections/{cid}/crawl", {}, role="curator").json()["id"]
+    lost, _ = queue_crawl(env.engine, env.ws_id, uuid.uuid4())  # a deleted connection
+    with admin_session(engine=env.engine) as s:
+        ev = queue.enqueue(s, env.ws_id, "eval.run", {"run_id": str(uuid.uuid4())})
+        s.execute(update(Job).where(Job.id == ev).values(status="failed", error="lost"))
+    env.drain()
+    h = env.h("curator")
+    rows = env.client.get("/v1/jobs", headers=h).json()
+    assert [r["id"] for r in rows][:3] == [ev, lost, ok]  # newest first
+    by_id = {r["id"]: r for r in rows}
+    assert by_id[ok]["subject"] == "jaffle" and by_id[ok]["status"] == "done"
+    assert by_id[lost]["status"] == "failed" and by_id[lost]["retryable"]
+    assert not by_id[ev]["retryable"]
+    failed = env.client.get("/v1/jobs?status=failed&kind=connection.crawl", headers=h).json()
+    assert [r["id"] for r in failed] == [lost]
+    page = env.client.get(f"/v1/jobs?before={lost}", headers=h).json()
+    assert all(r["id"] < lost for r in page)
+    assert env.client.get("/v1/jobs", headers=env.h("explorer")).status_code == 403
+
+    again = env.client.post(f"/v1/jobs/{lost}/retry", headers=h)
+    assert again.status_code == 200 and again.json()["status"] == "queued"
+    assert again.json()["attempts"] == 0 and again.json()["error"] is None
+    (audited,) = env.actions("job.retry")
+    assert audited.actor_user_id == env.users["curator"] and audited.target["job_id"] == lost
+    assert env.client.post(f"/v1/jobs/{lost}/retry", headers=h).status_code == 409  # queued
+    assert env.client.post(f"/v1/jobs/{ok}/retry", headers=h).status_code == 409  # done
+    no = env.client.post(f"/v1/jobs/{ev}/retry", headers=h)
+    assert no.status_code == 409 and "new run" in no.json()["detail"]
+    env.drain()
+    assert env.client.get(f"/v1/jobs/{lost}", headers=h).json()["status"] == "failed"
+
+
+def test_retrying_a_job_whose_work_is_queued_again_is_refused(env: Env) -> None:
+    from satchel.data.jobs import queue_crawl
+
+    cid = uuid.uuid4()
+    first, _ = queue_crawl(env.engine, env.ws_id, cid)
+    env.drain()  # fails: no such connection
+    second, queued = queue_crawl(env.engine, env.ws_id, cid)
+    assert queued and second != first
+    r = env.client.post(f"/v1/jobs/{first}/retry", headers=env.h("curator"))
+    assert r.status_code == 409 and "already queued" in r.json()["detail"]
 
 
 def test_postgres_secret_is_sealed_and_used(env: Env, pg_url: str) -> None:

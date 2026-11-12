@@ -1,5 +1,5 @@
 import { api, keyPath } from "./client";
-import { crawlReportOf, isJob, syncReportOf } from "./jobs";
+import { crawlReportOf, curationReportOf, isJob, syncReportOf } from "./jobs";
 import type {
   AssetDetail,
   AssetPage,
@@ -141,7 +141,15 @@ export const endpoints = {
   dismissSuggestion: (id: string, reason: string) =>
     api.post<SuggestionSummary>(`/v1/suggestions/${id}/dismiss`, { reason }),
   completeSuggestion: (id: string) => api.post<SuggestionSummary>(`/v1/suggestions/${id}/complete`),
-  runCuration: (useLlm: boolean) => api.post<CurateRunOut>("/v1/curate/run", { use_llm: useLlm }),
+  /** Queues a curation pass (202) and waits for the job; resolves with its counts. */
+  runCuration: async (useLlm: boolean): Promise<CurateRunOut> => {
+    const r = await api.post<CurateRunOut | JobOut>("/v1/curate/run", { use_llm: useLlm });
+    return isJob(r) ? curationReportOf(r) : r;
+  },
+
+  listJobs: (status?: JobOut["status"]) =>
+    api.get<JobOut[]>(`/v1/jobs?limit=100${status ? `&status=${status}` : ""}`),
+  retryJob: (id: number) => api.post<JobOut>(`/v1/jobs/${id}/retry`),
 
   listChanges: () => api.get<ChangesOut>("/v1/changes"),
   createPreview: (keys: string[] | null, note: string | null) =>
