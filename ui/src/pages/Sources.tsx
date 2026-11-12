@@ -534,7 +534,6 @@ function SourceDetail(props: {
               ["Items", counts.length ? counts.map((c) => `${c.n} ${c.label}`).join(", ") : <span className="text-muted">none yet</span>],
               ["Commit", last.git_commit ? <code className="text-xs">{String(last.git_commit).slice(0, 10)}</code> : null],
               ["Built with", last.dbt_version ? `dbt Core ${String(last.dbt_version)} (dbt parse on the server)` : null],
-              ["Fingerprint", s.last_fingerprint ? <code className="break-all text-xs">{s.last_fingerprint.slice(0, 16)}</code> : null],
             ]}
           />
         </section>
@@ -628,6 +627,7 @@ function SourceDetail(props: {
 
       {!git && singleFileInputs(s).length > 0 && <CiPush s={s} />}
       {props.admin && <WebhookPanel s={s} />}
+      <Diagnostics s={s} />
     </div>
   );
 }
@@ -651,6 +651,51 @@ function groupWarnings(ws: Warning[]): { code: string; shared: string | null; su
       items,
     };
   });
+}
+
+/** The deepest layer: identifiers and the full last sync report, for debugging. Closed by default. */
+function Diagnostics({ s }: { s: SourceOut }) {
+  const [open, setOpen] = useState(false);
+  const toast = useToast();
+  const raw = JSON.stringify(s.last_report ?? {}, null, 2);
+  return (
+    <section aria-label="Diagnostics" className="border-t border-line pt-3">
+      <button type="button" className="flex items-center gap-1.5 text-xs text-muted hover:text-ink" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Chevron open={open} />
+        Diagnostics
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          <DescList
+            labelWidth="7rem"
+            rows={[
+              ["Source ID", <code className="text-xs [overflow-wrap:anywhere]">{s.id}</code>],
+              ["Fingerprint", s.last_fingerprint ? <code className="text-xs [overflow-wrap:anywhere]">{s.last_fingerprint}</code> : null],
+              ["Last sync", s.last_synced_at ? fullTime(s.last_synced_at) : null],
+            ]}
+          />
+          <div>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <h3 className="label-caps">Last sync report</h3>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() =>
+                  void navigator.clipboard.writeText(raw).then(
+                    () => toast("ok", "Report copied"),
+                    () => toast("err", "Copy failed: select the text and copy it"),
+                  )
+                }
+              >
+                Copy
+              </button>
+            </div>
+            <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-sunken px-3 py-2 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">{raw}</pre>
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }
 
 const singleFileInputs = (s: SourceOut) => (s.adapter?.file_inputs ?? []).filter((n) => !(s.adapter?.folder_inputs ?? []).includes(n));
