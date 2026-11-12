@@ -281,7 +281,7 @@ def grade_sql_equivalent(
 def grade_context_used(r: Rubric, prompt: str, env: GradeEnv) -> Grade:
     with workspace_session(env.workspace_id, env.user_id, engine=env.engine) as s:
         pack = build_context_pack(
-            s, prompt, env.user_id, embedder=env.embedder, release_id=env.release_id
+            s, prompt, embedder=env.embedder, release_id=env.release_id
         )
         entries = [(e.key, e.score) for e in pack.entries]
     ranked = sorted(entries, key=lambda t: -(t[1] if t[1] is not None else float("inf")))

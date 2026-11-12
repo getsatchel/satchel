@@ -4,7 +4,7 @@ from satchel.core.item_types import ITEM_TYPES, ItemValidationError, validate_it
 
 
 def test_registry_has_all_types() -> None:
-    assert len(ITEM_TYPES) == 9
+    assert len(ITEM_TYPES) == 8
 
 
 @pytest.mark.parametrize(
@@ -22,7 +22,6 @@ def test_registry_has_all_types() -> None:
         ("endorsement", "asset: db.orders\nendorsed: true\n", {}),
         ("semantic_model", "models: []", {"format": "ossie"}),
         ("caveat", "Missing refunds", {"applies_to": ["db.orders"], "valid_to": "2023-02-01"}),
-        ("user_memory", "Prefers CTEs", {"user_id": "u1"}),
     ],
 )
 def test_good(t: str, body: str, meta: dict[str, object]) -> None:

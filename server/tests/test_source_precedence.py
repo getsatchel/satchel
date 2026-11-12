@@ -204,7 +204,7 @@ def test_two_sources_one_served_doc_deterministic_primary_and_catalog(
                               types=["asset_doc"])
         orders = [h for h in hits if h.key in (ORDERS, SECOND_ORDERS)]
         assert [h.key for h in orders] == [ORDERS]
-        pack = build_context_pack(s, "orders loyalty points", None, embedder=EMB,
+        pack = build_context_pack(s, "orders loyalty points", embedder=EMB,
                                   budget_tokens=4000)
         keys = [e.key for e in pack.entries]
         assert ORDERS in keys and SECOND_ORDERS not in keys
@@ -315,7 +315,7 @@ def test_dbt_and_cube_describe_orders_one_served_doc_and_a_correct_catalog(env: 
     # the primary is dbt; Cube's distinct facts (its segment caveat) are folded into it
     with workspace_session(env.ws_id, engine=env.engine) as s:
         pack = build_context_pack(s, "which orders count towards revenue on analytics.orders",
-                                  None, embedder=EMB, budget_tokens=6000)
+                                  embedder=EMB, budget_tokens=6000)
         keys = [e.key for e in pack.entries if e.type == "asset_doc"]
         assert ORDERS in keys and CUBE_ORDERS not in keys
         assert len(keys) == len(set(keys))

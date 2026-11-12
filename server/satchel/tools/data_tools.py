@@ -241,7 +241,7 @@ def _format(
 _CTX_TYPE_LABEL = {
     "asset_doc": "table doc", "glossary_term": "glossary", "guide": "guide",
     "golden_query": "golden query", "workspace_rule": "rule", "caveat": "caveat",
-    "semantic_model": "metric model", "endorsement": "endorsement", "user_memory": "memory",
+    "semantic_model": "metric model", "endorsement": "endorsement",
 }
 
 

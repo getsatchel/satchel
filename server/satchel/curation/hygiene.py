@@ -9,18 +9,15 @@ sessions, and emit ``source='hygiene'`` signals that the gap detector turns into
 - ``contradiction``: an LLM pairwise check over the most similar item pairs; only runs when a
   chat provider is configured, at most ``contradiction_pairs`` pairs per run, and a pair whose
   two versions were already checked is not checked again.
-- ``memory_convergence``: the same fact in at least ``memory_min_users`` users' ``user_memory``.
 
-Run with an admin session (satchel_worker: private user memory must be readable); every query
+Run with an admin session (satchel_worker); every query
 filters by ``workspace_id`` explicitly. Signals carry ``payload.dedupe = "<kind>:<target>"`` and
 are not re-emitted for the same target within ``REPEAT_DAYS``.
 """
 
 from __future__ import annotations
 
-import hashlib
 import logging
-import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -51,7 +48,7 @@ log = logging.getLogger("satchel.curation")
 
 REPEAT_DAYS = 90
 # Served implicitly or not text: never "dead".
-DEAD_EXEMPT_TYPES = {"workspace_rule", "user_memory", "endorsement", "semantic_model"}
+DEAD_EXEMPT_TYPES = {"workspace_rule", "endorsement", "semantic_model"}
 MAX_CHECKED_PAIRS = 5000
 MAX_PAIR_CHARS = 3000
 CONTRADICTION_SCHEMA: dict[str, Any] = {
@@ -322,76 +319,6 @@ def check_contradictions(
     s.flush()
 
 
-# ----------------------------------------------------------------------------- memory
-
-
-_BULLET = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
-
-
-def memory_facts(body: str) -> list[str]:
-    """One fact per non-empty line of a user's memory (markdown bullets stripped)."""
-    facts: list[str] = []
-    for line in body.splitlines():
-        t = _BULLET.sub("", line).strip()
-        if len(t) >= 12 and not t.startswith("#"):
-            facts.append(t[:400])
-    return facts
-
-
-def check_memory_convergence(
-    s: Session, workspace_id: uuid.UUID, cfg: CurationConfig, report: HygieneReport,
-    embedder: EmbeddingProvider, now: datetime,
-) -> None:
-    rows = s.execute(
-        select(ContextItem, ContextVersion)
-        .join(ContextVersion, ContextVersion.id == ContextItem.current_version_id)
-        .where(ContextItem.workspace_id == workspace_id, ContextItem.type == "user_memory",
-               ContextItem.scope_kind == "user", ContextItem.state != "deprecated")
-    )
-    facts: list[tuple[uuid.UUID, uuid.UUID, str]] = []  # (user, item, fact)
-    for item, ver in rows:
-        if item.scope_id is None:
-            continue
-        for fact in memory_facts(ver.body)[:100]:
-            facts.append((item.scope_id, item.id, fact))
-    users = {u for u, _, _ in facts}
-    if len(users) < cfg.memory_min_users:
-        return
-    facts = facts[:5000]
-    raw_vecs = embedder.embed([f for _, _, f in facts])
-    vecs: dict[int, np.ndarray] = {}
-    for idx, raw in enumerate(raw_vecs):
-        u = unit_vector(raw)
-        if u is not None:
-            vecs[idx] = u
-    clusters: list[tuple[np.ndarray, list[int]]] = []  # (summed unit vectors, fact indexes)
-    for idx, v in vecs.items():
-        best, best_i = -1.0, -1
-        for i, (tot, _) in enumerate(clusters):
-            c = float(v @ (tot / np.linalg.norm(tot)))
-            if c > best:
-                best, best_i = c, i
-        if best_i >= 0 and best >= cfg.memory_similarity:
-            tot, members = clusters[best_i]
-            clusters[best_i] = (tot + v, [*members, idx])
-        else:
-            clusters.append((v, [idx]))
-    for tot, members in clusters:
-        owners = {facts[i][0] for i in members}
-        if len(owners) < cfg.memory_min_users:
-            continue
-        centre = tot / np.linalg.norm(tot)
-        rep = max(members, key=lambda i: float(vecs[i] @ centre))
-        text = facts[rep][2]
-        target = hashlib.sha1(re.sub(r"\W+", " ", text.lower()).strip().encode()).hexdigest()[:16]
-        _emit(
-            s, workspace_id, report, "memory_convergence", target,
-            f"{len(owners)} users' private memories share this fact: {text}",
-            {"users": len(owners), "fact": text},
-            item_ids=sorted({facts[i][1] for i in members}), now=now,
-        )
-
-
 # ----------------------------------------------------------------------------- entry point
 
 
@@ -411,6 +338,5 @@ def run_hygiene(
     )
     dups = check_duplicates(s, workspace_id, cfg, report, pairs, now)
     check_contradictions(s, workspace_id, cfg, report, pairs, dups, chat, now)
-    check_memory_convergence(s, workspace_id, cfg, report, embedder, now)
     log.info("hygiene: %s", report.line())
     return report

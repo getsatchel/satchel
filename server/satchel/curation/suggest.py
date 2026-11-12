@@ -15,7 +15,7 @@ are drafted deterministically, with no LLM.
 Privacy: what the model sees of sessions is what a curator would see, with a larger text limit
 (see ``_clean``): SQL string literals become ``'?'``, free text is truncated to 400 characters,
 user identities are replaced by "user A/B/C", sensitive sessions contribute metadata only, and
-private ``user_memory`` is never sent.
+user-scoped items are never sent.
 """
 
 from __future__ import annotations
@@ -132,9 +132,9 @@ plus connection; asset_doc: asset, description, grain, caveats, columns as a lis
 name/description; endorsement: asset, endorsed, reason).
 - Keep changes small and few (usually 1 to 3). Write for an AI agent reader: precise, \
 unambiguous, no filler.
-- For hygiene findings (stale reference, dead context, duplicate, contradiction, shared \
-memory) propose the fix: update the item, deprecate_item with its target_key, or create the \
-shared item. For deprecate_item leave proposed_body empty.
+- For hygiene findings (stale reference, dead context, duplicate, contradiction) \
+propose the fix: update the item, or deprecate_item with its target_key. For deprecate_item \
+leave proposed_body empty.
 - Items with managed_by "source" come from an upstream tool (dbt, ...). Never rewrite their \
 content: satchel applies a proposal to their analyst overlay only. For an overlay_out_of_sync \
 finding, explain which overlay note or column note to move or delete; for an endorsement \
@@ -236,7 +236,7 @@ def _session_view(s: Session, sess: SessionRow, users: _Users) -> dict[str, Any]
 
 
 def _item_view(s: Session, item: ContextItem) -> dict[str, Any] | None:
-    if item.scope_kind == "user" or item.type == "user_memory" or not item.current_version_id:
+    if item.scope_kind == "user" or not item.current_version_id:
         return None
     ver = s.get(ContextVersion, item.current_version_id)
     if ver is None:
@@ -345,7 +345,7 @@ def _existing_keys(s: Session, workspace_id: uuid.UUID) -> list[str]:
     rows = s.execute(
         select(ContextItem.key, ContextItem.type).where(
             ContextItem.workspace_id == workspace_id, ContextItem.state.in_(["published", "draft"]),
-            ContextItem.scope_kind != "user", ContextItem.type != "user_memory",
+            ContextItem.scope_kind != "user",
         ).order_by(ContextItem.key).limit(200)
     )
     return [f"{k} ({t})" for k, t in rows]
@@ -503,7 +503,7 @@ def resolve_change(
 
     # create_item / promote_golden_query
     typ: str | None = "golden_query" if op == "promote_golden_query" else item_type
-    if typ is None or typ == "user_memory":
+    if typ is None:
         return None, f"{op}: missing or unsupported item_type {raw.get('item_type')!r}"
     try:
         validate_item(typ, body, meta)

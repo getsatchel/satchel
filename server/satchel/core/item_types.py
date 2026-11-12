@@ -95,11 +95,6 @@ class Caveat(_Strict):
             raise ValueError("valid_to must not precede valid_from")
 
 
-class UserMemory(_Strict):
-    body: str = Field(min_length=1)
-    user_id: str = Field(min_length=1)
-
-
 ITEM_TYPES: dict[str, type[BaseModel]] = {
     "workspace_rule": WorkspaceRule,
     "guide": Guide,
@@ -109,7 +104,6 @@ ITEM_TYPES: dict[str, type[BaseModel]] = {
     "endorsement": Endorsement,
     "semantic_model": SemanticModel,
     "caveat": Caveat,
-    "user_memory": UserMemory,
 }
 
 # Meta keys that belong to source-managed items (design §8.3): ``source`` is owned by the upstream
@@ -118,7 +112,7 @@ ITEM_TYPES: dict[str, type[BaseModel]] = {
 SOURCE_META_KEYS = ("source", "overlay")
 
 # Types whose body is markdown text; meta carries the remaining fields.
-_MARKDOWN_BODY = {"workspace_rule", "guide", "caveat", "user_memory", "semantic_model"}
+_MARKDOWN_BODY = {"workspace_rule", "guide", "caveat", "semantic_model"}
 
 
 class ItemValidationError(ValueError):

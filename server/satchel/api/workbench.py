@@ -481,7 +481,7 @@ def make_router(auth: Auth) -> APIRouter:
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             _get_release(s, release_id)
             pack = build_context_pack(
-                s, req.question, who.user_id, embedder=emb, release_id=release_id,
+                s, req.question, embedder=emb, release_id=release_id,
                 budget_tokens=req.budget_tokens,
             )
             return PackOut(

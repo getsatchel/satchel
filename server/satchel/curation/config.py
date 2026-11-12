@@ -32,8 +32,6 @@ class CurationConfig(BaseModel):
     duplicate_similarity: float = Field(default=0.95, ge=0.0, le=1.0)
     contradiction_min_similarity: float = Field(default=0.8, ge=0.0, le=1.0)
     contradiction_pairs: int = Field(default=10, ge=0)
-    memory_min_users: int = Field(default=3, ge=2)
-    memory_similarity: float = Field(default=0.9, ge=0.0, le=1.0)
     # Drafting.
     max_drafts: int = Field(default=10, ge=0)
     instructions: str = ""

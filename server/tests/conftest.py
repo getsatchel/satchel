@@ -115,7 +115,7 @@ def two_workspaces(app_engine: Engine) -> dict[str, uuid.UUID]:
                 ContextItem(workspace_id=ids["wb"], type="guide", key=f"b-shared-{sfx}"),
                 ContextItem(
                     workspace_id=ids["wa"],
-                    type="user_memory",
+                    type="guide",
                     key=f"a-u1-{sfx}",
                     scope_kind="user",
                     scope_id=ids["u1"],

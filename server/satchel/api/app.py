@@ -182,7 +182,7 @@ def create_app(
     def context_pack(req: PackRequest, who: Who) -> PackOut:
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             pack = build_context_pack(
-                s, req.question, who.user_id, embedder=emb, budget_tokens=req.budget_tokens
+                s, req.question, embedder=emb, budget_tokens=req.budget_tokens
             )
             return PackOut(
                 release_id=pack.release_id,

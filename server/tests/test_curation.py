@@ -449,19 +449,6 @@ def test_hygiene_contradiction_needs_a_chat_provider(ws: Ws) -> None:
     assert any("no chat provider" in n for n in rep.notes)
 
 
-def test_hygiene_memory_convergence(ws: Ws) -> None:
-    fact = "- I always report revenue in AUD dollars not cents"
-    for i, u in enumerate(("analyst", "u2", "u3")):
-        _add_item(ws, f"memory/{u}.md", "user_memory", f"{fact}\n- my favourite colour {i} blue",
-                  {"user_id": str(ws.users[u])}, state="draft",
-                  scope=("user", ws.users[u]))
-    rep = _hygiene(ws)
-    assert rep.emitted == {"memory_convergence": 1}
-    (sg,) = _hygiene_signals(ws, "memory_convergence")
-    assert sg.payload["users"] == 3 and "AUD" in sg.payload["fact"]
-    assert not any(str(u) in json.dumps(sg.payload) for u in ws.users.values())
-
-
 def test_hygiene_is_workspace_scoped(app_engine: Engine) -> None:
     a, b = Ws(app_engine), Ws(app_engine)
     _add_item(a, "guides/dead.md", "guide", "# Dead\ntext", GUIDE_META, age_days=90)

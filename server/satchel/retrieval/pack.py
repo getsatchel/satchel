@@ -26,7 +26,7 @@ from satchel.store.models import (
 
 # Fixed packing/render order (design §5.1 step 6).
 SECTIONS: list[tuple[str, list[str]]] = [
-    ("Rules", ["workspace_rule", "user_memory"]),
+    ("Rules", ["workspace_rule"]),
     ("Caveats", ["caveat"]),
     ("Glossary", ["glossary_term"]),
     ("Golden queries", ["golden_query"]),
@@ -35,7 +35,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
     ("Other", ["semantic_model", "endorsement"]),
 ]
 _TYPE_ORDER = {t: i for i, (_, ts) in enumerate(SECTIONS) for t in ts}
-ALWAYS_ON = {"workspace_rule", "user_memory"}
+ALWAYS_ON = {"workspace_rule"}
 MAX_ITEMS = 25
 
 
@@ -78,9 +78,7 @@ def _entry_tokens(tag: str, text: str) -> int:
     return approx_tokens(tag) + approx_tokens(text)
 
 
-def _always_on(
-    session: Session, rid: uuid.UUID, user_id: uuid.UUID | None
-) -> list[PackEntry]:
+def _always_on(session: Session, rid: uuid.UUID) -> list[PackEntry]:
     entries: list[PackEntry] = []
     rows = session.execute(
         select(ContextItem, ContextVersion)
@@ -94,23 +92,6 @@ def _always_on(
         .order_by(ContextItem.key)
     )
     pairs = [(i, v) for i, v in rows]
-    if user_id is not None:
-        mem = session.execute(
-            select(ContextItem, ContextVersion)
-            .join(
-                ContextVersion,
-                ContextVersion.id
-                == ContextItem.published_version_id,
-            )
-            .where(
-                ContextItem.type == "user_memory",
-                ContextItem.scope_kind == "user",
-                ContextItem.scope_id == user_id,
-                ContextItem.state != "deprecated",
-            )
-            .order_by(ContextItem.key)
-        )
-        pairs.extend((i, v) for i, v in mem)
     for item, ver in pairs:
         tag = f"[ctx:{item.key}@v{ver.seq}]"
         entries.append(
@@ -129,17 +110,14 @@ def _always_on(
     return entries
 
 
-def always_on_entries(
-    session: Session, release_id: uuid.UUID | None, user_id: uuid.UUID | None
-) -> list[PackEntry]:
-    """Always-on rules (workspace rules + the caller's private memory) for a release."""
-    return _always_on(session, release_id, user_id) if release_id else []
+def always_on_entries(session: Session, release_id: uuid.UUID | None) -> list[PackEntry]:
+    """The always-on workspace rules of a release."""
+    return _always_on(session, release_id) if release_id else []
 
 
 def build_context_pack(
     session: Session,
     question: str,
-    user_id: uuid.UUID | None,
     *,
     embedder: EmbeddingProvider | None = None,
     release_id: uuid.UUID | None = None,
@@ -149,7 +127,7 @@ def build_context_pack(
 ) -> ContextPack:
     """Build the context pack for ``question`` inside an RLS ``workspace_session``.
 
-    Always-on rules (workspace rule + the caller's private memory) are included first and are
+    Always-on rules (the workspace rules) are included first and are
     never dropped, even if they alone exceed the budget. Remaining candidates are added
     greedily by score while they fit, then rendered in fixed type order. When
     ``tool_call_id`` is given, a ``served_context`` row is logged per packed version.
@@ -168,7 +146,7 @@ def build_context_pack(
         return pack
     assert resolve_release(session, wid, rid) == rid
 
-    always = _always_on(session, rid, user_id)
+    always = _always_on(session, rid)
     pack.entries.extend(always)
     remaining = budget_tokens - pack.used_tokens
 

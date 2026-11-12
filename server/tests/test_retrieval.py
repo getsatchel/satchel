@@ -81,11 +81,11 @@ def test_retrieval_eval_hash_baseline(app_engine: Engine, jaffle: uuid.UUID) -> 
 
 
 def test_pack_budget_and_order(app_engine: Engine, jaffle: uuid.UUID) -> None:
-    order = ["workspace_rule", "user_memory", "caveat", "glossary_term", "golden_query",
+    order = ["workspace_rule", "caveat", "glossary_term", "golden_query",
              "asset_doc", "guide", "semantic_model"]
     with workspace_session(jaffle, engine=app_engine) as s:
-        big = build_context_pack(s, "revenue last month", None, embedder=EMB, budget_tokens=4000)
-        small = build_context_pack(s, "revenue last month", None, embedder=EMB, budget_tokens=500)
+        big = build_context_pack(s, "revenue last month", embedder=EMB, budget_tokens=4000)
+        small = build_context_pack(s, "revenue last month", embedder=EMB, budget_tokens=500)
     assert big.used_tokens <= 4000 and small.used_tokens <= 500
     assert len(small.entries) < len(big.entries)
     for pack in (big, small):
@@ -110,39 +110,13 @@ def test_rls_isolates_search_between_workspaces(app_engine: Engine, tmp_path: Pa
     wa, wb = mk("alpha"), mk("bravo")
     with workspace_session(wa, engine=app_engine) as s:
         keys = {h.key for h in search_context(s, "zanzibar procedure", k=10, embedder=EMB)}
-        pack = build_context_pack(s, "zanzibar procedure", None, embedder=EMB)
+        pack = build_context_pack(s, "zanzibar procedure", embedder=EMB)
     assert keys == {"guides/alpha.md"}
     assert "bravo" not in pack.text
     with workspace_session(wb, engine=app_engine) as s:
         assert {h.key for h in search_context(s, "zanzibar", k=10, embedder=EMB)} == {
             "guides/bravo.md"
         }
-
-
-def test_user_memory_private_in_pack(app_engine: Engine, jaffle: uuid.UUID) -> None:
-    u1, u2 = uuid.uuid4(), uuid.uuid4()
-    with admin_session(engine=app_engine) as s:
-        s.add_all([AppUser(id=u, workspace_id=jaffle, role="analyst") for u in (u1, u2)])
-        s.flush()
-        item = ContextItem(
-            workspace_id=jaffle, type="user_memory", key=f"memory/{u1}", scope_kind="user",
-            scope_id=u1, state="published", managed_by="ui",
-        )
-        s.add(item)
-        s.flush()
-        v = ContextVersion(item_id=item.id, seq=1, body="I always report in USD thousands.",
-                           content_hash="x")
-        s.add(v)
-        s.flush()
-        item.current_version_id = item.published_version_id = v.id
-    with workspace_session(jaffle, u1, engine=app_engine) as s:
-        p1 = build_context_pack(s, "revenue", u1, embedder=EMB)
-    with workspace_session(jaffle, u2, engine=app_engine) as s:
-        p2 = build_context_pack(s, "revenue", u2, embedder=EMB)
-        # Even if u2 asks for u1's memory, RLS hides it.
-        p3 = build_context_pack(s, "revenue", u1, embedder=EMB)
-    assert "USD thousands" in p1.text
-    assert "USD thousands" not in p2.text and "USD thousands" not in p3.text
 
 
 def test_served_context_logged(app_engine: Engine, jaffle: uuid.UUID) -> None:
@@ -155,7 +129,7 @@ def test_served_context_logged(app_engine: Engine, jaffle: uuid.UUID) -> None:
         s.flush()
         tcid = tc.id
     with workspace_session(jaffle, engine=app_engine) as s:
-        pack = build_context_pack(s, "refund rate", None, embedder=EMB, tool_call_id=tcid)
+        pack = build_context_pack(s, "refund rate", embedder=EMB, tool_call_id=tcid)
     with workspace_session(jaffle, engine=app_engine) as s:
         rows = s.execute(
             select(ServedContext.version_id, ServedContext.rank)
@@ -204,7 +178,7 @@ def test_human_feedback_moves_the_helpfulness_prior(app_engine: Engine, jaffle: 
         s.flush()
         sess_id, pack_id, user_id = sess.id, pack_call.id, uid.id
     with workspace_session(jaffle, engine=app_engine) as s:
-        build_context_pack(s, q, None, embedder=EMB, tool_call_id=pack_id)
+        build_context_pack(s, q, embedder=EMB, tool_call_id=pack_id)
     with admin_session(engine=app_engine) as s:
         sql_call = ToolCall(session_id=sess_id, tool="run_sql")
         s.add(sql_call)
