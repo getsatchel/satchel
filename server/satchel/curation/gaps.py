@@ -59,7 +59,6 @@ KIND_LABEL = {
     "contradiction": "Contradiction",
     "dead_item": "Dead context",
     "duplicate": "Duplicate context",
-    "memory_convergence": "Shared memory",
     "overlay_out_of_sync": "Overlay out of sync",
     "endorsement_candidate": "Endorsement suggested",
     "golden_candidate": "Golden query candidate",

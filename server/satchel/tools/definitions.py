@@ -220,7 +220,7 @@ def start_analysis(c: Call) -> dict[str, Any]:
     c.s.add(sess)
     c.s.flush()
     c.session = sess
-    always = always_on_entries(c.s, rid, c.ctx.principal.user_id)
+    always = always_on_entries(c.s, rid)
     c.ensure_tool_call()
     _log_served(c, [(e.version_id, None) for e in always])
     seq = c.s.scalar(select(Release.seq).where(Release.id == rid)) if rid else None
@@ -262,7 +262,6 @@ def get_context_pack(c: Call) -> str:
     pack = build_context_pack(
         c.s,
         a.question,
-        c.ctx.principal.user_id,
         embedder=c.ctx.embedder,
         budget_tokens=a.budget_tokens,
         release_id=_session_release(c),
@@ -503,7 +502,7 @@ def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60] or "item"
 
 
-_MARKDOWN_TYPES = {"workspace_rule", "guide", "caveat", "user_memory", "semantic_model"}
+_MARKDOWN_TYPES = {"workspace_rule", "guide", "caveat", "semantic_model"}
 
 
 def propose_context_change(c: Call) -> dict[str, Any]:

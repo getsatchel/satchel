@@ -21,7 +21,7 @@ from satchel.curation.drafts import ItemValidationError, add_version, validate_i
 from satchel.llm.embeddings import EmbeddingProvider
 from satchel.store.models import ContextItem, Suggestion, SuggestionChange
 
-MARKDOWN_TYPES = {"workspace_rule", "guide", "caveat", "user_memory", "semantic_model"}
+MARKDOWN_TYPES = {"workspace_rule", "guide", "caveat", "semantic_model"}
 KEY_PREFIX = {
     "guide": "guides", "glossary_term": "glossary", "golden_query": "queries",
     "caveat": "caveats", "asset_doc": "assets", "endorsement": "endorsements",

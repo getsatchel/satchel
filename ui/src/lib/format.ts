@@ -44,7 +44,6 @@ export const ITEM_TYPE_LABEL: Record<string, string> = {
   endorsement: "Endorsement",
   semantic_model: "Semantic model",
   caveat: "Caveat",
-  user_memory: "User memory",
 };
 
 const YAML_TYPES = new Set(["glossary_term", "golden_query", "asset_doc", "endorsement"]);

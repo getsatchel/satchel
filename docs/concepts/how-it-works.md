@@ -8,7 +8,7 @@ Satchel sits between your agents (Claude, Cursor, ChatGPT, Codex) and your data.
 | Concept | What it is |
 |---|---|
 | **Workspace** | The tenancy boundary. Every row is scoped to one, enforced by Postgres row-level security. |
-| **Context item** | A curated, versioned piece of knowledge: guide, glossary term, metric, golden query, table doc, endorsement. |
+| **Context item** | A curated, versioned piece of knowledge: guide, glossary term, metric, golden query, table doc, endorsement. Context is shared and reviewed: every user of a workspace gets the same answers. Satchel keeps no per-user memory; a user's preferences belong to their own agent's memory, and a correction that matters to everyone becomes a signal. |
 | **Release** | An immutable set of published context items. Agents read the published release. Changes go draft → preview release → publish, and can be rolled back. |
 | **Source** | An upstream tool (dbt, Cube, SQLMesh, a git repo) synced into context. Fields are owned by the source or by a hand-written overlay. |
 | **Connection** | A warehouse (Postgres, DuckDB today) used by the optional data plane to run governed, read-only SQL. |

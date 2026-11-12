@@ -55,7 +55,7 @@ Sign-in: without any setting the UI redirects to `/auth/login` (OIDC session coo
 
 ## Curation loop
 
-Satchel turns what agents struggle with into reviewable suggestions. A job embeds the signals agents write (flagged gaps, user corrections, SQL errors, metric divergence), runs hygiene checks on the context itself (stale references, dead, duplicate and contradictory items, memories shared across users), clusters the signals (default: at least 2 users, 2 sessions and 3 signals), and has a chat model draft concrete changes. Nothing is published: curators review each change in the **Inbox**, and accepting one creates a draft that still goes through preview and publish.
+Satchel turns what agents struggle with into reviewable suggestions. A job embeds the signals agents write (flagged gaps, user corrections, SQL errors, metric divergence), runs hygiene checks on the context itself (stale references, dead, duplicate and contradictory items), clusters the signals (default: at least 2 users, 2 sessions and 3 signals), and has a chat model draft concrete changes. Nothing is published: curators review each change in the **Inbox**, and accepting one creates a draft that still goes through preview and publish.
 
 ```bash
 cd server

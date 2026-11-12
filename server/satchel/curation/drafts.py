@@ -42,7 +42,7 @@ def chunk_texts_for(item_type: str, body: str, meta: dict[str, Any]) -> list[str
         return chunk_markdown(body, f"Guide: {name}. {desc}")
     if item_type == "caveat":
         return chunk_markdown(body, "Caveat")
-    if item_type in {"workspace_rule", "user_memory"}:
+    if item_type == "workspace_rule":
         return chunk_markdown(body, None)
     if item_type == "semantic_model":
         if meta.get("format") == "wren_mdl":
