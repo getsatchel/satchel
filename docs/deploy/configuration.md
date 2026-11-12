@@ -120,6 +120,12 @@ Warehouses agents query (`run_sql`, the semantic layer) and that Satchel crawls 
 Admins add, edit and remove dbt, Cube and SQLMesh sources; curators sync them. The form is
 generated from each adapter's own configuration schema.
 
+Click a source to open its detail, in tabs: **Overview** (the last sync, what it changed, item
+counts, the next sync, and any error or held drafts), **Issues** (warnings and overlaps with other
+sources, shown only when there are some), **Setup** (adapter, connection, repository or files,
+priority, how it publishes), **Automation** (schedule, push webhook, the CI command) and
+**Diagnostics** (source ID, commit, fingerprint and the raw last sync report).
+
 Where a source's files come from:
 
 1. **A git repository** (Cube, SQLMesh, a committed dbt `target/`): see below.
@@ -188,7 +194,7 @@ only uploaded can't use them (422), because only the uploader has the files.
   (`next_sync_at` over REST). `satchel worker --once`
   (CronJob) runs one check after the curation pass and then every queued job, so the CronJob
   interval is the shortest schedule it can honour.
-- **Push webhook.** On the source's detail, an admin clicks **Push webhook → Set up webhook**.
+- **Push webhook.** On the source's detail, an admin opens **Automation** and clicks **Set up webhook**.
   This shows the URL (`$SATCHEL_PUBLIC_URL/v1/hooks/sources/<id>`) and a generated secret once.
   The secret is sealed in `context_source.config` like other source secrets, so it needs
   `SATCHEL_ENCRYPTION_KEY`. **Rotate secret** replaces it and **Remove webhook** turns it off.

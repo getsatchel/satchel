@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
 import type { SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { Chevron, DescList, EmptyState, ErrorBox, ICONS, Icon, Loading, Modal, Notice, PageHeader, SectionHeading, StatCell, StatGrid, StatusDot, TableCard } from "@/components/ui";
+import { Chevron, DescList, EmptyState, ErrorBox, ICONS, Icon, Loading, Modal, Notice, PageHeader, SectionHeading, StatCell, StatGrid, StatusDot, TableCard, Tabs } from "@/components/ui";
 import { SourceForm, UploadSync } from "@/pages/SourceForm";
 import { WebhookPanel } from "@/pages/SourceWebhook";
 import { errMsg, fullTime, timeAgo, timeUntil } from "@/lib/format";
@@ -55,20 +55,6 @@ function automationRows(s: SourceOut): [string, ReactNode][] {
   const n = s.sync_interval_hours;
   return [
     ["Schedule", n ? `every ${n === 1 ? "hour" : `${n} hours`}` : <span className="text-muted">off (sync on request)</span>],
-    [
-      "Next sync",
-      s.next_sync_at ? (
-        <span title={fullTime(s.next_sync_at)}>
-          {timeUntil(s.next_sync_at)}
-          {s.last_status === "error" && rep.failures ? (
-            <span className="text-muted">
-              {" "}
-              (retry after {rep.failures} failed {rep.failures === 1 ? "sync" : "syncs in a row"})
-            </span>
-          ) : null}
-        </span>
-      ) : null,
-    ],
     ["Push webhook", s.webhook_url ? "set up" : null],
     ["Last trigger", rep.trigger ?? null],
     [
@@ -435,7 +421,10 @@ function SourceRow(props: {
       {props.isOpen && (
         <tr>
           <td colSpan={6} className="border-t border-line bg-sunken/20 px-4 py-3">
-            <SourceDetail s={s} warnings={warnings} report={props.report} admin={props.admin} onEdit={props.onEdit} onUpload={props.onUpload} onRemove={props.onRemove} />
+            {/* w-0 min-w-full: fill the row without letting the tabs widen the table on a phone. */}
+            <div className="w-0 min-w-full">
+              <SourceDetail s={s} warnings={warnings} report={props.report} admin={props.admin} onEdit={props.onEdit} onUpload={props.onUpload} onRemove={props.onRemove} />
+            </div>
           </td>
         </tr>
       )}
@@ -443,6 +432,13 @@ function SourceRow(props: {
   );
 }
 
+type DetailTab = "overview" | "issues" | "setup" | "automation" | "diagnostics";
+
+/**
+ * A source's detail, in tabs so each layer has its own place: Overview (what happened and what
+ * needs you), Issues (warnings and overlaps, only when there are some), Setup, Automation
+ * (schedule, push webhook, CI) and Diagnostics (identifiers and the raw report).
+ */
 function SourceDetail(props: {
   s: SourceOut;
   warnings: Warning[];
@@ -453,24 +449,27 @@ function SourceDetail(props: {
   onRemove: () => void;
 }) {
   const { s, report } = props;
-  const counts = countsOf(s);
   const overlaps = overlapsOf(s, report);
   // Overlap warnings are already listed under "Also described elsewhere".
   const warnings = overlaps.length ? props.warnings : warningsOf(s);
-  const last = s.last_report as { git_commit?: string | null; dbt_version?: string | null };
-  const git = Boolean(s.config.git_url);
+  const issues = warnings.length + overlaps.length;
   const hasFiles = (s.adapter?.file_inputs ?? []).length > 0;
+  const [tab, setTab] = useState<DetailTab>("overview");
+  const tabs: { id: DetailTab; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    ...(issues > 0 ? [{ id: "issues" as const, label: `Issues (${issues})` }] : []),
+    { id: "setup", label: "Setup" },
+    { id: "automation", label: "Automation" },
+    { id: "diagnostics", label: "Diagnostics" },
+  ];
+  const current = tabs.some((t) => t.id === tab) ? tab : "overview";
   return (
-    <div className="space-y-5 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="text-xs text-muted">
-          Its items are in the{" "}
-          <Link className="text-accent hover:underline" to="/library?managed_by=source">
-            Library
-          </Link>
-          {props.admin ? "." : ". Admins can edit or remove the source."}
-        </p>
-        <div className="flex flex-wrap gap-2">
+    <div className="text-sm">
+      <div className="flex flex-wrap items-end justify-between gap-x-4">
+        <div className="min-w-0 basis-full md:basis-0 md:flex-1">
+          <Tabs tabs={tabs} value={current} onChange={setTab} />
+        </div>
+        <div className="mb-3 flex flex-wrap gap-2">
           {hasFiles && (
             <button type="button" className="btn btn-sm" onClick={props.onUpload}>
               Upload and sync
@@ -488,7 +487,28 @@ function SourceDetail(props: {
           )}
         </div>
       </div>
+      <div role="tabpanel" aria-label={tabs.find((t) => t.id === current)?.label} className="min-w-0 space-y-5 pt-1">
+        {current === "overview" && <Overview s={s} report={report} admin={props.admin} />}
+        {current === "issues" && <Issues overlaps={overlaps} warnings={warnings} />}
+        {current === "setup" && <Setup s={s} />}
+        {current === "automation" && <AutomationTab s={s} admin={props.admin} />}
+        {current === "diagnostics" && <Diagnostics s={s} />}
+      </div>
+    </div>
+  );
+}
 
+/** What happened in the last sync and anything that needs a person. */
+function Overview(props: { s: SourceOut; report: SyncReportOut | null; admin: boolean }) {
+  const { s } = props;
+  // The sync just run here, else the one saved on the source (same shape once it has counts).
+  const saved = s.last_report as Partial<SyncReportOut>;
+  const report = props.report ?? (saved.counts ? (saved as SyncReportOut) : null);
+  const counts = countsOf(s);
+  const rep = s.last_report as Automation;
+  const n = s.sync_interval_hours;
+  return (
+    <>
       {s.last_error && <ErrorBox error={s.last_error} />}
       {report?.gate_message && <Notice tone="warn">Not published: {report.gate_message}.</Notice>}
       {report && report.held.length > 0 && (
@@ -500,66 +520,79 @@ function SourceDetail(props: {
           .
         </Notice>
       )}
+      <DescList
+        labelWidth="7rem"
+        rows={[
+          [
+            "Last sync",
+            s.last_synced_at ? (
+              <span title={fullTime(s.last_synced_at)}>
+                {timeAgo(s.last_synced_at)}
+                {rep.trigger && <span className="text-muted"> ({rep.trigger})</span>}
+              </span>
+            ) : (
+              <span className="text-muted">never</span>
+            ),
+          ],
+          [
+            "Changed",
+            report ? changedLine(report.counts) : null,
+          ],
+          ["Release", report && "release_kind" in report ? (report.release_kind ? `${report.release_kind} #${report.release_seq}${report.release_created ? " (new)" : " (unchanged)"}` : "no change") : null],
+          [
+            "Items",
+            counts.length ? (
+              <span>
+                {counts.map((c) => `${c.n} ${c.label}`).join(", ")}{" "}
+                <Link className="text-accent hover:underline" to="/library?managed_by=source">
+                  in the Library
+                </Link>
+              </span>
+            ) : (
+              <span className="text-muted">none yet</span>
+            ),
+          ],
+          [
+            "Next sync",
+            n ? (
+              s.next_sync_at ? (
+                <span title={fullTime(s.next_sync_at)}>
+                  {timeUntil(s.next_sync_at)}
+                  {s.last_status === "error" && rep.failures ? (
+                    <span className="text-muted">
+                      {" "}
+                      (retry after {rep.failures} failed {rep.failures === 1 ? "sync" : "syncs in a row"})
+                    </span>
+                  ) : null}
+                </span>
+              ) : null
+            ) : (
+              <span className="text-muted">on request (no schedule)</span>
+            ),
+          ],
+        ]}
+      />
+      {!props.admin && <p className="text-xs text-muted">Admins can edit or remove the source.</p>}
+    </>
+  );
+}
 
-      <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2">
-        <section aria-label="Setup" className="min-w-0">
-          <h3 className="label-caps mb-2">Setup</h3>
-          <DescList
-            labelWidth="7rem"
-            rows={[
-              ["Adapter", adapterLine(s)],
-              ["Connection", s.connection ?? <span className="text-muted">none (tables not linked to a warehouse)</span>],
-              [
-                "Repository",
-                git ? (
-                  <span className="font-mono text-xs [overflow-wrap:anywhere]">
-                    {String(s.config.git_url)}
-                    {s.config.git_ref ? <span className="text-muted"> @ {String(s.config.git_ref)}</span> : null}
-                  </span>
-                ) : null,
-              ],
-              ["Files", hasFiles ? <SourceFiles s={s} /> : null],
-              ["Priority", <span className="tabular-nums">{s.priority}</span>],
-              ["Publishes", s.publish === "preview" ? "a preview release you publish yourself" : "a release on every sync"],
-            ]}
-          />
-        </section>
-        <section aria-label="Sync" className="min-w-0">
-          <h3 className="label-caps mb-2">Sync</h3>
-          <DescList
-            labelWidth="7rem"
-            rows={[
-              ["Last sync", s.last_synced_at ? <span title={fullTime(s.last_synced_at)}>{timeAgo(s.last_synced_at)}</span> : <span className="text-muted">never</span>],
-              ...automationRows(s),
-              ["Items", counts.length ? counts.map((c) => `${c.n} ${c.label}`).join(", ") : <span className="text-muted">none yet</span>],
-              ["Commit", last.git_commit ? <code className="text-xs">{String(last.git_commit).slice(0, 10)}</code> : null],
-              ["Built with", last.dbt_version ? `dbt Core ${String(last.dbt_version)} (dbt parse on the server)` : null],
-            ]}
-          />
-        </section>
-      </div>
+/** "2 created, 4 unchanged": only the counts that are not zero. */
+function changedLine(c: SyncReportOut["counts"]): string {
+  const parts = [
+    [c.created, "created"],
+    [c.updated, "updated"],
+    [c.deprecated, "retired"],
+    [c.unchanged, "unchanged"],
+  ] as const;
+  const shown = parts.filter(([n]) => (n ?? 0) > 0).map(([n, w]) => `${n} ${w}`);
+  return shown.length ? shown.join(", ") : "nothing";
+}
 
-      {report && (
-        <section aria-label="This sync">
-          <h3 className="label-caps mb-2">This sync</h3>
-          <DescList
-            labelWidth="7rem"
-            rows={[
-              ["Items", `${report.counts.created} created, ${report.counts.updated} updated, ${report.counts.unchanged} unchanged, ${report.counts.deprecated} retired`],
-              ["Release", report.release_kind ? `${report.release_kind} #${report.release_seq}${report.release_created ? " (new)" : " (unchanged)"}` : "no change"],
-              [
-                "Curation signals",
-                Object.keys(report.signals).length
-                  ? Object.entries(report.signals)
-                      .map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`)
-                      .join(", ")
-                  : null,
-              ],
-            ]}
-          />
-        </section>
-      )}
-
+/** Overlaps with other sources, then warnings grouped by kind. */
+function Issues({ overlaps, warnings }: { overlaps: Overlap[]; warnings: Warning[] }) {
+  return (
+    <>
       {overlaps.length > 0 && (
         <section aria-label="Also described elsewhere">
           <h3 className="label-caps mb-2">Also described elsewhere ({overlaps.length})</h3>
@@ -624,11 +657,48 @@ function SourceDetail(props: {
           </ul>
         </section>
       )}
+    </>
+  );
+}
 
-      {!git && singleFileInputs(s).length > 0 && <CiPush s={s} />}
-      {props.admin && <WebhookPanel s={s} />}
-      <Diagnostics s={s} />
-    </div>
+/** Where the source reads from and how its syncs publish. */
+function Setup({ s }: { s: SourceOut }) {
+  const git = Boolean(s.config.git_url);
+  const hasFiles = (s.adapter?.file_inputs ?? []).length > 0;
+  return (
+    <DescList
+      labelWidth="7rem"
+      rows={[
+        ["Adapter", adapterLine(s)],
+        ["Connection", s.connection ?? <span className="text-muted">none (tables not linked to a warehouse)</span>],
+        [
+          "Repository",
+          git ? (
+            <span className="font-mono text-xs [overflow-wrap:anywhere]">
+              {String(s.config.git_url)}
+              {s.config.git_ref ? <span className="text-muted"> @ {String(s.config.git_ref)}</span> : null}
+            </span>
+          ) : null,
+        ],
+        ["Files", hasFiles ? <SourceFiles s={s} /> : null],
+        ["Priority", <span className="tabular-nums">{s.priority}</span>],
+        ["Publishes", s.publish === "preview" ? "a preview release you publish yourself" : "a release on every sync"],
+      ]}
+    />
+  );
+}
+
+/** What starts a sync: the schedule, a push webhook, or CI uploading artifacts. */
+function AutomationTab({ s, admin }: { s: SourceOut; admin: boolean }) {
+  const git = Boolean(s.config.git_url);
+  const ci = !git && singleFileInputs(s).length > 0;
+  return (
+    <>
+      {/* Admins see the webhook's state in its panel below. */}
+      <DescList labelWidth="7rem" rows={automationRows(s).filter(([k]) => !(admin && k === "Push webhook"))} />
+      {admin ? <WebhookPanel s={s} /> : !s.webhook_url && <p className="text-xs text-muted">Admins can set up a push webhook.</p>}
+      {ci && <CiPush s={s} />}
+    </>
   );
 }
 
@@ -653,48 +723,42 @@ function groupWarnings(ws: Warning[]): { code: string; shared: string | null; su
   });
 }
 
-/** The deepest layer: identifiers and the full last sync report, for debugging. Closed by default. */
+/** The deepest layer: identifiers, versions and the full last sync report, for debugging. */
 function Diagnostics({ s }: { s: SourceOut }) {
-  const [open, setOpen] = useState(false);
   const toast = useToast();
   const raw = JSON.stringify(s.last_report ?? {}, null, 2);
+  const last = s.last_report as { git_commit?: string | null; dbt_version?: string | null };
   return (
-    <section aria-label="Diagnostics" className="border-t border-line pt-3">
-      <button type="button" className="flex items-center gap-1.5 text-xs text-muted hover:text-ink" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Chevron open={open} />
-        Diagnostics
-      </button>
-      {open && (
-        <div className="mt-3 space-y-3">
-          <DescList
-            labelWidth="7rem"
-            rows={[
-              ["Source ID", <code className="text-xs [overflow-wrap:anywhere]">{s.id}</code>],
-              ["Fingerprint", s.last_fingerprint ? <code className="text-xs [overflow-wrap:anywhere]">{s.last_fingerprint}</code> : null],
-              ["Last sync", s.last_synced_at ? fullTime(s.last_synced_at) : null],
-            ]}
-          />
-          <div>
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <h3 className="label-caps">Last sync report</h3>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() =>
-                  void navigator.clipboard.writeText(raw).then(
-                    () => toast("ok", "Report copied"),
-                    () => toast("err", "Copy failed: select the text and copy it"),
-                  )
-                }
-              >
-                Copy
-              </button>
-            </div>
-            <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-sunken px-3 py-2 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">{raw}</pre>
-          </div>
+    <>
+      <DescList
+        labelWidth="7rem"
+        rows={[
+          ["Source ID", <code className="text-xs [overflow-wrap:anywhere]">{s.id}</code>],
+          ["Commit", last.git_commit ? <code className="text-xs [overflow-wrap:anywhere]">{String(last.git_commit)}</code> : null],
+          ["Built with", last.dbt_version ? `dbt Core ${String(last.dbt_version)} (dbt parse on the server)` : null],
+          ["Fingerprint", s.last_fingerprint ? <code className="text-xs [overflow-wrap:anywhere]">{s.last_fingerprint}</code> : null],
+          ["Last sync", s.last_synced_at ? fullTime(s.last_synced_at) : null],
+        ]}
+      />
+      <section aria-label="Last sync report">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <h3 className="label-caps">Last sync report</h3>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() =>
+              void navigator.clipboard.writeText(raw).then(
+                () => toast("ok", "Report copied"),
+                () => toast("err", "Copy failed: select the text and copy it"),
+              )
+            }
+          >
+            Copy
+          </button>
         </div>
-      )}
-    </section>
+        <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-sunken px-3 py-2 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">{raw}</pre>
+      </section>
+    </>
   );
 }
 
