@@ -32,11 +32,11 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_CHAT_API_KEY` | — | Chat API key. |
 | `SATCHEL_CHAT_TIMEOUT_S` | `120.0` | Chat request timeout. |
 | `SATCHEL_CHAT_MAX_RETRIES` | `4` | Chat request retries. |
-| `SATCHEL_CURATE_INTERVAL_MIN` | `1440` | Minutes between worker passes. |
+| `SATCHEL_CURATE_INTERVAL_MIN` | `1440` | Minutes between worker passes: each queues a curation run per workspace and runs the purges. |
 | `SATCHEL_SOURCE_TICK_MIN` | `5` | Minutes between the worker's checks for scheduled source syncs; `0` turns them off. |
 | `SATCHEL_EVAL_TICK_MIN` | `15` | Minutes between the worker's checks for scheduled eval runs; `0` turns them off ([evals](../concepts/evals.md#scheduled-runs)). |
 | `SATCHEL_WORKER_JOB_THREADS` | `2` | Threads in `satchel worker` that run queued jobs (every kind); `0` = none. |
-| `SATCHEL_WEB_JOB_THREADS` | `2` | Threads in each web server process that run queued eval runs, source syncs (Sync now, push webhooks) and connection crawls; `0` leaves them to the worker. |
+| `SATCHEL_WEB_JOB_THREADS` | `2` | Threads in each web server process that run queued eval runs, source syncs (Sync now, push webhooks), connection crawls and curation runs; `0` leaves them to the worker. |
 | `SATCHEL_JOB_POLL_S` | `5.0` | Seconds an idle job thread waits before looking for jobs other processes queued. |
 | `SATCHEL_RESULT_DIR` | `~/.cache/satchel/results` | Result cache location: local path, `gs://` or `s3://`. |
 | `SATCHEL_RESULT_TTL_DAYS` | `7` | Default result cache lifetime. |

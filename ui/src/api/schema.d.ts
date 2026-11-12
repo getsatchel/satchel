@@ -207,7 +207,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Curate Run */
+        /**
+         * Curate Run
+         * @description Run curation for the workspace. ``wait=true`` runs it in the request and returns the
+         *     counts (409 while another run holds the workspace). Otherwise it queues a
+         *     ``curation.run`` job (202; one per workspace at a time): poll ``GET /v1/jobs/{id}``;
+         *     its ``result`` has the counts.
+         */
         post: operations["curate_run"];
         delete?: never;
         options?: never;
@@ -431,6 +437,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Jobs */
+        get: operations["list_jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -442,6 +465,23 @@ export interface paths {
         get: operations["get_job"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Job */
+        post: operations["retry_job"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2026,6 +2066,13 @@ export interface components {
             result?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Retryable
+             * @default false
+             */
+            retryable: boolean;
+            /** Run After */
+            run_after?: string | null;
             /** Started At */
             started_at?: string | null;
             /**
@@ -2033,6 +2080,10 @@ export interface components {
              * @enum {string}
              */
             status: "queued" | "running" | "done" | "failed";
+            /** Subject */
+            subject?: string | null;
+            /** Trigger */
+            trigger?: string | null;
         };
         /** KindFieldOut */
         KindFieldOut: {
@@ -4115,7 +4166,9 @@ export interface operations {
     };
     curate_run: {
         parameters: {
-            query?: never;
+            query?: {
+                wait?: boolean;
+            };
             header?: {
                 authorization?: string | null;
                 "x-satchel-workspace"?: string | null;
@@ -4136,7 +4189,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CurateRunOut"];
+                    "application/json": components["schemas"]["CurateRunOut"] | components["schemas"]["JobOut"];
+                };
+            };
+            /** @description queued (without wait) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */
@@ -4758,7 +4820,81 @@ export interface operations {
             };
         };
     };
+    list_jobs: {
+        parameters: {
+            query?: {
+                status?: ("queued" | "running" | "done" | "failed") | null;
+                kind?: string | null;
+                limit?: number;
+                /** @description ids below this (paging) */
+                before?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_job: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_job: {
         parameters: {
             query?: never;
             header?: {

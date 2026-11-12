@@ -20,6 +20,7 @@ import { Catalog } from "./pages/Catalog";
 import { Sources } from "./pages/Sources";
 import { Settings } from "./pages/Settings";
 import { EvalComparePage, EvalRunPage, Evals } from "./pages/Evals";
+import { Jobs } from "./pages/Jobs";
 
 function DevLogin({ onDone }: { onDone: () => void }) {
   const [ws, setWs] = useState(devAuth.workspace);
@@ -104,6 +105,7 @@ export function App() {
         <Route path="sources" element={<Sources />} />
         <Route path="settings" element={<Settings />} />
         <Route path="evals" element={<Evals />} />
+        <Route path="jobs" element={<Jobs />} />
         <Route path="evals/runs/:id" element={<EvalRunPage />} />
         <Route path="evals/compare" element={<EvalComparePage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

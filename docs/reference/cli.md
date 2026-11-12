@@ -22,8 +22,8 @@
 | `serve api` | UI + REST + `/mcp` + OAuth/OIDC. |
 | `serve mcp` | Only `/mcp` and the OAuth routes. |
 | `mcp stdio` | MCP over stdio (needs `SATCHEL_TOKEN` and `SATCHEL_WORKSPACE`). |
-| `worker [--once]` | Curation for every workspace on an interval; `--once` for Jobs/CronJobs. |
-| `curate run` / `curate show` | Run the curation pipeline; list suggestions. `--no-llm` skips model calls. |
+| `worker [--once]` | Queues curation for every workspace on an interval, and scheduled syncs and eval runs, and runs queued jobs; `--once` runs one pass and every due job, for Jobs/CronJobs. |
+| `curate run` / `curate show` | Run the curation pipeline now, in this process; list suggestions. `--no-llm` skips model calls. |
 
 ## Database and secrets
 

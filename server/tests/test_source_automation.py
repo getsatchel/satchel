@@ -59,6 +59,9 @@ def due(env: Env, now: datetime | None = None) -> list[Any]:  # noqa: F811
                 out.append(SimpleNamespace(source_id=r.source_id, outcome=j.result["outcome"],
                                            error=j.result["error"], counts=j.result["counts"],
                                            commit=j.result["commit"]))
+            elif j.status == "failed":
+                out.append(SimpleNamespace(source_id=r.source_id, outcome="failed",
+                                           error=j.error, counts={}, commit=None))
             else:
                 out.append(SimpleNamespace(source_id=r.source_id, outcome="busy", error=j.error,
                                            counts={}))

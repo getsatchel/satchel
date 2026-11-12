@@ -47,6 +47,8 @@ and publish.
 ## Architecture in one paragraph
 
 One stateless server process (`satchel serve api`) serves the UI, REST, MCP at `/mcp`, and OAuth/OIDC. A
-worker (`satchel worker`) runs curation on an interval. Postgres 17 with pgvector is the only required
-dependency. An object store (GCS or S3) is optional for the result cache and audit exports. See the
+worker (`satchel worker`) queues curation, scheduled syncs and scheduled eval runs. Background work
+(syncs, crawls, curation passes, eval runs) runs as jobs from a queue in Postgres, on the worker's and
+the web servers' job threads; curators see it under **Jobs**. Postgres 17 with pgvector is the only
+required dependency. An object store (GCS or S3) is optional for the result cache and audit exports. See the
 [self-hosting overview](../self-hosting/index.md) and the [master diagram](../architecture/system.md).

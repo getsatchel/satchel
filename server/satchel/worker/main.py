@@ -2,13 +2,14 @@
 sync sources whose schedule is due (``satchel.sources.automation``) and run eval suites whose
 schedule is due (``satchel.evals.schedule``).
 
-A per-workspace Postgres advisory lock lets it run beside the API or as a Cloud Run Job /
-Kubernetes CronJob (``--once``). A thread queues the sources whose scheduled sync is due every
-``source_tick_min`` minutes, and another the eval suites whose schedule is due every
-``eval_tick_min`` minutes, so a long curation pass never delays them. Job consumers
-(``satchel.jobs``, ``worker_job_threads``) run every queued job: those syncs and eval runs,
-and the syncs, crawls and eval runs the web servers queued. ``--once`` runs one check of each
-after the pass, then runs every due job.
+Everything heavy is a job (``satchel.jobs``), so it can run beside the API or as a Cloud Run
+Job / Kubernetes CronJob (``--once``). Every ``curate_interval_min`` the pass queues a
+``curation.run`` job per workspace and purges expired results, old sessions and old jobs. A
+thread queues the sources whose scheduled sync is due every ``source_tick_min`` minutes, and
+another the eval suites whose schedule is due every ``eval_tick_min`` minutes. Job threads
+(``worker_job_threads``) run every queued job: those, and the syncs, crawls, eval runs and
+curation runs the web servers queued. ``--once`` runs the pass and one check of each, then
+every due job.
 """
 
 from __future__ import annotations
@@ -58,6 +59,27 @@ def run_once(
         if r is not None:
             reports.append(r)
     return reports
+
+
+def queue_curations(*, workspace: str | None = None, use_llm: bool = True,
+                    engine: Engine | None = None) -> list[int]:
+    """Queue a ``curation.run`` job for one workspace (by slug) or each of them; the job
+    threads run them. A workspace whose pass is still queued or running is not queued again."""
+    from satchel.curation.jobs import queue_curation
+
+    eng = engine or get_engine()
+    with admin_session(engine=eng) as s:
+        q = select(Workspace.id, Workspace.slug).order_by(Workspace.slug)
+        rows = [(wid, slug) for wid, slug in s.execute(q) if workspace in (None, slug)]
+    if workspace is not None and not rows:
+        raise LookupError(f"unknown workspace: {workspace}")
+    ids: list[int] = []
+    for wid, slug in rows:
+        try:
+            ids.append(queue_curation(eng, wid, use_llm=use_llm)[0])
+        except Exception:
+            log.exception("queueing curation of %s failed", slug)
+    return ids
 
 
 def purge_results() -> None:
@@ -198,7 +220,9 @@ def run_forever(
         signal.signal(signal.SIGINT, _halt)
     def default_pass() -> None:
         try:
-            run_once(workspace=workspace, use_llm=use_llm)
+            queue_curations(workspace=workspace, use_llm=use_llm)
+            if runner is not None:
+                runner.nudge()
         finally:
             purge_results()
             purge_sessions()

@@ -45,7 +45,7 @@ Tokens live in `src/index.css` (CSS variables, light and dark, switched by `data
 | --- | --- |
 | (top) | Dashboard (`/dashboard`, the default route) |
 | CURATE | Inbox, Library, Changes, Releases |
-| OBSERVE | Sessions, Observability, Evals |
+| OBSERVE | Sessions, Observability, Evals, Jobs |
 | DATA | Catalog, Sources |
 | (bottom) | Docs ↗ (`DOCS_URL` in `src/components/nav.ts`), account menu |
 

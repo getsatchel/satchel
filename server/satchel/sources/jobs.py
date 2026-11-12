@@ -4,8 +4,9 @@ Queued by "Sync now" in the UI (``POST /v1/sources/{id}/sync`` without files), b
 and by the worker's schedule tick. At most one sync of a source waits in the queue, plus one
 that runs: a push while a sync runs queues one more, so the newest commit is never missed. A
 source another sync holds (a CI upload syncing in a request) is retried after the backoff. A
-sync that fails is recorded on the source (``last_status``, ``last_error``) and in the job's
-result; the job itself is done, so the schedule's own retry backoff applies.
+sync that fails is recorded on the source (``last_status``, ``last_error``) and fails the job at
+once with the same error (no automatic retry: the schedule has its own backoff, and a person can
+retry the job from the Jobs page).
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from satchel.jobs import queue
 from satchel.jobs.queue import Claimed
-from satchel.jobs.runner import RetryLater, Runtime, register
+from satchel.jobs.runner import Permanent, RetryLater, Runtime, register
 from satchel.sources.automation import Trigger, run_sync
 from satchel.store.db import admin_session
 from satchel.store.models import Job
@@ -83,6 +84,10 @@ def _handle(rt: Runtime, job: Claimed) -> dict[str, Any]:
     )
     if res.outcome == "busy":
         raise RetryLater("another sync of this source is running")
+    if res.outcome == "failed":  # recorded on the source; the job shows it too (and can retry)
+        raise Permanent(res.error or "sync failed")
+    if res.outcome == "gone":
+        raise Permanent("the source was deleted")
     return {"outcome": res.outcome, "source": res.source, "commit": res.commit,
             "error": res.error, "counts": res.counts, "report": res.report}
 

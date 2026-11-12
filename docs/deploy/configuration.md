@@ -227,7 +227,8 @@ sync waits and retries.
 
 **Sync now** and `POST /v1/sources/{id}/sync` without files queue a `source.sync` job and return
 202 with it (`id`, `status`); poll `GET /v1/jobs/{id}` (curator) until `status` is `done`, when
-`result.report` is the sync report, or `failed`. A second request while one is queued returns the
+`result.report` is the sync report, or `failed`, when `error` is the sync's error (also kept on
+the source as `last_error`). A failed sync is not retried automatically; retry it from **Jobs**. A second request while one is queued returns the
 same job. With uploaded files, or `?wait=true`, the sync runs in the request and returns the
 report as before, which is what the CI `curl -F ...` examples rely on. **Crawl** in Settings →
 Connections (`POST /v1/connections/{id}/crawl`) works the same way, with the crawl report as the

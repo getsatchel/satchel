@@ -38,6 +38,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/sessions", label: "Sessions", icon: "M4 6h16M4 12h10M4 18h13", keywords: "agents runs replay" },
       { to: "/observability", label: "Observability", icon: "M4 20V10m6 10V4m6 16v-7m4 7H2", keywords: "usage charts feedback" },
       { to: "/evals", label: "Evals", icon: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9", keywords: "suites runs tests" },
+      { to: "/jobs", label: "Jobs", icon: ICONS.clock, keywords: "queue background sync crawl curation retry worker" },
     ],
   },
   {
