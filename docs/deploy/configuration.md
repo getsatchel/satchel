@@ -275,6 +275,8 @@ The deployment default can also be set without `extraEnv`: Helm value `sessionRe
 Terraform variable `session_retention_days` on the `cloud-run`, `gke` and `eks` examples and
 modules. Both accept 7 to 3,650 days, or null to keep sessions forever.
 
+<!-- site: LimitsSliders -->
+
 ## Settings → Deployment
 
 Admins see the server's effective configuration, grouped (server, database, sign-in, encryption,

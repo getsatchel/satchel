@@ -5,6 +5,8 @@ try it, understand it, run it in production, then integrate and extend it.
 
 > **Status:** pre-alpha. Pages marked *(planned)* are stubs for work we intend to write.
 
+<!-- site: DocScreenshot defaultShot=library allowSwitch -->
+
 ## 1. Get started
 
 | Page | What you'll do |
@@ -33,6 +35,8 @@ Configure and operate it:
 - [Storage and audit](deploy/storage-and-audit.md): result cache and audit export.
 - [Upgrading, backups and troubleshooting](self-hosting/operations.md)
 
+<!-- site: InteractiveCloudDiagram initialCloud=aws -->
+
 ## 3. Integrate
 
 - Clients: [Claude](integrations/claude.md) (Desktop, Code), Cursor and others via `satchel connect`.
@@ -56,3 +60,12 @@ Configure and operate it:
 ## Working on these docs
 
 The pages are plain markdown. Edit them here, in the same pull request as the change they describe; the website renders them from this repository. A push to `main` that changes `docs/` rebuilds https://getsatchel.dev (the `docs-site` workflow). New pages need an entry in the website's navigation, so mention them in the pull request.
+
+**Interactive widgets.** The website shows interactive diagrams, explorers and screenshots inside some pages. Each one is placed by a marker, an HTML comment that GitHub hides:
+
+```markdown
+<!-- site: CurationLoopDiagram -->
+<!-- site: DocScreenshot defaultShot=library allowSwitch -->
+```
+
+The website renders the widget where the marker is. A marker directly above a ```` ```mermaid ```` block replaces that diagram on the website, while GitHub still draws the Mermaid version. Keep the markers when you edit a page, and never replace one with a Mermaid diagram or a picture: the website fails its build on a Mermaid block without a marker, because it cannot draw Mermaid. Pages under `architecture/` and `releases/` are linked on GitHub instead of rendered, so their diagrams stay Mermaid.

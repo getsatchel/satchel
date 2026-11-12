@@ -26,6 +26,8 @@ deployment path.
 | Terraform + Helm on GKE | Google Cloud, multi-replica Kubernetes | [GKE](../deploy/gke.md) |
 | Terraform + Helm on EKS | AWS, multi-replica Kubernetes | [EKS](../deploy/eks.md) |
 
+<!-- site: InteractiveCloudDiagram initialCloud=cloudrun -->
+
 ## Prerequisites
 
 - A Postgres 17 database with the `vector` extension and a superuser-capable URL for the one-time bootstrap.
@@ -33,6 +35,8 @@ deployment path.
 - An OIDC client for the UI and for MCP OAuth.
 - A 256-bit `SATCHEL_ENCRYPTION_KEY` if admins will store API keys or warehouse passwords in the UI
   (`satchel secrets generate-key`).
+
+<!-- site: SelfHostingSizer -->
 
 ## Production checklist
 

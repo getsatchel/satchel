@@ -17,8 +17,11 @@ Satchel sits between your agents (Claude, Cursor, ChatGPT, Codex) and your data.
 | **Suggestion** | A proposed change drafted from signals and hygiene checks. Reviewed in the **Inbox**. |
 | **Eval suite** | Questions with graders, run against a release to gate publishing. |
 
+<!-- site: ContextAnatomyDiagram -->
+
 ## The loop
 
+<!-- site: CurationLoopDiagram -->
 ```mermaid
 flowchart LR
   A[Agent asks via MCP] --> B[Retrieve published context]
@@ -37,6 +40,8 @@ flowchart LR
 suggestion into a draft, and a draft still goes through preview, [evals](evals.md) (if `publish.require_evals` is set)
 and publish.
 
+<!-- site: DocScreenshot defaultShot=changes-preview allowSwitch -->
+
 ## A typical agent session
 
 1. `start_analysis` opens a session with the user's question.
@@ -52,3 +57,5 @@ worker (`satchel worker`) queues curation, scheduled syncs and scheduled eval ru
 the web servers' job threads; curators see it under **Jobs**. Postgres 17 with pgvector is the only
 required dependency. An object store (GCS or S3) is optional for the result cache and audit exports. See the
 [self-hosting overview](../self-hosting/index.md) and the [master diagram](../architecture/system.md).
+
+<!-- site: SystemTopologyDiagram -->

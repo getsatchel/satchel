@@ -14,6 +14,8 @@ The code is split into modules you can reuse: `modules/foundation` (shared by Cl
 
 Test locally: `scripts/floci-e2e.sh` applies this stack against the floci-gcp emulator and runs the migrate, worker and audit jobs and the service for real ([floci.md](floci.md)).
 
+<!-- site: InteractiveCloudDiagram initialCloud=cloudrun -->
+
 ## 1. Prerequisites
 
 - A Google Cloud project with billing enabled, and `roles/owner` (or equivalent) for the first apply.

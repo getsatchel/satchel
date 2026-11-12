@@ -88,6 +88,8 @@ satchel doctor
 
 Prints a check mark or a cross for each of: Docker, database connection, app role is not a superuser (RLS), worker role (`satchel_worker`) can log in, schema at head, token valid, embedder loads and matches the stored chunks, result directory writable, data connections reachable, and every Claude Desktop/Code/Cursor entry that mentions Satchel (command exists, not a dev checkout, environment resolves, token valid). Every failure comes with the exact fix command, and the exit code is non-zero if anything failed.
 
+<!-- site: DocScreenshot defaultShot=session-inspector -->
+
 ## 6. Upgrade
 
 ```bash

@@ -261,3 +261,5 @@ Generated from `values.yaml` (helm-docs style); `values.schema.json` is strict, 
 | `devPostgres.appPassword` | `satchel-app-dev` |  |
 | `devPostgres.workerPassword` | `satchel-worker-dev` |  |
 | `devPostgres.storage` | `1Gi` |  |
+
+<!-- site: HelmValuesExplorer -->

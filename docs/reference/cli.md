@@ -53,3 +53,5 @@
 | `source kinds` / `list` / `info` / `add` / `sync` / `remove` / `validate` | Manage dbt, Cube, SQLMesh and external adapters. |
 | `eval run` / `compare` / `gate` / `retrieval` / `suite` | Run suites, compare runs, gate publishing in CI, measure retrieval. |
 | `openapi` | Print the REST OpenAPI document. |
+
+<!-- site: CliExplorer -->
