@@ -4,12 +4,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
 import type { JobOut, SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { Pre } from "@/components/Code";
 import { Chevron, Crumb, DescList, ErrorBox, ICONS, Loading, Modal, Notice, PageHeader, SectionHeading, StatusDot, StatusLine, TableCard, type Tone } from "@/components/ui";
 import { SourceForm, UploadSync } from "@/pages/SourceForm";
 import { AdapterTags, problemsOf, SyncStatus, useSourceSync, warningsOf, type Warning } from "@/pages/Sources";
 import { WebhookPanel } from "@/pages/SourceWebhook";
-import { errMsg, fullTime, timeAgo, timeUntil } from "@/lib/format";
+import { errMsg, fullTime, ms, timeAgo, timeUntil } from "@/lib/format";
 
 /**
  * One source on its own page, top to bottom by how often you need it: what needs attention, the
@@ -472,7 +471,6 @@ function groupWarnings(ws: Warning[]): { code: string; shared: string | null; su
 /** The deepest layer: identifiers, versions and the full last sync report, for debugging. Closed by default. */
 function Diagnostics({ s }: { s: SourceOut }) {
   const [open, setOpen] = useState(false);
-  const toast = useToast();
   const raw = JSON.stringify(s.last_report ?? {}, null, 2);
   const last = s.last_report as { git_commit?: string | null; dbt_version?: string | null };
   return (
@@ -493,24 +491,7 @@ function Diagnostics({ s }: { s: SourceOut }) {
           ["Last sync", s.last_synced_at ? fullTime(s.last_synced_at) : null],
         ]}
       />
-      <section aria-label="Last sync report">
-        <div className="mb-1.5 flex items-center justify-between gap-2">
-          <h3 className="label-caps">Last sync report</h3>
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={() =>
-              void navigator.clipboard.writeText(raw).then(
-                () => toast("ok", "Report copied"),
-                () => toast("err", "Copy failed: select the text and copy it"),
-              )
-            }
-          >
-            Copy
-          </button>
-        </div>
-        <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-sunken px-3 py-2 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">{raw}</pre>
-      </section>
+      <RawJson title="Last sync report" raw={raw} />
         </div>
       )}
     </section>
@@ -708,19 +689,31 @@ function outsideQueue(s: SourceOut, jobs: JobOut[]): boolean {
 
 function SyncRow(props: { j: JobOut; tone: Tone; label: string; at: string; isOpen: boolean; onToggle: () => void }) {
   const { j } = props;
-  const raw = JSON.stringify({ id: j.id, attempts: `${j.attempts}/${j.max_attempts}`, created_at: j.created_at, started_at: j.started_at, finished_at: j.finished_at, error: j.error, result: j.result }, null, 2);
   return (
     <>
       <tr className={`cursor-pointer ${props.isOpen ? "bg-sunken/60" : "hover:bg-sunken/70"}`} onClick={props.onToggle}>
         <td className="td whitespace-nowrap">
-          <button type="button" className="flex items-center gap-2" aria-expanded={props.isOpen} onClick={(e) => { e.stopPropagation(); props.onToggle(); }}>
+          <button
+            type="button"
+            className="flex items-center gap-2"
+            aria-expanded={props.isOpen}
+            aria-controls={`sync-${j.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onToggle();
+            }}
+          >
             <Chevron open={props.isOpen} />
             <StatusLine tone={props.tone} state={props.label} />
           </button>
         </td>
         <td className="td min-w-0">
           <span className="line-clamp-1 [overflow-wrap:anywhere]">{syncOutcome(j)}</span>
-          {j.attempts > 1 && <span className="text-xs text-muted">attempt {j.attempts} of {j.max_attempts}</span>}
+          {j.attempts > 1 && (
+            <span className="text-xs text-muted">
+              attempt {j.attempts} of {j.max_attempts}
+            </span>
+          )}
         </td>
         <td className="td hidden whitespace-nowrap text-muted sm:table-cell">{j.trigger ?? "-"}</td>
         <td className="td whitespace-nowrap text-muted" title={fullTime(props.at)}>
@@ -728,17 +721,119 @@ function SyncRow(props: { j: JobOut; tone: Tone; label: string; at: string; isOp
         </td>
       </tr>
       {props.isOpen && (
-        <tr>
-          <td colSpan={4} className="border-t border-line bg-sunken/30 px-4 py-3">
-            <div className="w-0 min-w-full space-y-2">
-              {j.error && (
-                <p className="rounded border border-bad/30 bg-bad-soft px-2.5 py-1.5 font-mono text-xs text-bad [overflow-wrap:anywhere]">{j.error}</p>
-              )}
-              <Pre>{raw}</Pre>
+        <tr id={`sync-${j.id}`}>
+          <td colSpan={4} className="border-t border-line bg-sunken/30 px-4 py-4">
+            <div className="w-0 min-w-full">
+              <SyncJobDetail j={j} />
             </div>
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+interface SyncResult {
+  outcome?: string;
+  commit?: string | null;
+  error?: string | null;
+  counts?: SyncReportOut["counts"] | null;
+  report?: Partial<SyncReportOut> | null;
+}
+
+/** One sync, opened: the error first, then what it did and how it ran, and the raw job last. */
+function SyncJobDetail({ j }: { j: JobOut }) {
+  const [raw, setRaw] = useState(false);
+  const r = (j.result ?? {}) as SyncResult;
+  const rep = r.report ?? null;
+  const error = j.error ?? (r.outcome === "failed" ? r.error : null);
+  const took = j.started_at && j.finished_at ? new Date(j.finished_at).getTime() - new Date(j.started_at).getTime() : null;
+  const wait = j.started_at ? new Date(j.started_at).getTime() - new Date(j.created_at).getTime() : 0;
+  const warnings = Array.isArray(rep?.warnings) ? rep.warnings.length : 0;
+  const signals = rep?.signals && Object.keys(rep.signals).length ? Object.entries(rep.signals).map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`).join(", ") : null;
+  const outcome: Record<string, string> = { synced: "synced", unchanged: "skipped: no new commit", not_due: "skipped: not due yet", failed: "failed" };
+  return (
+    <div className="space-y-4 text-sm">
+      {error && <p className="rounded border border-bad/30 bg-bad-soft px-3 py-2 font-mono text-xs leading-relaxed text-bad [overflow-wrap:anywhere]">{error}</p>}
+      <DescList
+        labelWidth="7rem"
+        rows={[
+          ["Outcome", r.outcome && r.outcome !== "failed" ? (outcome[r.outcome] ?? r.outcome) : null],
+          ["Changed", r.counts && Object.keys(r.counts).length ? changedLine(r.counts) : null],
+          ["Release", rep && "release_kind" in rep ? (rep.release_kind ? `${rep.release_kind} #${rep.release_seq}${rep.release_created ? " (new)" : " (unchanged)"}` : "no change") : null],
+          ["Commit", r.commit ? <code className="text-xs" title={r.commit}>{r.commit.slice(0, 10)}</code> : null],
+          ["Warnings", warnings ? `${warnings}` : null],
+          ["Signals", signals],
+          ["Not published", rep?.gate_message ?? null],
+          ["Held", rep?.held?.length ? `${rep.held.length} item${rep.held.length === 1 ? "" : "s"} with an unpublished overlay draft` : null],
+          ["Started by", j.trigger ?? null],
+          [
+            "Ran",
+            j.started_at ? (
+              <span>
+                {fullTime(j.started_at)}
+                {took != null && <span className="text-muted"> for {ms(took)}</span>}
+                {wait > 60_000 && <span className="text-muted"> ({ago(wait)} after it was queued)</span>}
+              </span>
+            ) : (
+              <span className="text-muted">not yet (queued {fullTime(j.created_at)})</span>
+            ),
+          ],
+          [
+            "Retry",
+            j.status === "queued" && j.attempts > 0 ? (
+              <span>
+                attempt {j.attempts + 1} of {j.max_attempts}
+                {j.run_after && <span className="text-muted"> in {timeUntil(j.run_after)}</span>}
+              </span>
+            ) : j.attempts > 1 ? (
+              `took ${j.attempts} attempts`
+            ) : null,
+          ],
+        ]}
+      />
+      <div>
+        <button type="button" className="flex items-center gap-1.5 text-xs text-muted hover:text-ink" aria-expanded={raw} onClick={() => setRaw(!raw)}>
+          <Chevron open={raw} />
+          Raw job
+        </button>
+        {raw && (
+          <div className="mt-2">
+            <RawJson title={`Job #${j.id}`} raw={JSON.stringify(j, null, 2)} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** "19m", "2h": a rough length of time. */
+function ago(msecs: number): string {
+  const m = Math.round(msecs / 60_000);
+  return m < 60 ? `${m}m` : m < 48 * 60 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
+}
+
+/** A JSON block to read or copy, capped in height. */
+function RawJson({ title, raw }: { title: string; raw: string }) {
+  const toast = useToast();
+  return (
+    <section aria-label={title}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <h3 className="label-caps">{title}</h3>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() =>
+            void navigator.clipboard.writeText(raw).then(
+              () => toast("ok", "Copied"),
+              () => toast("err", "Copy failed: select the text and copy it"),
+            )
+          }
+        >
+          Copy
+        </button>
+      </div>
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-sunken px-3 py-2 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">{raw}</pre>
+    </section>
   );
 }
