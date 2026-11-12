@@ -2,6 +2,8 @@
 
 The curator UI is a read-heavy tool: people scan lists, tables and diffs to decide what to change. The look is **neutral, airy and precise**: warm greys, one cognac accent, colour only in small glyphs and dots. Every rule below serves one goal: **the thing you need to act on is the first thing you read.**
 
+Who the UI is for and what earns space on a page (summary first, depth on demand; one home per fact; show the exception, not the default) are in [`PRODUCT.md`](PRODUCT.md). Read it before adding to a page.
+
 Tokens live in `src/index.css` (CSS variables, light and dark, switched by `data-theme` on `<html>` via `src/lib/theme.ts`) and `tailwind.config.ts`. Shared components live in `src/components/ui.tsx`. Use them before writing new markup.
 
 ## Tokens
