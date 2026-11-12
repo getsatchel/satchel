@@ -44,8 +44,8 @@ from satchel.store.models import ContextSource
 
 log = logging.getLogger("satchel.sources")
 
-Trigger = Literal["schedule", "webhook"]
-Outcome = Literal["synced", "unchanged", "failed", "busy", "not_due", "gone"]
+Trigger = Literal["schedule", "webhook", "manual"]
+Outcome = Literal["synced", "unchanged", "failed", "busy", "not_due", "gone", "queued"]
 
 
 def _lock_key(source_id: uuid.UUID) -> str:
@@ -149,6 +149,8 @@ class AutoResult:
     commit: str | None = None
     error: str | None = None
     counts: dict[str, int] = field(default_factory=dict)
+    report: dict[str, Any] | None = None  # the full sync report (``SyncReport.to_json``)
+    job_id: int | None = None  # the source.sync job a scheduled sync was queued as
 
     def line(self) -> str:
         what = {"synced": ", ".join(f"{k} {v}" for k, v in self.counts.items()) or "synced",
@@ -161,22 +163,25 @@ def run_sync(
     source_id: uuid.UUID, *, trigger: Trigger, engine: Engine | None = None,
     embedder: EmbeddingProvider | None = None, settings: Settings | None = None,
     detail: dict[str, Any] | None = None, only_if_due: bool = False,
-    wait_s: float = 0.0, now: datetime | None = None,
+    wait_s: float = 0.0, now: datetime | None = None, actor: uuid.UUID | None = None,
+    force: bool = False,
 ) -> AutoResult:
-    """One automatic sync under the source's lock. Never raises for a sync failure: it is
-    recorded on the source (``last_status``/``last_error``) and returned."""
+    """One sync under the source's lock. Never raises for a sync failure: it is recorded on the
+    source (``last_status``/``last_error``) and returned. ``force`` syncs even when the git
+    commit is unchanged (a sync someone asked for); ``actor`` is audited as the one who did."""
     st = settings or get_settings()
     with sync_lock(engine, source_id, wait_s=wait_s) as got:
         if not got:
             return AutoResult(source_id, "busy")
         return _run_locked(source_id, trigger, engine, embedder, st, detail or {}, only_if_due,
-                           now)
+                           now, actor, force)
 
 
 def _run_locked(
     source_id: uuid.UUID, trigger: Trigger, engine: Engine | None,
     embedder: EmbeddingProvider | None, st: Settings, detail: dict[str, Any],
-    only_if_due: bool, now: datetime | None,
+    only_if_due: bool, now: datetime | None, actor: uuid.UUID | None = None,
+    force: bool = False,
 ) -> AutoResult:
     error: str
     with admin_session(engine=engine) as s:
@@ -192,7 +197,7 @@ def _run_locked(
             spec = git.spec_from_config(plain_config(src, st))
             if spec is not None:
                 commit = git.resolve(spec)
-                if unchanged(src, commit):
+                if not force and unchanged(src, commit):
                     src.last_synced_at = when
                     src.last_report = {**(src.last_report or {}), "checked": {
                         "at": when.isoformat(), "trigger": trigger, "commit": commit}}
@@ -204,14 +209,15 @@ def _run_locked(
             error = str(e)
         else:
             counts = report.counts()
-            audit.record(s, ws_id, None, "source.sync",
+            audit.record(s, ws_id, actor, "source.sync",
                          {"source": name, "trigger": trigger, **counts,
                           **({"git_commit": report.git_commit} if report.git_commit else {}),
                           **detail})
-            return AutoResult(source_id, "synced", name, report.git_commit, counts=counts)
+            return AutoResult(source_id, "synced", name, report.git_commit, counts=counts,
+                              report=report.to_json())
     record_failure(engine, source_id, error)
     with admin_session(engine=engine) as s:
-        audit.record(s, ws_id, None, "source.sync",
+        audit.record(s, ws_id, actor, "source.sync",
                      {"source": name, "trigger": trigger, "status": "error",
                       "error": error[:500], **detail})
     return AutoResult(source_id, "failed", name, commit, error)
@@ -222,24 +228,27 @@ def sync_due_sources(
     settings: Settings | None = None, workspace_id: uuid.UUID | None = None,
     now: datetime | None = None,
 ) -> list[AutoResult]:
-    """Sync every scheduled source that is due, one after another. A source another process is
-    syncing is skipped (it is current once that finishes)."""
+    """Queue a ``source.sync`` job for every scheduled source that is due (``satchel.sources.jobs``;
+    the job re-checks that the source is still due under its lock). Returns one ``queued``
+    result per source, or ``failed`` when it could not be queued."""
+    from satchel.sources.jobs import queue_sync
+
     when = now or datetime.now(UTC)
     with admin_session(engine=engine) as s:
         q = select(ContextSource).where(ContextSource.config.has_key("sync_interval_hours"))
         if workspace_id is not None:
             q = q.where(ContextSource.workspace_id == workspace_id)
-        due = [src.id for src in s.scalars(q.order_by(ContextSource.last_synced_at.nulls_first()))
+        due = [(src.id, src.workspace_id)
+               for src in s.scalars(q.order_by(ContextSource.last_synced_at.nulls_first()))
                if is_due(src, when)]
     out: list[AutoResult] = []
-    for sid in due:
+    for sid, ws_id in due:
         try:
-            r = run_sync(sid, trigger="schedule", engine=engine, embedder=embedder,
-                         settings=settings, only_if_due=True, now=now)
+            jid, queued = queue_sync(engine or get_engine(), ws_id, sid, trigger="schedule",
+                                     only_if_due=True, now=now)
+            r = AutoResult(sid, "queued" if queued else "busy", job_id=jid)
         except Exception as e:  # noqa: BLE001 - one broken source never stops the others
-            log.exception("scheduled sync of source %s failed", sid)
+            log.exception("queueing the scheduled sync of source %s failed", sid)
             r = AutoResult(sid, "failed", error=f"{type(e).__name__}: {e}")
-        if r.outcome in ("synced", "unchanged", "failed"):
-            (log.warning if r.outcome == "failed" else log.info)(r.line())
         out.append(r)
     return out

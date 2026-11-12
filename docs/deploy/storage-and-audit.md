@@ -68,6 +68,7 @@ that is already gone does not block deleting the row. The command exits 1 if any
 | `proposal.accept`, `proposal.reject`, `suggestion.*`, `curate.run` | curator API |
 | `eval.suite.save`, `eval.run.start`, `eval.gate.start` | evals API; scheduled runs write `eval.run.start` from the worker (`trigger: schedule`, no actor) |
 | `session.sensitive` | observability API |
+| `source.queue_sync` | **Sync now** / `POST /v1/sources/{id}/sync` without files: the sync was queued (`job_id`); the `source.sync` event follows when it runs, with the same actor |
 | `source.sync` | sources API (`trigger: manual`), worker schedule and push webhook (`trigger: schedule` / `webhook`, no actor; webhook adds `provider`, `ref`, `delivery`; failed automatic syncs have `status: error`) |
 | `sync.preview`, `sync.import` | context repo uploads (`POST /v1/sync/preview`, `POST /v1/sync/import`, e.g. the GitHub Action), with the git `ref` |
 | `source.webhook.create`, `source.webhook.rotate`, `source.webhook.remove` | Sources page → Push webhook (never the secret) |

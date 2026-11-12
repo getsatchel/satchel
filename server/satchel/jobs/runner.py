@@ -14,6 +14,7 @@ import socket
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from sqlalchemy import Engine
 
@@ -45,7 +46,17 @@ class Runtime:
             return self._embedder
 
 
-Handler = Callable[[Runtime, Claimed], None]
+class RetryLater(Exception):  # noqa: N818 - a signal, not an error
+    """Raised by a handler that cannot run yet (a source another sync holds): the attempt
+    ends quietly and the job is retried after the backoff."""
+
+
+class Permanent(Exception):  # noqa: N818
+    """Raised by a handler for a failure a retry cannot fix (a bad configuration): the job
+    fails at once with this message."""
+
+
+Handler = Callable[[Runtime, Claimed], dict[str, Any] | None]
 GiveUp = Callable[[Runtime, Claimed, str], None]
 
 
@@ -57,6 +68,8 @@ class Kind:
 
 
 KINDS: dict[str, Kind] = {}
+# The kinds each web server process runs too: what a person or a webhook starts there.
+WEB_KINDS = {"eval.run", "source.sync", "connection.crawl"}
 
 
 def register(name: str, handle: Handler, *, give_up: GiveUp | None = None) -> Kind:
@@ -69,7 +82,9 @@ def register(name: str, handle: Handler, *, give_up: GiveUp | None = None) -> Ki
 
 def load_kinds() -> dict[str, Kind]:
     """Import the modules that register the built-in kinds."""
+    import satchel.data.jobs  # noqa: F401
     import satchel.evals.jobs  # noqa: F401
+    import satchel.sources.jobs  # noqa: F401
 
     return KINDS
 
@@ -186,13 +201,20 @@ class JobRunner:
                 raise LookupError(f"no handler for job kind {job.kind!r}")
             log.info("job %s (%s) attempt %d/%d", job.id, job.kind, job.attempts,
                      job.max_attempts)
-            kind.handle(self.rt, job)
+            result = kind.handle(self.rt, job)
         except Exception as e:  # noqa: BLE001 - a failing job never stops the consumer
-            log.exception("job %s (%s) failed", job.id, job.kind)
-            msg = f"{type(e).__name__}: {e}"
+            if isinstance(e, RetryLater):
+                log.info("job %s (%s) will retry: %s", job.id, job.kind, e)
+                msg = str(e) or "retry later"
+            elif isinstance(e, Permanent):
+                log.warning("job %s (%s) failed: %s", job.id, job.kind, e)
+                msg = str(e)
+            else:
+                log.exception("job %s (%s) failed", job.id, job.kind)
+                msg = f"{type(e).__name__}: {e}"
             done.set()
             with admin_session(engine=self.rt.engine) as s:
-                final = queue.fail(s, job, who, msg)
+                final = queue.fail(s, job, who, msg, final=isinstance(e, Permanent))
             if final:
                 self._give_up(job, msg)
             return
@@ -200,4 +222,4 @@ class JobRunner:
             done.set()
             hb.join(1)
         with admin_session(engine=self.rt.engine) as s:
-            queue.finish(s, job.id, who)
+            queue.finish(s, job.id, who, result)

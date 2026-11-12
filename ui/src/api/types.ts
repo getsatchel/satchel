@@ -82,6 +82,7 @@ export type ConnectionPatch = S["ConnectionPatch"];
 export type ConnectionTestRequest = Partial<S["ConnectionTestRequest"]>;
 export type ConnectionTestOut = S["ConnectionTestOut"];
 export type CrawlOut = S["CrawlOut"];
+export type JobOut = S["JobOut"];
 export type SourceCreate = S["SourceCreate"];
 export type SourceRemovedOut = S["SourceRemovedOut"];
 export type WebhookSecretOut = S["WebhookSecretOut"];

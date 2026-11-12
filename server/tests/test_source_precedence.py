@@ -367,22 +367,22 @@ def test_cube_folder_upload_and_sync_report_over_rest(env: Env) -> None:
     assert cube["available"] and cube["install_hint"] is None and cube["folder_inputs"] == ["models"]
     assert "network" in cube["capabilities"] and "models" in cube["file_inputs"]
     (src,) = [x for x in c.get("/v1/sources", headers=h).json() if x["kind"] == "cube"]
-    r = c.post(f"/v1/sources/{src['id']}/sync", headers=h)
+    r = c.post(f"/v1/sources/{src['id']}/sync?wait=true", headers=h)
     assert r.status_code == 200 and r.json()["counts"]["created"] == 4, r.text
     # CI style: upload the model files (one repeated field per file, named by their path inside
     # the model folder); uploads win over the stored path
     model = EXAMPLE / "cube" / "model"
     same = [("models", (p.relative_to(model).as_posix(), p.read_bytes(), "text/yaml"))
             for p in sorted(model.rglob("*.yml"))]
-    r1 = c.post(f"/v1/sources/{src['id']}/sync", headers=h, files=same)
+    r1 = c.post(f"/v1/sources/{src['id']}/sync?wait=true", headers=h, files=same)
     assert r1.status_code == 200 and r1.json()["fingerprint"] == r.json()["fingerprint"]
     assert r1.json()["counts"]["created"] == 0 and not r1.json()["release_created"]
     uploads = [(n, (fn, data.replace(b"Customer first name.", b"Uploaded."), t))
                for n, (fn, data, t) in same]
-    r2 = c.post(f"/v1/sources/{src['id']}/sync", headers=h, files=uploads)
+    r2 = c.post(f"/v1/sources/{src['id']}/sync?wait=true", headers=h, files=uploads)
     assert r2.status_code == 200, r2.text
     assert "sources/cube/assets/analytics.customers.yaml" in r2.json()["updated"]
-    assert c.post(f"/v1/sources/{src['id']}/sync", headers=h,
+    assert c.post(f"/v1/sources/{src['id']}/sync?wait=true", headers=h,
                   files=[("nope", ("a.yml", b"x"))]).status_code == 422
     # a token-like key in a source config is masked in the API
     _cube_source(env, meta_token="s3cret", meta_url="http://cube.invalid")
@@ -418,7 +418,7 @@ def test_sqlmesh_sync_creates_linked_asset_docs_and_overlaps_with_dbt(env: Env) 
     (src,) = [x for x in c.get("/v1/sources", headers=h).json() if x["kind"] == "sqlmesh"]
     up = [("project", (p.relative_to(SQLMESH_EXAMPLE).as_posix(), p.read_bytes(), "text/plain"))
           for p in sorted(SQLMESH_EXAMPLE.rglob("*")) if p.suffix in (".sql", ".py", ".yaml", ".yml")]
-    r2 = c.post(f"/v1/sources/{src['id']}/sync", headers=h, files=up)
+    r2 = c.post(f"/v1/sources/{src['id']}/sync?wait=true", headers=h, files=up)
     # the uploaded names (paths inside the project) are kept: same inputs, same fingerprint
     assert r2.status_code == 200 and r2.json()["fingerprint"] == r.fingerprint
     assert r2.json()["counts"]["created"] == 0 and not r2.json()["release_created"]

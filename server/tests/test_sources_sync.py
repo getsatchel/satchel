@@ -356,25 +356,25 @@ def test_rest_list_and_sync_with_upload(env: Env) -> None:
     assert src["adapter"]["version"] and src["connection"] == "warehouse"
     assert src["last_synced_at"] is None and src["item_counts"] == {}
     sid = src["id"]
-    r = c.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"))
+    r = c.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("curator"))
     assert r.status_code == 200, r.text
     assert r.json()["counts"]["created"] == 9 and r.json()["release_kind"] == "published"
     # CI style: upload the artifacts (a changed manifest) instead of reading server paths
     m = env.manifest()
     m["nodes"]["model.jaffle_shop.customers"]["description"] = "Uploaded description."
-    r2 = c.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"),
+    r2 = c.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("curator"),
                 files={"manifest": ("manifest.json", json.dumps(m), "application/json")})
     assert r2.status_code == 200 and r2.json()["updated"] == [
         "sources/jaffle/assets/analytics.customers.yaml"]
-    assert c.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"),
+    assert c.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("curator"),
                   files={"bogus": ("x.json", "{}")}).status_code == 422
-    bad = c.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"),
+    bad = c.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("curator"),
                  files={"manifest": ("manifest.json", "{nope")})
     assert bad.status_code == 422 and "not valid JSON" in bad.json()["detail"]
     (src,) = c.get("/v1/sources", headers=env.h("curator")).json()
     assert src["last_status"] == "error" and src["item_counts"]["asset_doc"] == 7
-    assert c.post(f"/v1/sources/{uuid.uuid4()}/sync", headers=env.h("curator")).status_code == 404
-    assert c.post(f"/v1/sources/{sid}/sync", headers=env.h("analyst")).status_code == 403
+    assert c.post(f"/v1/sources/{uuid.uuid4()}/sync?wait=true", headers=env.h("curator")).status_code == 404
+    assert c.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("analyst")).status_code == 403
 
 
 def test_two_sources_describing_one_table_warn_with_priority(env: Env) -> None:

@@ -209,7 +209,7 @@ def test_settings_api_seals_decrypted_key(
     p = env.client.patch(f"/v1/connections/{row.id}", headers=env.h(), json={"passphrase": PASS})
     assert p.status_code == 422 and "needs the private key" in p.text
     assert env.post("/v1/connections/test", {"connection_id": str(row.id)}).json()["ok"]
-    crawl = env.post(f"/v1/connections/{row.id}/crawl", {}, role="curator")
+    crawl = env.post(f"/v1/connections/{row.id}/crawl?wait=true", {}, role="curator")
     assert crawl.status_code == 200 and crawl.json()["created"] > 5, crawl.text
     with admin_session(engine=env.engine) as s:
         fqns = set(s.scalars(select(Asset.fqn).where(Asset.connection_id == row.id)))

@@ -28,6 +28,10 @@ def _isolated_satchel_config(
     # Fail closed: a test that forgets to point at its container must never fall through to the
     # settings default (a developer's local database on :5433). Port 1 refuses at once.
     monkeypatch.setenv("SATCHEL_DATABASE_URL", "postgresql+psycopg://nobody:nobody@127.0.0.1:1/none")
+    # No web-server job threads: an app built by one test would otherwise run another test's
+    # queued jobs with its own settings. Tests run queued jobs themselves (JobRunner.drain), and
+    # the ones that test the web consumers turn it on.
+    monkeypatch.setenv("SATCHEL_WEB_JOB_THREADS", "0")
     from satchel.store.db import get_admin_engine, get_engine
 
     for cached in (get_engine, get_admin_engine):

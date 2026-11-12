@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, func, select, update
 from sqlalchemy.engine import make_url
 
 from satchel.api.app import create_app
@@ -73,6 +73,18 @@ class Env:
             s.expunge(x)
             return x
 
+    def drain(self) -> int:
+        """Run the queued jobs now (retries of this workspace's included), as a web server's
+        job threads would."""
+        from satchel.jobs.runner import WEB_KINDS, JobRunner, Runtime
+        from satchel.store.models import Job
+
+        with admin_session(engine=self.engine) as s:
+            s.execute(update(Job).where(Job.workspace_id == self.ws_id, Job.status == "queued")
+                      .values(run_after=func.now()))
+        rt = Runtime(self.engine, st(), HashEmbedder())
+        return JobRunner(rt, kinds=WEB_KINDS, threads=0).drain()
+
     def actions(self, prefix: str) -> list[AuditEvent]:
         with admin_session(engine=self.engine) as s:
             rows = list(s.scalars(select(AuditEvent).where(
@@ -82,8 +94,8 @@ class Env:
             return rows
 
 
-@pytest.fixture
-def env(app_engine: Engine, tmp_path: Path) -> Env:
+def make_env(app_engine: Engine, tmp_path: Path) -> Env:
+    tmp_path.mkdir(parents=True, exist_ok=True)
     slug = unique_slug("adm")
     users = {r: uuid.uuid4() for r in ("admin", "curator", "explorer")}
     with admin_session(engine=app_engine) as s:
@@ -92,6 +104,11 @@ def env(app_engine: Engine, tmp_path: Path) -> Env:
             s.add(AppUser(id=uid, workspace_id=ws_id, role=r, email=f"{r}@{slug}.test"))
     client = TestClient(create_app(app_engine, HashEmbedder(), mcp=False, settings=st()))
     return Env(app_engine, slug, ws_id, users, client, tmp_path)
+
+
+@pytest.fixture
+def env(app_engine: Engine, tmp_path: Path) -> Env:
+    return make_env(app_engine, tmp_path)
 
 
 @pytest.fixture
@@ -135,11 +152,44 @@ def test_create_test_crawl_duckdb(env: Env) -> None:
     cid = r.json()["id"]
     t = env.post("/v1/connections/test", {"connection_id": cid})
     assert t.json()["ok"], t.text
-    c = env.post(f"/v1/connections/{cid}/crawl", {}, role="curator")
+    c = env.post(f"/v1/connections/{cid}/crawl?wait=true", {}, role="curator")
     assert c.status_code == 200 and c.json()["created"] > 0
     listed = env.client.get("/v1/connections", headers=env.h()).json()
     assert listed[0]["asset_count"] > 0 and listed[0]["config"]["path"].endswith(".duckdb")
     assert env.client.get("/v1/connections", headers=env.h("explorer")).json()[0]["config"] is None
+
+
+def test_crawl_is_queued_and_its_report_kept_on_the_job(env: Env) -> None:
+    cid = duckdb_conn(env).json()["id"]
+    q = env.post(f"/v1/connections/{cid}/crawl", {}, role="curator")
+    assert q.status_code == 202 and q.json()["kind"] == "connection.crawl", q.text
+    job_id = q.json()["id"]
+    assert q.json()["status"] == "queued" and q.json()["result"] is None
+    again = env.post(f"/v1/connections/{cid}/crawl", {}, role="curator")
+    assert again.status_code == 202 and again.json()["id"] == job_id  # one at a time
+    assert env.drain() >= 1
+    done = env.client.get(f"/v1/jobs/{job_id}", headers=env.h("curator")).json()
+    assert done["status"] == "done" and done["result"]["created"] > 0
+    assert done["result"]["connection"] == "jaffle"
+    assert env.client.get(f"/v1/jobs/{job_id}", headers=env.h("explorer")).status_code == 403
+    assert env.client.get("/v1/jobs/999999999", headers=env.h()).status_code == 404
+
+
+def test_a_crawl_of_a_deleted_connection_fails_at_once(env: Env) -> None:
+    from satchel.data.jobs import queue_crawl
+
+    jid, _ = queue_crawl(env.engine, env.ws_id, uuid.uuid4())
+    env.drain()
+    j = env.client.get(f"/v1/jobs/{jid}", headers=env.h()).json()
+    assert j["status"] == "failed" and j["attempts"] == 1 and "deleted" in j["error"]
+
+
+def test_jobs_of_another_workspace_are_not_found(env: Env, app_engine: Engine,
+                                                 tmp_path: Path) -> None:
+    cid = duckdb_conn(env).json()["id"]
+    jid = env.post(f"/v1/connections/{cid}/crawl", {}).json()["id"]
+    other = make_env(app_engine, tmp_path / "other")  # a second workspace
+    assert other.client.get(f"/v1/jobs/{jid}", headers=other.h()).status_code == 404
 
 
 def test_postgres_secret_is_sealed_and_used(env: Env, pg_url: str) -> None:
@@ -156,7 +206,7 @@ def test_postgres_secret_is_sealed_and_used(env: Env, pg_url: str) -> None:
     kr = Keyring.from_settings(st())
     assert kr.decrypt(row.secret_ref, connection_aad(env.ws_id, row.id)) == APP_PW
     assert env.post("/v1/connections/test", {"connection_id": str(row.id)}).json()["ok"]
-    crawl = env.post(f"/v1/connections/{row.id}/crawl", {})
+    crawl = env.post(f"/v1/connections/{row.id}/crawl?wait=true", {})
     assert crawl.status_code == 200, crawl.text
     (ev,) = env.actions("connection.add")
     assert ev.target["secret"] == "stored" and "enc:v1" not in json.dumps(ev.target)
@@ -189,7 +239,7 @@ def test_without_key_secret_is_refused(env: Env, app_engine: Engine) -> None:
 def test_patch_and_remove(env: Env, pg_url: str) -> None:
     duckdb_conn(env)
     cid = env.conn("jaffle").id
-    env.post(f"/v1/connections/{cid}/crawl", {})
+    env.post(f"/v1/connections/{cid}/crawl?wait=true", {})
     r = env.post("/v1/connections", {"name": "pg", "kind": "postgres",
                                      "config": pg_config(pg_url), "secret": PW,
                                      "default_for_ai": True})
@@ -219,7 +269,7 @@ def test_patch_and_remove(env: Env, pg_url: str) -> None:
 
 def test_source_from_object_store(env: Env, bucket: MemoryBucket) -> None:
     duckdb_conn(env)
-    env.client.post(f"/v1/connections/{env.conn('jaffle').id}/crawl", headers=env.h())
+    env.client.post(f"/v1/connections/{env.conn('jaffle').id}/crawl?wait=true", headers=env.h())
     for n in ("manifest", "semantic_manifest", "catalog"):
         bucket.put(f"dbt/target/{n}.json", (DBT / f"{n}.json").read_bytes())
     r = env.post("/v1/sources", {"kind": "dbt", "name": "jaffle", "config": {
@@ -228,14 +278,14 @@ def test_source_from_object_store(env: Env, bucket: MemoryBucket) -> None:
         "catalog": "s3://artifacts/dbt/target/catalog.json", "publish": "preview"}})
     assert r.status_code == 201, r.text
     assert r.json()["connection"] == "jaffle" and r.json()["publish"] == "preview"
-    sync = env.client.post(f"/v1/sources/{r.json()['id']}/sync", headers=env.h("curator"))
+    sync = env.client.post(f"/v1/sources/{r.json()['id']}/sync?wait=true", headers=env.h("curator"))
     assert sync.status_code == 200, sync.text
     assert sync.json()["counts"]["created"] > 0
 
     missing = env.client.put(f"/v1/sources/{r.json()['id']}", headers=env.h(), json={
         "config": {"manifest": "s3://artifacts/nope/manifest.json"}})
     assert missing.status_code == 200
-    bad = env.client.post(f"/v1/sources/{r.json()['id']}/sync", headers=env.h())
+    bad = env.client.post(f"/v1/sources/{r.json()['id']}/sync?wait=true", headers=env.h())
     assert bad.status_code == 422 and "no object at S3" in bad.json()["detail"]
 
 
@@ -244,7 +294,7 @@ def test_source_upload_on_sync(env: Env) -> None:
     assert r.status_code == 201, r.text
     sid = r.json()["id"]
     with (DBT / "manifest.json").open("rb") as f:
-        sync = env.client.post(f"/v1/sources/{sid}/sync", headers=env.h(),
+        sync = env.client.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h(),
                                files={"manifest": ("manifest.json", f)})
     assert sync.status_code == 200, sync.text
 
@@ -295,7 +345,7 @@ def test_cube_secret_env_and_url_rules(env: Env) -> None:
 def test_source_remove_detaches_items(env: Env) -> None:
     sid = env.post("/v1/sources", {"kind": "dbt", "name": "d", "config": {}}).json()["id"]
     with (DBT / "manifest.json").open("rb") as f:
-        env.client.post(f"/v1/sources/{sid}/sync", headers=env.h(),
+        env.client.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h(),
                         files={"manifest": ("manifest.json", f)})
     assert env.client.delete(f"/v1/sources/{sid}", headers=env.h("curator")).status_code == 403
     r = env.client.delete(f"/v1/sources/{sid}", headers=env.h())

@@ -124,7 +124,7 @@ def test_sqlmesh_source_from_git_syncs(env: Env, repo: tuple[str, str]) -> None:
     assert r.status_code == 201, r.text
     assert r.json()["config"]["git_token"] == "***"
     assert is_sealed(env.src("g").config["git_token"])
-    sync = env.client.post(f"/v1/sources/{r.json()['id']}/sync", headers=env.h("curator"))
+    sync = env.client.post(f"/v1/sources/{r.json()['id']}/sync?wait=true", headers=env.h("curator"))
     assert sync.status_code == 200, sync.text
     assert sync.json()["git_commit"] == head and sync.json()["counts"]["created"] > 0
     assert env.src("g").last_report["git_commit"] == head
@@ -134,13 +134,13 @@ def test_dbt_manifest_committed_to_git(env: Env, repo: tuple[str, str]) -> None:
     url, _ = repo
     r = create(env, "dbt", {"git_url": url, "manifest": "dbt/target/manifest.json"})
     assert r.status_code == 201, r.text
-    sync = env.client.post(f"/v1/sources/{r.json()['id']}/sync", headers=env.h())
+    sync = env.client.post(f"/v1/sources/{r.json()['id']}/sync?wait=true", headers=env.h())
     assert sync.status_code == 200, sync.text
 
     # A missing path is a clear sync error naming the repository path.
     env.client.put(f"/v1/sources/{r.json()['id']}", headers=env.h(), json={
         "config": {"git_url": url, "manifest": "dbt/target/nope.json"}})
-    bad = env.client.post(f"/v1/sources/{r.json()['id']}/sync", headers=env.h())
+    bad = env.client.post(f"/v1/sources/{r.json()['id']}/sync?wait=true", headers=env.h())
     assert bad.status_code == 422, bad.text
     assert "dbt/target/nope.json in the repository" in bad.json()["detail"]
 

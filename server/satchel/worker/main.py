@@ -3,12 +3,12 @@ sync sources whose schedule is due (``satchel.sources.automation``) and run eval
 schedule is due (``satchel.evals.schedule``).
 
 A per-workspace Postgres advisory lock lets it run beside the API or as a Cloud Run Job /
-Kubernetes CronJob (``--once``). Scheduled source syncs run on their own thread every
-``source_tick_min`` minutes (a per-source advisory lock), so a long curation pass never delays
-them; a third thread queues the eval suites whose schedule is due every ``eval_tick_min``
-minutes. Job consumers (``satchel.jobs``, ``worker_job_threads``) run queued jobs: scheduled
-eval runs, and eval runs the web server queued. ``--once`` runs one check of each after the
-pass, then runs every due job.
+Kubernetes CronJob (``--once``). A thread queues the sources whose scheduled sync is due every
+``source_tick_min`` minutes, and another the eval suites whose schedule is due every
+``eval_tick_min`` minutes, so a long curation pass never delays them. Job consumers
+(``satchel.jobs``, ``worker_job_threads``) run every queued job: those syncs and eval runs,
+and the syncs, crawls and eval runs the web servers queued. ``--once`` runs one check of each
+after the pass, then runs every due job.
 """
 
 from __future__ import annotations
@@ -176,12 +176,19 @@ def run_forever(
     if not eval_tick:
         eval_fn = None
     runner = jobs or (None if pass_fn else default_jobs(st))
-    if eval_fn is not None and runner is not None:
-        queue_evals = eval_fn
 
-        def eval_fn() -> None:
-            queue_evals()
-            runner.nudge()
+    def then_nudge(fn: Callable[[], object] | None) -> Callable[[], object] | None:
+        """The tick queues jobs; have an idle job thread pick them up now."""
+        if fn is None or runner is None:
+            return fn
+        queue_fn, r = fn, runner
+
+        def ticked() -> None:
+            queue_fn()
+            r.nudge()
+        return ticked
+
+    tick_fn, eval_fn = then_nudge(tick_fn), then_nudge(eval_fn)
 
     def _halt(_sig: int, _frame: FrameType | None) -> None:
         stop.set()

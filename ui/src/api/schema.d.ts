@@ -168,7 +168,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Crawl */
+        /**
+         * Crawl
+         * @description Crawl the connection into the catalog. ``wait=true`` crawls in the request and
+         *     returns the report; otherwise it queues a ``connection.crawl`` job (202): poll
+         *     ``GET /v1/jobs/{id}``; its ``result`` is the report.
+         */
         post: operations["crawl"];
         delete?: never;
         options?: never;
@@ -418,6 +423,23 @@ export interface paths {
         };
         /** Get Item Version */
         get: operations["get_item_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job"];
         put?: never;
         post?: never;
         delete?: never;
@@ -886,7 +908,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Sync */
+        /**
+         * Sync
+         * @description Sync the source. With uploaded files, or ``wait=true``, it syncs in the request and
+         *     returns the report. Otherwise it queues a ``source.sync`` job and returns it (202):
+         *     poll ``GET /v1/jobs/{id}``; its ``result.report`` is the report.
+         */
         post: operations["sync"];
         delete?: never;
         options?: never;
@@ -1975,6 +2002,37 @@ export interface components {
              * @default 0
              */
             thumbs_up: number;
+        };
+        /** JobOut */
+        JobOut: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Max Attempts */
+            max_attempts: number;
+            /** Result */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed";
         };
         /** KindFieldOut */
         KindFieldOut: {
@@ -3974,7 +4032,9 @@ export interface operations {
     };
     crawl: {
         parameters: {
-            query?: never;
+            query?: {
+                wait?: boolean;
+            };
             header?: {
                 authorization?: string | null;
                 "x-satchel-workspace"?: string | null;
@@ -3993,7 +4053,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CrawlOut"];
+                    "application/json": components["schemas"]["CrawlOut"] | components["schemas"]["JobOut"];
+                };
+            };
+            /** @description queued (without wait) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */
@@ -4676,6 +4745,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VersionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */
@@ -5856,7 +5960,9 @@ export interface operations {
     };
     sync: {
         parameters: {
-            query?: never;
+            query?: {
+                wait?: boolean;
+            };
             header?: {
                 authorization?: string | null;
                 "x-satchel-workspace"?: string | null;
@@ -5875,7 +5981,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SyncReportOut"];
+                    "application/json": components["schemas"]["SyncReportOut"] | components["schemas"]["JobOut"];
+                };
+            };
+            /** @description queued (no files and no wait) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */

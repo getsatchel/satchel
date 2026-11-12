@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import func, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,14 @@ class Claimed:
     @property
     def last_attempt(self) -> bool:
         return self.attempts >= self.max_attempts
+
+
+def unfinished(s: Session, kind: str, dedupe_key: str) -> int | None:
+    """The id of the queued or running job of ``kind`` with ``dedupe_key``, if any."""
+    found = s.scalar(text(
+        "select id from job where kind = :k and dedupe_key = :d "
+        "and status in ('queued','running') order by id limit 1"), {"k": kind, "d": dedupe_key})
+    return int(found) if found is not None else None
 
 
 def enqueue(
@@ -92,21 +100,22 @@ def heartbeat(s: Session, job_id: int, who: str, *, lease_s: int = LEASE_S) -> b
     return bool(n)
 
 
-def finish(s: Session, job_id: int, who: str) -> None:
-    s.execute(text(
-        "update job set status = 'done', finished_at = now(), locked_until = null, error = null "
-        "where id = :id and locked_by = :who and status = 'running'"),
-        {"id": job_id, "who": who})
+def finish(s: Session, job_id: int, who: str, result: dict[str, Any] | None = None) -> None:
+    s.execute(
+        update(Job)
+        .where(Job.id == job_id, Job.locked_by == who, Job.status == "running")
+        .values(status="done", finished_at=func.now(), locked_until=None, error=None,
+                result=result))
 
 
 def backoff(attempts: int) -> timedelta:
     return timedelta(seconds=min(MAX_BACKOFF_S, BACKOFF_S * 4 ** max(0, attempts - 1)))
 
 
-def fail(s: Session, job: Claimed, who: str, error: str) -> bool:
-    """End a failed attempt: queue a retry, or fail the job on its last attempt. Returns True
-    when the job failed for good."""
-    final = job.last_attempt
+def fail(s: Session, job: Claimed, who: str, error: str, *, final: bool = False) -> bool:
+    """End a failed attempt: queue a retry, or fail the job on its last attempt (or when
+    ``final``). Returns True when the job failed for good."""
+    final = final or job.last_attempt
     s.execute(text(
         "update job set status = :st, error = :err, locked_by = null, locked_until = null, "
         "finished_at = case when :final then now() end, "

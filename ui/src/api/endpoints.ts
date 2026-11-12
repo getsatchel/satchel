@@ -1,4 +1,5 @@
 import { api, keyPath } from "./client";
+import { crawlReportOf, isJob, syncReportOf } from "./jobs";
 import type {
   AssetDetail,
   AssetPage,
@@ -17,6 +18,7 @@ import type {
   ConnectionTestOut,
   ConnectionTestRequest,
   CrawlOut,
+  JobOut,
   EvalCompare,
   EvalGate,
   EvalRun,
@@ -93,7 +95,11 @@ export const endpoints = {
 
   listSources: () => api.get<SourceOut[]>("/v1/sources"),
   listSourceKinds: () => api.get<SourceKindOut[]>("/v1/source-kinds"),
-  syncSource: (id: string) => api.post<SyncReportOut>(`/v1/sources/${id}/sync`),
+  /** Queues the sync (202) and waits for the job; resolves with its report. */
+  syncSource: async (id: string): Promise<SyncReportOut> => {
+    const r = await api.post<SyncReportOut | JobOut>(`/v1/sources/${id}/sync`);
+    return isJob(r) ? syncReportOf(r) : r;
+  },
   syncSourceWithFiles: (id: string, form: FormData) => api.upload<SyncReportOut>(`/v1/sources/${id}/sync`, form),
   createSource: (req: SourceCreate) => api.post<SourceOut>("/v1/sources", req),
   updateSource: (id: string, config: Record<string, unknown>) => api.put<SourceOut>(`/v1/sources/${id}`, { config }),
@@ -110,7 +116,11 @@ export const endpoints = {
   updateConnection: (id: string, req: ConnectionPatch) => api.patch<ConnectionSaved>(`/v1/connections/${id}`, req),
   deleteConnection: (id: string) => api.del(`/v1/connections/${id}`),
   testConnection: (req: ConnectionTestRequest) => api.post<ConnectionTestOut>("/v1/connections/test", req),
-  crawlConnection: (id: string) => api.post<CrawlOut>(`/v1/connections/${id}/crawl`),
+  /** Queues the crawl (202) and waits for the job; resolves with its report. */
+  crawlConnection: async (id: string): Promise<CrawlOut> => {
+    const r = await api.post<CrawlOut | JobOut>(`/v1/connections/${id}/crawl`);
+    return isJob(r) ? crawlReportOf(r) : r;
+  },
 
   listProposals: () => api.get<{ proposals: ProposalOut[] }>("/v1/proposals"),
   acceptProposal: (key: string, req: { key?: string; body?: string; meta?: Record<string, unknown> }) =>

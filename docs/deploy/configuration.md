@@ -180,13 +180,14 @@ only uploaded can't use them (422), because only the uploader has the files.
 - **Schedule.** In the source form, **Sync automatically** → every 1, 3, 6, 12, 24 or 168 hours
   (config key `sync_interval_hours`, 1–168; CLI `--sync-interval-hours N`). `satchel worker` checks
   every `SATCHEL_SOURCE_TICK_MIN` minutes (default 5, `0` turns it off on that worker) on its own
-  thread, so curation keeps its `SATCHEL_CURATE_INTERVAL_MIN` cadence. A source is due when its
+  thread and queues the sources that are due; its job threads run the syncs, so curation keeps its
+  `SATCHEL_CURATE_INTERVAL_MIN` cadence. A source is due when its
   last sync (manual or not) is older than the interval. After a failed sync it is retried sooner:
   15 minutes later, then 30, 60, 120, ... doubling with each failure in a row, never later than the
   interval; a successful sync resets this. The Sources page shows the next sync time
   (`next_sync_at` over REST). `satchel worker --once`
-  (CronJob) runs one check after the curation pass, so the CronJob interval is the shortest
-  schedule it can honour.
+  (CronJob) runs one check after the curation pass and then every queued job, so the CronJob
+  interval is the shortest schedule it can honour.
 - **Push webhook.** On the source's detail, an admin clicks **Push webhook → Set up webhook**.
   This shows the URL (`$SATCHEL_PUBLIC_URL/v1/hooks/sources/<id>`) and a generated secret once.
   The secret is sealed in `context_source.config` like other source secrets, so it needs
@@ -207,19 +208,30 @@ only uploaded can't use them (422), because only the uploader has the files.
   For a git source, a push to a branch other than `git_ref` (or, when `git_ref` is unset, the
   repository's default branch named in the payload) gets 200 `ignored`. So does a deleted ref,
   a source pinned to a commit, and any event that isn't a push. GitHub's `ping` gets 200 `pong`.
-  A matching push gets 202 and the sync runs after the response. If a sync of that source is
-  already running, it waits for it (up to 10 minutes). Deliveries arriving while a webhook sync
-  of the same source is still queued or waiting on that server get 202 without starting
-  another: the pending sync resolves the ref when it runs, so it picks up the newest commit. A sync lost to a server restart is caught
-  by the schedule, if one is set.
+  A matching push gets 202 and queues the sync, which a web server's job thread (or the
+  worker's) runs. Deliveries arriving while a sync of the same source is still queued get 202
+  without queueing another: the queued sync resolves the ref when it runs, so it picks up the
+  newest commit. A delivery while a sync runs queues exactly one more after it. This holds across
+  replicas, because the queue is in Postgres. A sync that cannot start because another holds the
+  source is retried after 30 seconds, then 2, 8 and 32 minutes; one whose server stopped is
+  picked up again.
 
 For a git source, an automatic sync first resolves the ref (`git ls-remote`). It skips the work
 when the ref still points at the commit of the last successful sync and the source's config and
 adapter version are unchanged. The skipped check sets `last_synced_at`, because the source is
 known to be current, and shows on the Sources page as *Last check … no new commit*. Manual and
 CLI syncs always run. Every sync path (Sync now, CLI, schedule, webhook) holds a Postgres
-advisory lock on the source, so two replicas never sync the same source at once: a manual sync
-during another one gets 409 and the CLI exits with an error. Automatic syncs are audited as
+advisory lock on the source, so two replicas never sync the same source at once: an upload sync
+(or `?wait=true`) during another one gets 409 and the CLI exits with an error, while a queued
+sync waits and retries.
+
+**Sync now** and `POST /v1/sources/{id}/sync` without files queue a `source.sync` job and return
+202 with it (`id`, `status`); poll `GET /v1/jobs/{id}` (curator) until `status` is `done`, when
+`result.report` is the sync report, or `failed`. A second request while one is queued returns the
+same job. With uploaded files, or `?wait=true`, the sync runs in the request and returns the
+report as before, which is what the CI `curl -F ...` examples rely on. **Crawl** in Settings →
+Connections (`POST /v1/connections/{id}/crawl`) works the same way, with the crawl report as the
+job's `result`; `?wait=true` crawls in the request. Automatic syncs are audited as
 `source.sync` with `trigger` `schedule` or `webhook`, and failures too, with `status: error`. A
 skipped unchanged check is not audited.
 
