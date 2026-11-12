@@ -69,7 +69,7 @@ export function useSourceSync(onReport?: (r: SyncReportOut) => void) {
     onReport?.(report);
     const c = report.counts;
     toast("ok", `Synced ${report.source}: ${c.created} new, ${c.updated} updated, ${c.deprecated} retired`);
-    for (const key of ["sources", "items", "changes", "releases"]) void qc.invalidateQueries({ queryKey: [key] });
+    for (const key of ["sources", "items", "changes", "releases", "jobs"]) void qc.invalidateQueries({ queryKey: [key] });
   };
   const m = useMutation({
     mutationFn: (id: string) => endpoints.syncSource(id),

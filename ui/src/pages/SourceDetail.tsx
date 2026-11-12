@@ -2,9 +2,10 @@ import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
-import type { SourceOut, SyncReportOut } from "@/api/types";
+import type { JobOut, SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { Chevron, Crumb, DescList, ErrorBox, ICONS, Loading, Modal, Notice, PageHeader, SectionHeading, StatusDot } from "@/components/ui";
+import { Pre } from "@/components/Code";
+import { Chevron, Crumb, DescList, ErrorBox, ICONS, Loading, Modal, Notice, PageHeader, SectionHeading, StatusDot, StatusLine, TableCard, type Tone } from "@/components/ui";
 import { SourceForm, UploadSync } from "@/pages/SourceForm";
 import { AdapterTags, problemsOf, SyncStatus, useSourceSync, warningsOf, type Warning } from "@/pages/Sources";
 import { WebhookPanel } from "@/pages/SourceWebhook";
@@ -64,6 +65,7 @@ function SourcePage({ s, admin }: { s: SourceOut; admin: boolean }) {
   const warnings = overlaps.length ? problems : warningsOf(s);
   const counts = countsOf(s);
   const rep = s.last_report as Automation;
+  const commit = (s.last_report as { git_commit?: string | null }).git_commit ?? null;
   const attention = Boolean(s.last_error || report?.gate_message || (report && report.held.length > 0) || warnings.length);
   const hasFiles = (s.adapter?.file_inputs ?? []).length > 0;
 
@@ -138,6 +140,15 @@ function SourcePage({ s, admin }: { s: SourceOut; admin: boolean }) {
                 ),
               ],
               ["Changed", report ? changedLine(report.counts) : null],
+              [
+                "Curation signals",
+                report && Object.keys(report.signals ?? {}).length
+                  ? Object.entries(report.signals)
+                      .map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`)
+                      .join(", ")
+                  : null,
+              ],
+              ["Commit", commit ? <code className="text-xs" title={commit}>{commit.slice(0, 10)}</code> : null],
               ["Release", report && "release_kind" in report ? (report.release_kind ? `${report.release_kind} #${report.release_seq}${report.release_created ? " (new)" : " (unchanged)"}` : "no change") : null],
               [
                 "Items",
@@ -174,6 +185,8 @@ function SourcePage({ s, admin }: { s: SourceOut; admin: boolean }) {
           />
         </div>
       </section>
+
+      <RecentSyncs s={s} />
 
       {overlaps.length > 0 && (
         <section className="mb-9" aria-label="Also described elsewhere">
@@ -597,5 +610,135 @@ function Warnings({ warnings }: { warnings: Warning[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+const JOB_STATE: Record<JobOut["status"], { tone: Tone; label: string }> = {
+  queued: { tone: "muted", label: "queued" },
+  running: { tone: "info", label: "running" },
+  done: { tone: "good", label: "done" },
+  failed: { tone: "bad", label: "failed" },
+};
+
+/** What one sync job did, in a few words: its counts, "no new commit", or its error. */
+function syncOutcome(j: JobOut): ReactNode {
+  const r = (j.result ?? {}) as { outcome?: string; counts?: SyncReportOut["counts"] | null };
+  if (j.status === "failed" || r.outcome === "failed") return <span className="text-bad">{j.error ?? (r as { error?: string }).error ?? "failed"}</span>;
+  if (j.status === "queued") return j.attempts > 0 && j.error ? <span className="text-warn">retrying: {j.error}</span> : <span className="text-muted">waiting to run</span>;
+  if (j.status === "running") return <span className="text-muted">syncing now</span>;
+  if (r.outcome === "unchanged") return <span className="text-muted">no new commit; skipped</span>;
+  if (r.outcome === "not_due") return <span className="text-muted">not due yet; skipped</span>;
+  return r.counts ? changedLine(r.counts) : <span className="text-muted">done</span>;
+}
+
+/**
+ * The source's sync history from the job queue: when each sync ran, what started it and what it
+ * did. A row opens to the full error or the job's raw result. Finished jobs are kept 14 days.
+ */
+function RecentSyncs({ s }: { s: SourceOut }) {
+  const q = useQuery({
+    queryKey: ["jobs", "source", s.id],
+    queryFn: () => endpoints.listSourceSyncs(s.id),
+    refetchInterval: (query) => (query.state.data?.some((j) => j.status === "queued" || j.status === "running") ? 3000 : false),
+  });
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <section className="mb-9" aria-label="Recent syncs">
+      <SectionHeading
+        icon={ICONS.list}
+        title="Recent syncs"
+        count={q.data?.length}
+        actions={
+          <Link className="text-xs text-muted hover:text-ink" to="/jobs">
+            All jobs
+          </Link>
+        }
+      />
+      {q.isPending && <Loading />}
+      {q.isError && <ErrorBox error={q.error} />}
+      {q.data && q.data.length === 0 && (
+        <p className="text-sm text-muted">
+          No queued syncs in the last 14 days.
+          {s.last_synced_at
+            ? " The last sync ran without the job queue (for example satchel source sync); its result is under Last sync."
+            : " Syncs started here, by the schedule or by a push webhook are listed here."}
+        </p>
+      )}
+      {q.data && q.data.length > 0 && (
+        <TableCard>
+          <thead className="border-b border-line">
+            <tr>
+              <th className="th w-px">Status</th>
+              <th className="th w-full">Result</th>
+              <th className="th hidden w-px sm:table-cell">Trigger</th>
+              <th className="th w-px">When</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {q.data.map((j) => {
+              // Jobs from before failed syncs failed their job finished as "done" with outcome "failed".
+              const st = (j.result as { outcome?: string } | null)?.outcome === "failed" ? JOB_STATE.failed : JOB_STATE[j.status];
+              const at = j.finished_at ?? j.started_at ?? j.created_at;
+              const isOpen = open === j.id;
+              return (
+                <SyncRow key={j.id} j={j} tone={st.tone} label={st.label} at={at} isOpen={isOpen} onToggle={() => setOpen(isOpen ? null : j.id)} />
+              );
+            })}
+          </tbody>
+        </TableCard>
+      )}
+      {q.data && q.data.length > 0 && outsideQueue(s, q.data) && (
+        <p className="mt-2 text-xs text-muted">
+          The last sync ({timeAgo(s.last_synced_at)}
+          {(s.last_report as Automation).trigger ? `, ${(s.last_report as Automation).trigger}` : ""}) ran outside the job queue, for example with{" "}
+          <code className="font-mono">satchel source sync</code>, so it is not listed. Its result is under Last sync.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Whether the source's last sync is newer than every listed job (it ran without the queue). */
+function outsideQueue(s: SourceOut, jobs: JobOut[]): boolean {
+  if (!s.last_synced_at) return false;
+  const last = new Date(s.last_synced_at).getTime();
+  const newest = Math.max(0, ...jobs.map((j) => new Date(j.finished_at ?? j.created_at).getTime()));
+  return last - newest > 60_000;
+}
+
+function SyncRow(props: { j: JobOut; tone: Tone; label: string; at: string; isOpen: boolean; onToggle: () => void }) {
+  const { j } = props;
+  const raw = JSON.stringify({ id: j.id, attempts: `${j.attempts}/${j.max_attempts}`, created_at: j.created_at, started_at: j.started_at, finished_at: j.finished_at, error: j.error, result: j.result }, null, 2);
+  return (
+    <>
+      <tr className={`cursor-pointer ${props.isOpen ? "bg-sunken/60" : "hover:bg-sunken/70"}`} onClick={props.onToggle}>
+        <td className="td whitespace-nowrap">
+          <button type="button" className="flex items-center gap-2" aria-expanded={props.isOpen} onClick={(e) => { e.stopPropagation(); props.onToggle(); }}>
+            <Chevron open={props.isOpen} />
+            <StatusLine tone={props.tone} state={props.label} />
+          </button>
+        </td>
+        <td className="td min-w-0">
+          <span className="line-clamp-1 [overflow-wrap:anywhere]">{syncOutcome(j)}</span>
+          {j.attempts > 1 && <span className="text-xs text-muted">attempt {j.attempts} of {j.max_attempts}</span>}
+        </td>
+        <td className="td hidden whitespace-nowrap text-muted sm:table-cell">{j.trigger ?? "-"}</td>
+        <td className="td whitespace-nowrap text-muted" title={fullTime(props.at)}>
+          {timeAgo(props.at)}
+        </td>
+      </tr>
+      {props.isOpen && (
+        <tr>
+          <td colSpan={4} className="border-t border-line bg-sunken/30 px-4 py-3">
+            <div className="w-0 min-w-full space-y-2">
+              {j.error && (
+                <p className="rounded border border-bad/30 bg-bad-soft px-2.5 py-1.5 font-mono text-xs text-bad [overflow-wrap:anywhere]">{j.error}</p>
+              )}
+              <Pre>{raw}</Pre>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
