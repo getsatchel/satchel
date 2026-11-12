@@ -17,6 +17,7 @@ import { Sessions } from "./pages/Sessions";
 import { SessionInspector } from "./pages/SessionInspector";
 import { Observability } from "./pages/Observability";
 import { Catalog } from "./pages/Catalog";
+import { SourceDetail } from "./pages/SourceDetail";
 import { Sources } from "./pages/Sources";
 import { Settings } from "./pages/Settings";
 import { EvalComparePage, EvalRunPage, Evals } from "./pages/Evals";
@@ -103,6 +104,7 @@ export function App() {
         <Route path="observability" element={<Observability />} />
         <Route path="catalog" element={<Catalog />} />
         <Route path="sources" element={<Sources />} />
+        <Route path="sources/:name" element={<SourceDetail />} />
         <Route path="settings" element={<Settings />} />
         <Route path="evals" element={<Evals />} />
         <Route path="jobs" element={<Jobs />} />
