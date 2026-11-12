@@ -19,6 +19,6 @@ Satchel is a self-hosted context server for data agents. Read these first:
 4. **Postgres is the only required dependency.** The app connects as a non-superuser role so RLS applies. Use `workspace_session()` for user requests and `admin_session()` only for server-internal jobs.
 5. **Migrations:** every migration, including the frozen `0001_initial`, is explicit `op.*` DDL and must never import `satchel.store.models` or call `create_all`. When you change a model, add a new revision. `tests/test_migrations.py` runs `alembic upgrade head` on an empty database and fails if it differs from `Base.metadata`.
 6. **Nothing auto-publishes context.** Agents and the suggestion engine only propose changes.
-7. **UI:** follow [`ui/DESIGN.md`](ui/DESIGN.md) and reuse the components in `ui/src/components/ui.tsx`. Run `npm run typecheck && npm run lint && npm run build` in `ui/`.
+7. **UI:** follow [`ui/PRODUCT.md`](ui/PRODUCT.md) (who it is for, what earns space on a page) and [`ui/DESIGN.md`](ui/DESIGN.md), and reuse the components in `ui/src/components/ui.tsx`. Run `npm run typecheck && npm run lint && npm run build` in `ui/`.
 8. **API contract:** if you change an API route, regenerate it: `cd server && uv run satchel openapi > ../ui/openapi.json && cd ../ui && npm run gen:api`.
 9. **Commits:** sign off every commit with `git commit -s` (the [DCO](https://developercertificate.org/), see `CONTRIBUTING.md`). Never add AI attribution: no `Co-Authored-By` trailers for AI tools and no "Generated with" lines in commit messages or pull request descriptions.
