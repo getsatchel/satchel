@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
 import type { SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { CardGrid, Chevron, DescList, EmptyState, ErrorBox, ICONS, Icon, Loading, Modal, Notice, PageHeader, SectionHeading, StatCell, StatGrid, StatusDot, TableCard } from "@/components/ui";
+import { Chevron, DescList, EmptyState, ErrorBox, ICONS, Icon, Loading, Modal, Notice, PageHeader, SectionHeading, StatCell, StatGrid, StatusDot, TableCard } from "@/components/ui";
 import { SourceForm, UploadSync } from "@/pages/SourceForm";
 import { WebhookPanel } from "@/pages/SourceWebhook";
 import { errMsg, fullTime, timeAgo, timeUntil } from "@/lib/format";
@@ -20,6 +20,12 @@ function warningsOf(s: SourceOut): Warning[] {
   const w = (s.last_report as { warnings?: unknown }).warnings;
   return Array.isArray(w) ? (w as Warning[]) : [];
 }
+
+/** Overlap warnings (another source describes the same table or model) are shown as overlaps,
+ * not as problems with the sync. */
+const OVERLAP_CODES = new Set(["also_described_by", "semantic_shadowed"]);
+const problemsOf = (s: SourceOut) => warningsOf(s).filter((w) => !OVERLAP_CODES.has(w.code));
+const overlapCountOf = (s: SourceOut) => warningsOf(s).length - problemsOf(s).length;
 
 type Overlap =
   | { type: "asset_doc"; asset: string; primary: { source: string; key: string }; also_described_by: { source: string; key: string }[]; this_source_is_primary: boolean }
@@ -82,7 +88,8 @@ function SyncStatus({ s }: { s: SourceOut }) {
   return <StatusDot tone="muted">never synced</StatusDot>;
 }
 
-/** Adapter facts: kind, version, maturity, and whether it ships with satchel or comes from a package. */
+/** The row's adapter line: kind and version. Flags appear only when they say something: an
+ * adapter from a package, or one still experimental. The rest is in the detail. */
 function AdapterTags({ s }: { s: SourceOut }) {
   const a = s.adapter;
   if (!a) return <span className="badge badge-bad">adapter not installed</span>;
@@ -97,14 +104,108 @@ function AdapterTags({ s }: { s: SourceOut }) {
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       <span className="badge font-mono">{a.kind}</span>
-      {a.version && <span className="mono text-xs text-muted">v{a.version}</span>}
-      {a.maturity && <span className={`badge ${a.maturity === "stable" ? "badge-good" : a.maturity === "beta" ? "" : "badge-warn"}`}>{a.maturity}</span>}
-      <span className="badge" title={a.builtin ? "Ships with Satchel" : `Installed from ${a.package} ${a.package_version ?? ""}`}>
-        {a.builtin ? "built-in" : "external"}
+      {a.version && <span className="font-mono text-xs text-muted">v{a.version}</span>}
+      {a.maturity && a.maturity !== "stable" && a.maturity !== "beta" && <span className="badge badge-warn">{a.maturity}</span>}
+      {!a.builtin && (
+        <span className="badge" title={`Installed from ${a.package} ${a.package_version ?? ""}`}>
+          external
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Adapter facts for the detail: version, maturity and where it comes from. */
+function adapterLine(s: SourceOut): ReactNode {
+  const a = s.adapter;
+  if (!a) return <span className="text-bad">not installed</span>;
+  const from = a.builtin ? "built into Satchel" : `${a.package}${a.package_version ? ` ${a.package_version}` : ""}`;
+  return (
+    <span>
+      <span className="font-mono">
+        {a.kind}
+        {a.version ? ` v${a.version}` : ""}
+      </span>
+      <span className="text-muted">
+        {a.maturity ? ` · ${a.maturity}` : ""} · {from}
       </span>
     </span>
   );
 }
+
+type Origin = "git" | "bucket" | "server" | "upload" | "built";
+
+const ORIGIN: Record<Origin, string> = {
+  git: "repository",
+  bucket: "bucket",
+  server: "server path",
+  upload: "upload",
+  built: "dbt parse",
+};
+
+/** Where each of the adapter's file inputs comes from on a sync. A path on the server can only be
+ * set with the CLI (the UI accepts git paths, s3:// and gs://), so it is called out. */
+function filesOf(s: SourceOut): { name: string; value: string | null; origin: Origin }[] {
+  const cfg = s.config as Record<string, unknown>;
+  const git = Boolean(cfg.git_url);
+  const building = git && s.kind === "dbt" && Boolean(cfg.dbt_project_dir);
+  return (s.adapter?.file_inputs ?? []).map((name) => {
+    const raw = cfg[name];
+    const value = typeof raw === "string" && raw ? raw : null;
+    if (building && (name === "manifest" || name === "semantic_manifest")) return { name, value: null, origin: "built" };
+    if (!value) return { name, value: null, origin: "upload" };
+    if (git) return { name, value, origin: "git" };
+    if (/^(s3|gs):\/\//.test(value)) return { name, value, origin: "bucket" };
+    return { name, value, origin: "server" };
+  });
+}
+
+/** A path that wraps at its slashes, with the folders dimmed. */
+function PathText({ path }: { path: string }) {
+  const i = path.lastIndexOf("/");
+  const dir = i >= 0 ? path.slice(0, i + 1) : "";
+  const base = path.slice(i + 1);
+  return (
+    <span className="block font-mono text-xs [overflow-wrap:anywhere]">
+      <span className="text-muted">
+        {dir.split("/").map((part, j, all) => (
+          <span key={j}>
+            {part}
+            {j < all.length - 1 && (
+              <>
+                /<wbr />
+              </>
+            )}
+          </span>
+        ))}
+      </span>
+      {base}
+    </span>
+  );
+}
+
+function SourceFiles({ s }: { s: SourceOut }) {
+  const files = filesOf(s);
+  if (files.length === 0) return null;
+  const required = new Set(s.adapter?.required_inputs ?? []);
+  return (
+    <ul className="space-y-1">
+      {files.map((f) => (
+        <li key={f.name} className="min-w-0">
+          <span className="text-muted">{f.name.replace(/_/g, " ")}</span>{" "}
+          <span className="badge" title={f.origin === "server" ? "A path on the Satchel server, set with the CLI. Change it with satchel source add." : undefined}>
+            {ORIGIN[f.origin]}
+          </span>
+          {f.value && <PathText path={f.value} />}
+          {!f.value && f.origin === "upload" && (
+            <span className="block text-xs text-muted">{required.has(f.name) ? "uploaded on each sync (required)" : "not set"}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 
 export function Sources() {
   const q = useQuery({ queryKey: ["sources"], queryFn: endpoints.listSources });
@@ -184,8 +285,8 @@ export function Sources() {
               tone="muted"
               glyph="square"
               value={rows.reduce((n, r) => n + Object.values(r.item_counts).reduce((a, b) => a + b, 0), 0).toLocaleString()}
-              secondary={(() => { const w = rows.reduce((n, r) => n + warningsOf(r).length, 0); return `${w} warning${w === 1 ? "" : "s"}`; })()}
-              info="Context items imported across all sources, and warnings from the last syncs."
+              secondary={(() => { const w = rows.reduce((n, r) => n + problemsOf(r).length, 0); return `${w} warning${w === 1 ? "" : "s"}`; })()}
+              info="Context items imported across all sources, and warnings from the last syncs (tables another source also describes are not counted)."
             />
           </StatGrid>
         </div>
@@ -210,7 +311,7 @@ export function Sources() {
                 <SourceRow
                   key={s.id}
                   s={s}
-                  warnings={warningsOf(s)}
+                  warnings={problemsOf(s)}
                   isOpen={open === s.id}
                   total={Object.values(s.item_counts).reduce((a, b) => a + b, 0)}
                   syncing={sync.isPending && sync.variables === s.id}
@@ -225,14 +326,6 @@ export function Sources() {
               ))}
             </tbody>
         </TableCard>
-      )}
-      {rows.length > 0 && (
-        <p className="mt-3 max-w-3xl text-xs text-muted">
-          CI can push fresh artifacts on every build:{" "}
-          <code className="font-mono">
-            dbt build && dbt docs generate && curl -X POST -H "Authorization: Bearer $SATCHEL_TOKEN" -F manifest=@target/manifest.json -F catalog=@target/catalog.json $SATCHEL_URL/v1/sources/&lt;id&gt;/sync
-          </code>
-        </p>
       )}
       {form && kinds.data && (
         <SourceForm kinds={kinds.data} editing={form.editing} encryption={llm.data?.encryption_configured ?? true} onClose={() => setForm(null)} />
@@ -293,6 +386,7 @@ function SourceRow(props: {
   onRemove: () => void;
 }) {
   const { s, warnings } = props;
+  const overlaps = overlapCountOf(s);
   return (
     <>
       <tr className={props.isOpen ? "bg-accent-soft/70 shadow-[inset_2px_0_0_rgb(var(--accent))]" : "hover:bg-sunken/70"}>
@@ -306,9 +400,19 @@ function SourceRow(props: {
               <span className="mt-1 block">
                 <AdapterTags s={s} />
               </span>
-              {warnings.length > 0 && (
-                <span className="mt-1 block text-xs text-warn">
-                  {warnings.length} warning{warnings.length === 1 ? "" : "s"} in the last sync
+              {(warnings.length > 0 || overlaps > 0) && (
+                <span className="mt-1 block text-xs">
+                  {warnings.length > 0 && (
+                    <span className="text-warn">
+                      {warnings.length} warning{warnings.length === 1 ? "" : "s"} in the last sync
+                    </span>
+                  )}
+                  {warnings.length > 0 && overlaps > 0 && <span className="text-muted"> · </span>}
+                  {overlaps > 0 && (
+                    <span className="text-muted">
+                      {overlaps} overlap{overlaps === 1 ? "" : "s"} with other sources
+                    </span>
+                  )}
                 </span>
               )}
             </span>
@@ -348,11 +452,43 @@ function SourceDetail(props: {
   onUpload: () => void;
   onRemove: () => void;
 }) {
-  const { s, warnings, report } = props;
+  const { s, report } = props;
   const counts = countsOf(s);
   const overlaps = overlapsOf(s, report);
+  // Overlap warnings are already listed under "Also described elsewhere".
+  const warnings = overlaps.length ? props.warnings : warningsOf(s);
+  const last = s.last_report as { git_commit?: string | null; dbt_version?: string | null };
+  const git = Boolean(s.config.git_url);
+  const hasFiles = (s.adapter?.file_inputs ?? []).length > 0;
   return (
-    <div className="space-y-3 text-sm">
+    <div className="space-y-5 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="text-xs text-muted">
+          Its items are in the{" "}
+          <Link className="text-accent hover:underline" to="/library?managed_by=source">
+            Library
+          </Link>
+          {props.admin ? "." : ". Admins can edit or remove the source."}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {hasFiles && (
+            <button type="button" className="btn btn-sm" onClick={props.onUpload}>
+              Upload and sync
+            </button>
+          )}
+          {props.admin && (
+            <>
+              <button type="button" className="btn btn-sm" onClick={props.onEdit}>
+                Edit
+              </button>
+              <button type="button" className="btn btn-sm btn-ghost text-bad" onClick={props.onRemove}>
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       {s.last_error && <ErrorBox error={s.last_error} />}
       {report?.gate_message && <Notice tone="warn">Not published: {report.gate_message}.</Notice>}
       {report && report.held.length > 0 && (
@@ -364,44 +500,53 @@ function SourceDetail(props: {
           .
         </Notice>
       )}
-      <CardGrid min="22rem" gap="gap-4">
-        <DescList
-          labelWidth="8rem"
-          rows={[
-            ["Connection", s.connection ?? <span className="text-muted">none (assets not linked to a warehouse)</span>],
-            [
-              "Repository",
-              s.config.git_url ? (
-                <span className="font-mono text-xs [overflow-wrap:anywhere]">
-                  {String(s.config.git_url)}
-                  {s.config.git_ref ? <span className="text-muted"> @ {String(s.config.git_ref)}</span> : null}
-                </span>
-              ) : null,
-            ],
-            [
-              "Commit",
-              (s.last_report as { git_commit?: string | null }).git_commit ? (
-                <code className="text-xs">{String((s.last_report as { git_commit?: string }).git_commit).slice(0, 10)}</code>
-              ) : null,
-            ],
-            [
-              "Built with",
-              (s.last_report as { dbt_version?: string | null }).dbt_version ? (
-                <span>dbt Core {String((s.last_report as { dbt_version?: string }).dbt_version)} (dbt parse on the server)</span>
-              ) : null,
-            ],
-            ["Priority", <span className="tabular-nums">{s.priority}</span>],
-            ["Items", counts.length ? counts.map((c) => `${c.n} ${c.label}`).join(", ") : <span className="text-muted">none yet</span>],
-            ["Last sync", s.last_synced_at ? fullTime(s.last_synced_at) : null],
-            ...automationRows(s),
-            ["Fingerprint", s.last_fingerprint ? <code className="break-all text-xs">{s.last_fingerprint.slice(0, 16)}</code> : null],
-          ]}
-        />
-        {report && (
+
+      <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2">
+        <section aria-label="Setup" className="min-w-0">
+          <h3 className="label-caps mb-2">Setup</h3>
           <DescList
-            labelWidth="8rem"
+            labelWidth="7rem"
             rows={[
-              ["This sync", `${report.counts.created} created, ${report.counts.updated} updated, ${report.counts.unchanged} unchanged, ${report.counts.deprecated} retired`],
+              ["Adapter", adapterLine(s)],
+              ["Connection", s.connection ?? <span className="text-muted">none (tables not linked to a warehouse)</span>],
+              [
+                "Repository",
+                git ? (
+                  <span className="font-mono text-xs [overflow-wrap:anywhere]">
+                    {String(s.config.git_url)}
+                    {s.config.git_ref ? <span className="text-muted"> @ {String(s.config.git_ref)}</span> : null}
+                  </span>
+                ) : null,
+              ],
+              ["Files", hasFiles ? <SourceFiles s={s} /> : null],
+              ["Priority", <span className="tabular-nums">{s.priority}</span>],
+              ["Publishes", s.publish === "preview" ? "a preview release you publish yourself" : "a release on every sync"],
+            ]}
+          />
+        </section>
+        <section aria-label="Sync" className="min-w-0">
+          <h3 className="label-caps mb-2">Sync</h3>
+          <DescList
+            labelWidth="7rem"
+            rows={[
+              ["Last sync", s.last_synced_at ? <span title={fullTime(s.last_synced_at)}>{timeAgo(s.last_synced_at)}</span> : <span className="text-muted">never</span>],
+              ...automationRows(s),
+              ["Items", counts.length ? counts.map((c) => `${c.n} ${c.label}`).join(", ") : <span className="text-muted">none yet</span>],
+              ["Commit", last.git_commit ? <code className="text-xs">{String(last.git_commit).slice(0, 10)}</code> : null],
+              ["Built with", last.dbt_version ? `dbt Core ${String(last.dbt_version)} (dbt parse on the server)` : null],
+              ["Fingerprint", s.last_fingerprint ? <code className="break-all text-xs">{s.last_fingerprint.slice(0, 16)}</code> : null],
+            ]}
+          />
+        </section>
+      </div>
+
+      {report && (
+        <section aria-label="This sync">
+          <h3 className="label-caps mb-2">This sync</h3>
+          <DescList
+            labelWidth="7rem"
+            rows={[
+              ["Items", `${report.counts.created} created, ${report.counts.updated} updated, ${report.counts.unchanged} unchanged, ${report.counts.deprecated} retired`],
               ["Release", report.release_kind ? `${report.release_kind} #${report.release_seq}${report.release_created ? " (new)" : " (unchanged)"}` : "no change"],
               [
                 "Curation signals",
@@ -413,10 +558,11 @@ function SourceDetail(props: {
               ],
             ]}
           />
-        )}
-      </CardGrid>
+        </section>
+      )}
+
       {overlaps.length > 0 && (
-        <div>
+        <section aria-label="Also described elsewhere">
           <h3 className="label-caps mb-2">Also described elsewhere ({overlaps.length})</h3>
           <ul className="space-y-1.5">
             {overlaps.map((o, i) =>
@@ -445,45 +591,94 @@ function SourceDetail(props: {
               ),
             )}
           </ul>
-        </div>
+        </section>
       )}
       {warnings.length > 0 && (
-        <div>
-          <h3 className="label-caps mb-2">Warnings from the last sync</h3>
-          <ul className="space-y-1">
-            {warnings.map((w, i) => (
-              <li key={i} className="flex flex-wrap gap-x-2">
-                <span className="badge badge-warn">{w.code.replace(/_/g, " ")}</span>
-                <span className="min-w-0 break-words">{w.message}</span>
-                {w.key && <span className="font-mono text-xs text-muted">{w.key}</span>}
+        <section aria-label="Warnings from the last sync">
+          <h3 className="label-caps mb-2">Warnings from the last sync ({warnings.length})</h3>
+          <ul className="space-y-3">
+            {groupWarnings(warnings).map((g) => (
+              <li key={g.code} className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span className="badge badge-warn">{g.code.replace(/_/g, " ")}</span>
+                  {g.shared && <span className="min-w-0 break-words">{g.shared}</span>}
+                </div>
+                {g.shared ? (
+                  <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-xs text-muted" aria-label="Affected">
+                    {g.subjects.map((x, i) => (
+                      <li key={i} className="min-w-0 [overflow-wrap:anywhere]">
+                        {x}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="mt-1 space-y-0.5">
+                    {g.items.map((w, i) => (
+                      <li key={i} className="min-w-0 break-words">
+                        {w.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
+
+      {!git && singleFileInputs(s).length > 0 && <CiPush s={s} />}
       {props.admin && <WebhookPanel s={s} />}
-      <p className="text-xs text-muted">
-        Browse its items in the{" "}
-        <Link className="text-accent hover:underline" to="/library?managed_by=source">
-          Library
-        </Link>
-        .{!props.admin && " Admins can edit or remove the source here."}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn btn-sm" onClick={props.onUpload}>
-          Upload and sync
-        </button>
-        {props.admin && (
-          <>
-            <button type="button" className="btn btn-sm" onClick={props.onEdit}>
-              Edit
-            </button>
-            <button type="button" className="btn btn-sm btn-ghost text-bad" onClick={props.onRemove}>
-              Remove
-            </button>
-          </>
-        )}
-      </div>
     </div>
+  );
+}
+
+/** Warnings of one kind. When every message is "<subject>: <the same explanation>", the
+ * explanation is shown once with the list of subjects, instead of one long line each. */
+function groupWarnings(ws: Warning[]): { code: string; shared: string | null; subjects: string[]; items: Warning[] }[] {
+  const by = new Map<string, Warning[]>();
+  for (const w of ws) by.set(w.code, [...(by.get(w.code) ?? []), w]);
+  return [...by.entries()].map(([code, items]) => {
+    const parts = items.map((w) => {
+      const i = w.message.indexOf(": ");
+      return i > 0 ? { subject: w.key ?? w.message.slice(0, i).replace(/^(model|table|cube|view|metric) /, ""), rest: w.message.slice(i + 2) } : null;
+    });
+    const same = items.length > 1 && parts.every((x) => x && x.rest === parts[0]?.rest);
+    const first = parts[0]?.rest ?? "";
+    return {
+      code,
+      shared: same ? first.charAt(0).toUpperCase() + first.slice(1) : null,
+      subjects: same ? parts.map((x) => x?.subject ?? "") : [],
+      items,
+    };
+  });
+}
+
+const singleFileInputs = (s: SourceOut) => (s.adapter?.file_inputs ?? []).filter((n) => !(s.adapter?.folder_inputs ?? []).includes(n));
+
+/** How CI pushes fresh artifacts to this source after a build. */
+function CiPush({ s }: { s: SourceOut }) {
+  const toast = useToast();
+  const fields = singleFileInputs(s);
+  const cmd = `curl -fsS -X POST -H "Authorization: Bearer $SATCHEL_TOKEN" \\\n${fields.map((n) => `  -F ${n}=@target/${n}.json \\\n`).join("")}  ${window.location.origin}/v1/sources/${s.id}/sync`;
+  return (
+    <section aria-label="Push from CI" className="space-y-2 border-t border-line pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="label-caps">Push from CI</h3>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() =>
+            void navigator.clipboard.writeText(cmd).then(
+              () => toast("ok", "Command copied"),
+              () => toast("err", "Copy failed: select the text and copy it"),
+            )
+          }
+        >
+          Copy
+        </button>
+      </div>
+      <p className="max-w-3xl text-xs text-muted">After each build, CI can upload the artifacts and sync in one call. Use a token of a curator or above; files you leave out use the location saved on the source.</p>
+      <pre className="whitespace-pre-wrap rounded-md border border-line bg-sunken px-3 py-2 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">{cmd}</pre>
+    </section>
   );
 }
