@@ -20,8 +20,6 @@ import {
   SearchInput,
   SectionHeading,
   Segmented,
-  StatCell,
-  StatGrid,
   StateBadge,
   StatusDot,
 } from "@/components/ui";
@@ -210,7 +208,7 @@ export function Catalog() {
         )}
         {assets.data && (roots.length > 0 || text.trim()) && (
           <>
-            <CoverageBar cov={cov} onShowUndocumented={() => setFilter("undocumented")} />
+            <CoverageLine cov={cov} />
             <ListDetail
               split="xl"
               hasDetail={selected !== null}
@@ -293,30 +291,24 @@ function ConnectionCard({ c, active, onClick }: { c: ConnectionOut; active: bool
   );
 }
 
-function CoverageBar({ cov, onShowUndocumented }: { cov: ReturnType<typeof coverage>; onShowUndocumented: () => void }) {
+/** Coverage in one line: the share of tables with a doc, and endorsed or excluded tables when
+ * there are any. The Undocumented filter above is where to act on it. */
+function CoverageLine({ cov }: { cov: ReturnType<typeof coverage> }) {
   if (cov.tables === 0) return null;
   const pct = Math.round((cov.documented / cov.tables) * 100);
-  const missing = cov.tables - cov.documented;
   return (
-    <div className="card mb-4 overflow-hidden">
-      <StatGrid>
-        <StatCell label="Doc coverage" tone="good" glyph="ring" value={`${pct}%`} secondary={`${cov.documented}/${cov.tables} tables`} info="Share of live tables and views that have a context doc." />
-        <StatCell label="Endorsed" tone="good" glyph="square" value={cov.endorsed} info="Tables and views marked as a source of truth." />
-        <StatCell label="Columns" tone="muted" glyph="ring" value={cov.columns} info="Live columns in the crawled tables." />
-        <StatCell label="Excluded" tone="bad" glyph="square" value={cov.excluded} info="Tables and views hidden from AI agents." />
-      </StatGrid>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-3 sm:px-5">
-        <div className="min-w-0 flex-1 basis-40">
-          <Meter value={pct} label="Documentation coverage" tone={pct === 100 ? "good" : "accent"} />
-        </div>
-        {missing > 0 ? (
-          <button className="btn-pill" onClick={onShowUndocumented}>
-            {missing} undocumented
-          </button>
-        ) : (
-          <StatusDot tone="good">All tables documented</StatusDot>
-        )}
+    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+      <div className="w-24 shrink-0">
+        <Meter value={pct} label="Documentation coverage" tone={pct === 100 ? "good" : "accent"} />
       </div>
+      <span>
+        <span className="font-medium tabular-nums">{pct}%</span>{" "}
+        <span className="text-muted">
+          documented ({cov.documented} of {cov.tables} tables{cov.columns ? `, ${cov.columns.toLocaleString()} columns` : ""})
+        </span>
+      </span>
+      {cov.endorsed > 0 && <span className="text-muted">{cov.endorsed} endorsed</span>}
+      {cov.excluded > 0 && <span className="text-bad">{cov.excluded} hidden from agents</span>}
     </div>
   );
 }
@@ -440,6 +432,7 @@ function AssetRow(props: {
   );
 }
 
+/** With nothing selected: what to do, and what the labels mean on request. */
 function Legend() {
   const rows: [ReactNode, string][] = [
     [<StatusDot key="d" tone="good">Documented</StatusDot>, "Has a published asset doc agents can read."],
@@ -449,16 +442,19 @@ function Legend() {
     [<span key="r" className="badge">dropped</span>, "No longer found in the last crawl."],
   ];
   return (
-    <aside className="card p-4 text-sm" aria-label="Status legend">
+    <aside className="px-1 py-2 text-sm" aria-label="Asset detail">
       <p className="text-muted">Select an asset to see its columns and the context that references it.</p>
-      <dl className="mt-4 space-y-2.5 border-t border-line pt-4">
-        {rows.map(([badge, desc], i) => (
-          <div key={i} className="grid grid-cols-[7rem_1fr] items-center gap-2">
-            <dt>{badge}</dt>
-            <dd className="text-xs text-muted">{desc}</dd>
-          </div>
-        ))}
-      </dl>
+      <details className="mt-3">
+        <summary className="cursor-pointer text-xs text-muted hover:text-ink">What the labels mean</summary>
+        <dl className="mt-3 space-y-2.5">
+          {rows.map(([badge, desc], i) => (
+            <div key={i} className="grid grid-cols-[7rem_1fr] items-center gap-2">
+              <dt>{badge}</dt>
+              <dd className="text-xs text-muted">{desc}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </aside>
   );
 }
