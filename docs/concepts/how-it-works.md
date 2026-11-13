@@ -14,7 +14,7 @@ Satchel sits between your agents (Claude, Cursor, ChatGPT, Codex) and your data.
 | **Connection** | A warehouse (Postgres, DuckDB today) used by the optional data plane to run governed, read-only SQL. |
 | **Session** | One analysis: the question, every tool call, the answer and any feedback. Inspect them under **Sessions**. |
 | **Signal** | Something that says context was lacking: a flagged gap, a user correction, a SQL error, metric divergence. |
-| **Suggestion** | A proposed change drafted from signals and hygiene checks. Reviewed in the **Inbox**. |
+| **Suggestion** | A proposed change drafted from signals and hygiene checks. Reviewed in the **Inbox**. Two suggestions that propose exactly the same change are merged into the older one, which keeps the evidence of both. |
 | **Eval suite** | Questions with graders, run against a release to gate publishing. |
 
 <!-- site: ContextAnatomyDiagram -->

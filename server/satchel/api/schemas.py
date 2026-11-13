@@ -567,4 +567,5 @@ class CurateRunOut(BaseModel):
     invalid_dropped: int
     draft_failed: int
     undrafted_left: int
+    suggestions_merged: int = 0  # duplicates folded into an open suggestion with the same changes
     errors: list[str]
