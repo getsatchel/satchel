@@ -7,6 +7,8 @@
   process died), the job is claimed again, up to ``max_attempts``.
 - :func:`finish` and :func:`fail` end an attempt; a failed attempt is retried with backoff.
 - :func:`reap` gives up on jobs whose lease ran out on their last attempt.
+- :func:`record` adds an already finished job, for work that ran in the caller's own process
+  (a CLI or upload sync), so its history sits beside the queued runs.
 
 Every function takes an admin session (``satchel_worker``): the queue is server-internal.
 """
@@ -106,6 +108,20 @@ def finish(s: Session, job_id: int, who: str, result: dict[str, Any] | None = No
         .where(Job.id == job_id, Job.locked_by == who, Job.status == "running")
         .values(status="done", finished_at=func.now(), locked_until=None, error=None,
                 result=result))
+
+
+def record(
+    s: Session, workspace_id: uuid.UUID, kind: str, payload: dict[str, Any], *,
+    started_at: datetime, result: dict[str, Any] | None = None, error: str | None = None,
+) -> int:
+    """Add a finished job (``done``, or ``failed`` with ``error``) that no consumer runs."""
+    jid = s.scalar(insert(Job).values(
+        workspace_id=workspace_id, kind=kind, payload=payload,
+        status="failed" if error else "done", attempts=1, max_attempts=1,
+        error=error[:2000] if error else None, result=result, run_after=started_at,
+        started_at=started_at, finished_at=func.now()).returning(Job.id))
+    assert jid is not None
+    return int(jid)
 
 
 def backoff(attempts: int) -> timedelta:

@@ -5436,7 +5436,7 @@
           },
           "last_report": {
             "additionalProperties": true,
-            "description": "The last sync report, plus trigger (manual, cli, schedule, webhook) and, after an automatic check found no new commit, checked: {at, trigger, commit}.",
+            "description": "The last sync report, plus trigger (manual, upload, cli, schedule, webhook) and, after an automatic check found no new commit, checked: {at, trigger, commit}.",
             "title": "Last Report",
             "type": "object"
           },

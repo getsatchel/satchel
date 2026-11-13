@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from satchel.api.auth import Auth, Caller
 from satchel.api.common import audit
+from satchel.sources.jobs import RECORDED
 from satchel.store.db import workspace_session
 from satchel.store.models import Connection, ContextSource, EvalRun, EvalSuite, Job
 
@@ -43,7 +44,7 @@ class JobOut(BaseModel):
     finished_at: datetime | None = None
     run_after: datetime | None = None
     subject: str | None = None  # what it is about: a source, connection or suite name
-    trigger: str | None = None  # source syncs: manual, webhook or schedule
+    trigger: str | None = None  # source syncs: manual, webhook, schedule, cli or upload
     retryable: bool = False
 
 
@@ -89,7 +90,8 @@ def job_out(j: Job, subject: str | None = None) -> JobOut:
                   finished_at=j.finished_at,
                   run_after=j.run_after if j.status == "queued" else None,
                   subject=subject, trigger=str(trigger) if trigger else None,
-                  retryable=j.status == "failed" and j.kind in RETRYABLE)
+                  retryable=j.status == "failed" and j.kind in RETRYABLE
+                  and trigger not in RECORDED)
 
 
 def make_router(auth: Auth) -> APIRouter:
