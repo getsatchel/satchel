@@ -122,8 +122,9 @@ generated from each adapter's own configuration schema.
 
 Click a source to open its page. From the top: **Needs attention** (a failed sync, a blocked
 publish, held drafts and warnings; shown only when there are some), **Last sync** (when, what it
-changed, item counts, the next sync), **Recent syncs** (the source's sync jobs from the last 14 days:
-when, what started each, what it did or why it failed; open one for its error and raw result),
+changed, item counts, the next sync), **Recent syncs** (every sync from the last 14 days, whether queued
+or run with `satchel source sync` or a CI upload: when, what started each, what it did or why it
+failed; open one for its error and raw result),
 **Also described elsewhere** (tables or models another
 source also describes), **Setup** (adapter, connection, repository or files, priority, how it
 publishes; admins edit or remove the source here), **Automation** (schedule, push webhook, the CI

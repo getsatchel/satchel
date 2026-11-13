@@ -377,6 +377,41 @@ def test_rest_list_and_sync_with_upload(env: Env) -> None:
     assert c.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("analyst")).status_code == 403
 
 
+def test_syncs_outside_the_queue_are_in_the_source_history(env: Env) -> None:
+    """CLI and in-request syncs never queue a job, but each is recorded as a finished one, so a
+    source's Recent syncs (GET /v1/jobs?subject_id=) lists every sync."""
+    c = env.client
+    (src,) = c.get("/v1/sources", headers=env.h("curator")).json()
+    sid = src["id"]
+    env.sync()  # satchel source sync
+    assert c.post(f"/v1/sources/{sid}/sync?wait=true", headers=env.h("curator")).status_code == 200
+    m = env.manifest()
+    m["nodes"]["model.jaffle_shop.customers"]["description"] = "Uploaded description."
+    assert c.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"), files={
+        "manifest": ("manifest.json", json.dumps(m), "application/json")}).status_code == 200
+    assert c.post(f"/v1/sources/{sid}/sync", headers=env.h("curator"), files={
+        "manifest": ("manifest.json", "{nope")}).status_code == 422
+    with pytest.raises(SourceSyncError):  # a broken path on the server
+        (env.dir / "manifest.json").write_text("{nope")
+        env.sync()
+
+    jobs = c.get(f"/v1/jobs?subject_id={sid}", headers=env.h("curator")).json()
+    assert [(j["trigger"], j["status"], j["result"]["outcome"]) for j in jobs] == [
+        ("cli", "failed", "failed"), ("upload", "failed", "failed"),
+        ("upload", "done", "synced"), ("manual", "done", "synced"), ("cli", "done", "synced")]
+    cli_fail, up_fail, upload, manual, cli = jobs
+    assert cli["subject"] == "jaffle" and cli["result"]["counts"]["created"] == 9
+    assert cli["started_at"] and cli["finished_at"] and cli["attempts"] == 1
+    assert upload["result"]["counts"]["updated"] == 1
+    assert upload["result"]["report"]["updated"] == ["sources/jaffle/assets/analytics.customers.yaml"]
+    assert "not valid JSON" in up_fail["error"] and up_fail["result"]["error"] == up_fail["error"]
+    assert cli_fail["error"]
+    # Their files are gone (uploads, a CLI's local paths): only the queued kinds can be retried.
+    assert not cli_fail["retryable"] and not up_fail["retryable"]
+    (src,) = c.get("/v1/sources", headers=env.h("curator")).json()
+    assert src["last_status"] == "error"
+
+
 def test_two_sources_describing_one_table_warn_with_priority(env: Env) -> None:
     env.sync()
     env.add("second", priority=5)

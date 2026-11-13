@@ -60,7 +60,7 @@ export function Jobs() {
     <>
       <PageHeader
         title="Jobs"
-        sub="Background work: source syncs, crawls, curation passes and eval runs. The web server and satchel worker run them; a failed sync, crawl or curation pass can be retried."
+        sub="Background work: source syncs, crawls, curation passes and eval runs. The web server and satchel worker run them; a failed sync, crawl or curation pass can be retried. CLI and upload syncs run where they were started and are listed here once finished."
       />
       <div className="mb-4">
         <Segmented

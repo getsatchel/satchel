@@ -3104,7 +3104,7 @@ export interface components {
             last_fingerprint: string | null;
             /**
              * Last Report
-             * @description The last sync report, plus trigger (manual, cli, schedule, webhook) and, after an automatic check found no new commit, checked: {at, trigger, commit}.
+             * @description The last sync report, plus trigger (manual, upload, cli, schedule, webhook) and, after an automatic check found no new commit, checked: {at, trigger, commit}.
              */
             last_report?: {
                 [key: string]: unknown;

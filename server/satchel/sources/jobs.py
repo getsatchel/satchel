@@ -7,10 +7,16 @@ source another sync holds (a CI upload syncing in a request) is retried after th
 sync that fails is recorded on the source (``last_status``, ``last_error``) and fails the job at
 once with the same error (no automatic retry: the schedule has its own backoff, and a person can
 retry the job from the Jobs page).
+
+Syncs that run in their caller's process (``satchel source sync`` and a sync with uploaded
+files, such as a CI push) are not queued, but :func:`record_sync` adds each as a finished job
+with the same result, so a source's sync history (and the Jobs page) lists every sync. Their
+triggers are ``cli`` and ``upload``; they can't be retried, because their files are gone.
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
@@ -21,11 +27,16 @@ from sqlalchemy.orm import Session
 from satchel.jobs import queue
 from satchel.jobs.queue import Claimed
 from satchel.jobs.runner import Permanent, RetryLater, Runtime, register
+from satchel.sources.apply import SyncReport
 from satchel.sources.automation import Trigger, run_sync
 from satchel.store.db import admin_session
 from satchel.store.models import Job
 
+log = logging.getLogger("satchel.sources")
+
 KIND = "source.sync"
+# Triggers of syncs that ran outside the queue (recorded afterwards); they can't be retried.
+RECORDED = {"cli", "upload"}
 MAX_ATTEMPTS = 6  # busy retries: 30 s, 2 min, 8 min, 32 min, 1 h
 
 
@@ -70,6 +81,27 @@ def queue_sync(engine: Engine, workspace_id: uuid.UUID, source_id: uuid.UUID, *,
     with admin_session(engine=engine) as s:
         return enqueue_sync(s, workspace_id, source_id, trigger=trigger, detail=detail,
                             actor=actor, only_if_due=only_if_due, now=now)
+
+
+def record_sync(
+    engine: Engine | None, workspace_id: uuid.UUID, source_id: uuid.UUID, *, trigger: str,
+    started_at: datetime, report: SyncReport | None = None, error: str | None = None,
+    actor: uuid.UUID | None = None, source: str | None = None,
+) -> None:
+    """Record a sync that ran outside the queue as a finished ``source.sync`` job. Never raises:
+    the sync itself is already committed, and losing its history row must not fail it."""
+    payload: dict[str, Any] = {"source_id": str(source_id), "trigger": trigger, "detail": {},
+               "actor": str(actor) if actor else None}
+    result = {"outcome": "failed" if error else "synced", "source": source,
+              "commit": report.git_commit if report else None, "error": error,
+              "counts": report.counts() if report else None,
+              "report": report.to_json() if report else None}
+    try:
+        with admin_session(engine=engine) as s:
+            queue.record(s, workspace_id, KIND, payload, started_at=started_at, result=result,
+                         error=error)
+    except Exception:  # noqa: BLE001
+        log.exception("recording the %s sync of source %s failed", trigger, source_id)
 
 
 def _handle(rt: Runtime, job: Claimed) -> dict[str, Any]:

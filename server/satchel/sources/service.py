@@ -134,7 +134,7 @@ def sync_in_session(
     uploads: dict[str, bytes] | None = None, base_dir: Path | None = None,
     settings: Settings | None = None, trigger: str = "manual",
 ) -> SyncReport:
-    """``trigger`` (manual, cli, schedule, webhook) is kept in ``last_report``."""
+    """``trigger`` (manual, upload, cli, schedule, webhook) is kept in ``last_report``."""
     loaded = load_snapshot(src, uploads, base_dir, settings)
     snap = loaded.snapshot
     report = apply_snapshot(s, src, snap, embedder=embedder)
@@ -194,6 +194,7 @@ def _sync_source(
     workspace_slug: str, name: str, emb: EmbeddingProvider, engine: Engine | None,
     uploads: dict[str, bytes] | None, base_dir: Path | None,
 ) -> SyncReport:
+    from satchel.sources.jobs import record_sync  # jobs imports automation, which imports us
     with admin_session(engine=engine) as s:
         ws = s.scalars(select(Workspace).where(Workspace.slug == workspace_slug)).first()
         if ws is None:
@@ -205,14 +206,21 @@ def _sync_source(
         ).first()
         if src is None:
             raise LookupError(f"unknown source: {name}")
-        src_id = src.id
+        src_id, ws_id, started = src.id, src.workspace_id, datetime.now(UTC)
+        report: SyncReport | None = None
         try:
             with s.begin_nested():
-                return sync_in_session(s, src, embedder=emb, uploads=uploads, base_dir=base_dir,
-                                       trigger="cli")
+                report = sync_in_session(s, src, embedder=emb, uploads=uploads,
+                                         base_dir=base_dir, trigger="cli")
         except SourceSyncError as e:
             err = str(e)
+    if report is not None:  # committed with the session above
+        record_sync(engine, ws_id, src_id, trigger="cli", started_at=started, report=report,
+                    source=name)
+        return report
     record_failure(engine, src_id, err)
+    record_sync(engine, ws_id, src_id, trigger="cli", started_at=started, error=err,
+                source=name)
     raise SourceSyncError(err)
 
 

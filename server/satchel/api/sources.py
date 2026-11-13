@@ -21,7 +21,7 @@ manual sync while another one runs is a 409.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -39,7 +39,7 @@ from satchel.sources import dbt_build, git
 from satchel.sources.admin import SourceAdminError, masked
 from satchel.sources.apply import SourceSyncError
 from satchel.sources.automation import interval_of, next_sync_at, sync_lock, webhook_url
-from satchel.sources.jobs import queue_sync
+from satchel.sources.jobs import queue_sync, record_sync
 from satchel.sources.registry import AdapterEntry, discover
 from satchel.sources.service import plain_config, record_failure, sync_in_session
 from satchel.store.db import workspace_session
@@ -102,8 +102,9 @@ class SourceOut(BaseModel):
     item_counts: dict[str, int] = Field(default_factory=dict)
     last_report: dict[str, Any] = Field(
         default_factory=dict,
-        description="The last sync report, plus trigger (manual, cli, schedule, webhook) and, "
-        "after an automatic check found no new commit, checked: {at, trigger, commit}.")
+        description="The last sync report, plus trigger (manual, upload, cli, schedule, "
+        "webhook) and, after an automatic check found no new commit, checked: "
+        "{at, trigger, commit}.")
     sync_interval_hours: int | None = Field(
         None, description="Scheduled sync every N hours (config key); null = off.")
     webhook_url: str | None = Field(
@@ -313,6 +314,9 @@ def make_router(auth: Auth) -> APIRouter:
         source_id: uuid.UUID, who: Caller, sent: list[tuple[str, str, bytes]]
     ) -> SyncReportOut:
         error: str | None = None
+        out: SyncReportOut | None = None
+        ws_id, started = who.workspace_id, datetime.now(UTC)
+        trigger = "upload" if sent else "manual"  # wait=true without files: the stored files
         try:
             with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
                 src = s.get(ContextSource, source_id)
@@ -334,16 +338,24 @@ def make_router(auth: Auth) -> APIRouter:
                 try:
                     with s.begin_nested():
                         report = sync_in_session(s, src, embedder=emb, uploads=uploads,
-                                                 settings=auth.ctx.settings, trigger="manual")
+                                                 settings=auth.ctx.settings, trigger=trigger)
                 except SourceSyncError as e:
                     error = str(e)
                 else:
-                    audit(s, who, "source.sync", {"source": src.name, "trigger": "manual",
+                    audit(s, who, "source.sync", {"source": src.name, "trigger": trigger,
                                                   **report.counts()})
-                    return SyncReportOut.model_validate(report.to_json())
+                    out = SyncReportOut.model_validate(report.to_json())
+                name = src.name
         except SourceSyncError as e:  # pragma: no cover - defensive
             error = str(e)
+            name = None
+        if out is not None:  # committed with the session above
+            record_sync(eng, ws_id, source_id, trigger=trigger, started_at=started,
+                        report=report, actor=who.user_id, source=name)
+            return out
         record_failure(eng, source_id, error or "sync failed")
+        record_sync(eng, ws_id, source_id, trigger=trigger, started_at=started,
+                    error=error or "sync failed", actor=who.user_id, source=name)
         raise HTTPException(422, error or "sync failed")
 
     def keyring() -> Keyring | None:

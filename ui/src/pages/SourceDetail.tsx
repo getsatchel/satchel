@@ -613,8 +613,9 @@ function syncOutcome(j: JobOut): ReactNode {
 }
 
 /**
- * The source's sync history from the job queue: when each sync ran, what started it and what it
- * did. A row opens to the full error or the job's raw result. Finished jobs are kept 14 days.
+ * The source's sync history: when each sync ran, what started it and what it did. Queued syncs
+ * are jobs; CLI and upload syncs are recorded as finished jobs, so every sync is listed. A row
+ * opens to the full error or the job's raw result. Finished jobs are kept 14 days.
  */
 function RecentSyncs({ s }: { s: SourceOut }) {
   const q = useQuery({
@@ -639,10 +640,10 @@ function RecentSyncs({ s }: { s: SourceOut }) {
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && q.data.length === 0 && (
         <p className="text-sm text-muted">
-          No queued syncs in the last 14 days.
+          No syncs in the last 14 days.
           {s.last_synced_at
-            ? " The last sync ran without the job queue (for example satchel source sync); its result is under Last sync."
-            : " Syncs started here, by the schedule or by a push webhook are listed here."}
+            ? " The last one is older; its result is under Last sync."
+            : " Every sync is listed here: from this page, the schedule, a push webhook, a CI upload or satchel source sync."}
         </p>
       )}
       {q.data && q.data.length > 0 && (
@@ -668,23 +669,8 @@ function RecentSyncs({ s }: { s: SourceOut }) {
           </tbody>
         </TableCard>
       )}
-      {q.data && q.data.length > 0 && outsideQueue(s, q.data) && (
-        <p className="mt-2 text-xs text-muted">
-          The last sync ({timeAgo(s.last_synced_at)}
-          {(s.last_report as Automation).trigger ? `, ${(s.last_report as Automation).trigger}` : ""}) ran outside the job queue, for example with{" "}
-          <code className="font-mono">satchel source sync</code>, so it is not listed. Its result is under Last sync.
-        </p>
-      )}
     </section>
   );
-}
-
-/** Whether the source's last sync is newer than every listed job (it ran without the queue). */
-function outsideQueue(s: SourceOut, jobs: JobOut[]): boolean {
-  if (!s.last_synced_at) return false;
-  const last = new Date(s.last_synced_at).getTime();
-  const newest = Math.max(0, ...jobs.map((j) => new Date(j.finished_at ?? j.created_at).getTime()));
-  return last - newest > 60_000;
 }
 
 function SyncRow(props: { j: JobOut; tone: Tone; label: string; at: string; isOpen: boolean; onToggle: () => void }) {
