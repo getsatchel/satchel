@@ -14,7 +14,7 @@ function NavRow({ n }: { n: NavItem }) {
     <NavLink
       to={n.to}
       className={({ isActive }) =>
-        `flex h-10 items-center gap-3 rounded-md px-2.5 text-sm transition-colors md:h-9 ${
+        `flex h-10 shrink-0 items-center gap-3 rounded-md px-2.5 text-sm transition-colors md:h-9 ${
           isActive ? "bg-surface font-medium text-ink shadow-[inset_2px_0_0_rgb(var(--accent)),0_0_0_1px_rgb(var(--line))]" : "text-ink/75 hover:bg-sunken hover:text-ink"
         }`
       }
@@ -130,11 +130,11 @@ function ShellBody() {
             <SearchRow />
           </div>
 
-          <nav aria-label="Main" className="flex flex-1 flex-col overflow-y-auto px-3 pb-3 pt-1">
+          <nav aria-label="Main" className="flex flex-1 flex-col overflow-y-auto px-3 pb-1 pt-1">
             <NavRow n={DASHBOARD} />
             {NAV_GROUPS.map((g) => (
-              <div key={g.label} className="mt-5" role="group" aria-labelledby={`nav-${g.label}`}>
-                <div className="mb-1.5 flex items-center gap-2.5 px-2.5">
+              <div key={g.label} className="mt-4" role="group" aria-labelledby={`nav-${g.label}`}>
+                <div className="mb-1 flex items-center gap-2.5 px-2.5">
                   <span className={`h-0.5 w-3.5 rounded-full ${g.dash}`} aria-hidden />
                   <span id={`nav-${g.label}`} className="label-caps">
                     {g.label}
