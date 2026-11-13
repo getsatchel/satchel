@@ -7,6 +7,7 @@ import { CodeDiff, Pre } from "@/components/Code";
 import { ItemEditor, metaToText, parseMeta, type EditorValue } from "@/components/ItemEditor";
 import { useToast } from "@/components/Toast";
 import { EmptyState, ErrorBox, GitBadge, ICONS, ItemLink, ListDetail, ListRow, Loading, Modal, Notice, PanelSection, Segmented, SectionHeading, StatusDot, StatusLine, Tabs, TypeBadge, useWide } from "@/components/ui";
+import { pageIcon } from "@/components/nav";
 import { errMsg, fullTime, isYamlType, timeAgo } from "@/lib/format";
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -104,7 +105,11 @@ export function SuggestionsView({ isAdmin }: { isAdmin: boolean }) {
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && list.length === 0 && (
-        <EmptyState title={status === "open" ? "No open suggestions" : `No ${status} suggestions`}>
+        <EmptyState
+          title={status === "open" ? "Nothing to review." : `No ${status} suggestions.`}
+          muted={status === "open" ? "Suggestions appear once two people hit the same gap." : undefined}
+          icon={pageIcon("/inbox")}
+        >
           Satchel clusters the gaps agents flag (missing definitions, SQL errors, user corrections) and checks the context itself
           for stale, dead, duplicate or conflicting items. A cluster becomes a suggestion once at least 2 users in 2 sessions
           ran into it. {isAdmin ? "Use Run curation now to process new signals immediately." : "Curation runs nightly."}

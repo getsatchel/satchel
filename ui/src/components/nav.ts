@@ -59,3 +59,8 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 export const ALL_PAGES: NavItem[] = [DASHBOARD, ...NAV_GROUPS.flatMap((g) => g.items)];
+
+/** A page's sidebar icon, for its empty state. */
+export function pageIcon(to: string): string | undefined {
+  return ALL_PAGES.find((p) => p.to === to)?.icon;
+}

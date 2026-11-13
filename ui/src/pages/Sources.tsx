@@ -5,6 +5,7 @@ import { endpoints } from "@/api/endpoints";
 import type { SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
 import { EmptyState, ErrorBox, ICONS, Icon, Loading, PageHeader, SectionHeading, StatCell, StatGrid, StatusDot, TableCard } from "@/components/ui";
+import { pageIcon } from "@/components/nav";
 import { SourceForm } from "@/pages/SourceForm";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
 
@@ -108,8 +109,8 @@ export function Sources() {
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && rows.length === 0 && (
-        <EmptyState title="No sources yet" action={addButton || undefined}>
-          Add a dbt project, Cube model or SQLMesh project. Its artifacts can come from S3 or GCS, or be uploaded when you sync (CI can push them on every build).{" "}
+        <EmptyState title="No sources yet." muted="Add the dbt, Cube or SQLMesh project that describes your warehouse." icon={pageIcon("/sources")} action={addButton || undefined}>
+          Its artifacts can come from S3 or GCS, or be uploaded when you sync (CI can push them on every build).{" "}
           {!admin && "An admin can add one. "}The CLI works too: <code className="font-mono text-xs">satchel source add</code>.
         </EmptyState>
       )}

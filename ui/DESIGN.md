@@ -1,6 +1,6 @@
 # Satchel UI design standard
 
-The curator UI is a read-heavy tool: people scan lists, tables and diffs to decide what to change. The look is **neutral, airy and precise**: warm greys, one cognac accent, colour only in small glyphs and dots. Every rule below serves one goal: **the thing you need to act on is the first thing you read.**
+The curator UI is a read-heavy tool: people scan lists, tables and diffs to decide what to change. The look is **ink on paper**: near-black text on off-white, neutral greys, one cobalt accent, colour only in small glyphs and dots. Every rule below serves one goal: **the thing you need to act on is the first thing you read.**
 
 Who the UI is for and what earns space on a page (summary first, depth on demand; one home per fact; show the exception, not the default) are in [`PRODUCT.md`](PRODUCT.md). Read it before adding to a page.
 
@@ -10,16 +10,17 @@ Tokens live in `src/index.css` (CSS variables, light and dark, switched by `data
 
 | Token | Light | Dark | Use for |
 | --- | --- | --- | --- |
-| `backdrop` (+ `-from`/`-to`) | sand → cognac tint | deep warm charcoal | the gradient behind the app panel (md+ only) |
-| `bg` | `#FBFAF8` | `#181614` | the panel, sidebar and page background |
-| `surface` | white | `#1F1D1B` | cards, menus, dialogs, inputs |
-| `sunken` | `#F5F3EF` | `#262320` | hover, table header tint, skeletons, code |
-| `line` | `#E9E5DE` | `#34302C` | every border and hairline |
-| `ink` / `muted` | near-black / warm grey | near-white / warm grey | body text / secondary text and labels |
+| `backdrop` | `#EAEAE7` | `#08090A` | the flat ground behind the app panel (md+ only), one step darker than `bg` |
+| `bg` | `#F6F6F4` | `#0F1012` | the panel, sidebar and page background |
+| `surface` | `#FCFCFB` | `#16171A` | cards, menus, dialogs, inputs |
+| `sunken` | `#EFEFEC` | `#1D1E22` | hover, table header tint, skeletons, code |
+| `line` | `#E2E2DE` | `#26282D` | every border and hairline |
+| `ink` / `muted` | `#0F1011` / `#68696C` | `#EEEEEB` / `#96989D` | body text / secondary text and labels |
 | `primary` / `primary-ink` | ink / bg | near-white / dark | primary action (`.btn-primary`, selected segment) |
-| `accent` | cognac `#A85A32` | `#E0946A` | logo mark, links, selection bar, focus ring, endorsed |
+| `accent` | cobalt `#2F45E8` | `#8796FF` | logo mark, links, selection bar, focus ring, endorsed |
 | `good` `warn` `bad` `info` | green, amber, red, indigo | lighter variants | state glyphs and dots; each has a `-soft` background |
 
+- **Neutrals are neutral.** No cream, sand or brown tint: the greys sit a hair warm of pure grey so they never read cold, and nothing else in the palette carries warmth.
 - **Primary actions are ink, not accent.** Accent marks *where you are* (links, the active nav bar, focus); ink marks *what to do*.
 - Tones carry meaning, never decoration: `good` healthy/live, `warn` needs a human (drafts, unpublished, pending), `bad` broken/excluded, `info` agent-originated or neutral activity. "Needs attention" is always `warn`.
 - Colour lives in glyphs, dots, small badges and the selection bar. Never fill a card or a header with a tone.
@@ -27,13 +28,14 @@ Tokens live in `src/index.css` (CSS variables, light and dark, switched by `data
 ## Type
 
 - **Geist** for UI text, **Geist Mono** for identifiers and labels. Both are bundled from npm (`@fontsource-variable/*`); never load fonts from a CDN (the UI ships in the wheel and may run air-gapped).
-- Scale: `text-2xs` 11px (caps labels only), `text-xs` 12px metadata, `text-sm` 13px body and tables, `text-base` 14px, `text-lg` stat values, `text-xl` page title.
+- Scale: `text-2xs` 11px (caps labels only), `text-xs` 12px metadata, `text-sm` 13px body and tables, `text-base` 14px, `text-lg` stat values and empty-state headings.
+- **Page titles** (`PageHeader`) are the one large, light line on a page: 22px (26px from `sm`), `font-light`, `tracking-[-0.03em]`. Everything under them keeps the dense scale above.
 - **Caps label rule.** `.label-caps` / `Label` (Geist Mono, 11px, uppercase, `tracking-[0.08em]`, muted) is used for exactly these: section headings, sidebar group labels, stat labels, table column headers (`.th`), panel sub-headings, status words (`StatusDot`, `StatusLine`), pill buttons. Everything else, including body text, descriptions, buttons and menu items, is sentence-case sans.
 - Identifiers (item keys, table and column names, SQL types, versions) are `font-mono`. Numbers that line up get `tabular-nums`.
 
 ## Layout
 
-- **Frame.** From `md` the app is one rounded panel (`rounded-2xl`, hairline border, `shadow-panel`) floating on the backdrop gradient with a 12–16px margin. Below `md` it is full-bleed with a top bar and a slide-in drawer.
+- **Frame.** From `md` the app is one rounded panel (`rounded-2xl`, hairline border, `shadow-panel`) floating on the flat `backdrop` with a 12–16px margin. No gradients. Below `md` it is full-bleed with a top bar and a slide-in drawer.
 - **Sidebar.** Wordmark, workspace row, Search (`⌘K`), Dashboard, then groups. Each group has a short coloured dash and a caps label. Bottom: Docs ↗ and the account row (menu: theme, sign out).
 - **Page.** `PageHeader` (title, one-line description, actions right), then sections separated by `space-y-9`. Each section starts with `SectionHeading` (icon, caps label, hairline rule).
 - **Cards.** `.card` (`rounded-xl`, hairline, `bg-surface`, no shadow). Stats inside a card go in a `StatGrid` (hairline-divided cells). Navigation out of a card is a centred `PillButton` in `CardFooter`.
@@ -88,14 +90,22 @@ Add a page by adding it to `NAV_GROUPS` in `src/components/nav.ts`; the sidebar 
 | `SearchInput`, `Segmented`, `Tabs` | filtering and view switching |
 | `PanelSection`, `DescList` | detail panels, key/value metadata |
 | `Meter`, `Stat`, `Feedback`, `DescribedBy` | progress, standalone stat card, thumbs, doc precedence |
-| `EmptyState`, `Loading`, `ErrorBox`, `Notice`, `Modal` | page states and dialogs |
+| `EmptyState`, `Loading`, `ErrorBox`, `Notice`, `Modal` | page states and dialogs. `EmptyState` takes the page's sidebar icon (`pageIcon("/sessions")` from `nav.ts`) and an optional `muted` second half of its heading |
 | `Logo`, `SatchelMark` (`Logo.tsx`) | wordmark and mark |
 | `CommandPaletteProvider`, `HeaderActions` (`CommandPalette.tsx`), `useCommandPalette` (`paletteContext.ts`) | `⌘K` palette, the ink "New" menu, and the context the header hint uses (kept in its own module to avoid an import cycle) |
+
+## Brand marks
+
+- **Favicon** (`public/favicon.svg`): the satchel mark in white on a cobalt (`#2F45E8`) rounded tile. The website uses the same file.
+- **Charts** (`PALETTE` in `src/pages/Observability.tsx`): cobalt first, then teal, amber, violet, slate and rose at similar weight, with lighter variants for dark.
+- **MCP app widgets** (`ui-widgets/src/style.css`) copy the `ink`, `muted`, `line`, `sunken`, `accent`, `good` and `bad` values from this table. Change them together.
+- **Server-rendered pages** (OAuth sign-in and consent, "Satchel is running" without a UI) use `satchel/web_pages.py`: the same colours, the mark, an ink primary button and a mono eyebrow, with system fonts and inline CSS (they are served under a strict CSP and may run air-gapped). Light and dark follow the visitor's system setting.
+- **The website** (getsatchel.dev) shares these tokens and adds large, light display headings and mono section eyebrows. The app keeps its own type scale: it is a tool, read in passes, not a page read once.
 
 ## Do / don't
 
 - Do use a caps label for a heading or column header; don't use it for sentences, buttons or values.
 - Do put colour in a 6–12px glyph; don't tint whole rows, cards or headers (selection and errors excepted).
 - Do make the primary action ink; don't make a second primary on the same screen.
-- Do say what fills an empty state and how (a CLI command or a link); don't write just "nothing here".
+- Do say what fills an empty state and how (a CLI command or a link); don't write just "nothing here". Put the next step in the heading's muted half ("No sessions yet. *Connect an agent and ask it a data question.*") and the detail in the body.
 - Don't add a font, icon set or CDN. Don't rename the product in API paths, CLI commands or `X-Satchel-*` headers from the UI.

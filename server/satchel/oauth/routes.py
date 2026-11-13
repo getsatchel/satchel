@@ -26,6 +26,7 @@ from satchel.oauth.oidc import OidcProvider, make_provider
 from satchel.settings import Settings, get_settings
 from satchel.store.db import admin_session, get_engine
 from satchel.store.models import AppUser, Workspace
+from satchel.web_pages import shell
 
 MAX_REGISTER_BYTES = 16 * 1024
 PAGE_HEADERS = {
@@ -40,22 +41,14 @@ CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*",
 
 Handler = Callable[[Request], Awaitable[Response]]
 
-_CSS = ("body{font:16px system-ui,sans-serif;max-width:30rem;margin:12vh auto;padding:0 1rem;"
-        "color:#1f2937}button{font:inherit;padding:.6rem 1.1rem;border-radius:.4rem;"
-        "border:1px solid #9ca3af;background:#fff;cursor:pointer}"
-        "button.primary{background:#1d4ed8;color:#fff;border-color:#1d4ed8}"
-        "code{background:#f3f4f6;padding:.1rem .3rem;border-radius:.2rem}li{margin:.3rem 0}")
-
-
-def page(title: str, body: str, status: int = 200) -> HTMLResponse:
-    doc = (f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
-           f"<title>{html.escape(title)}</title><style>{_CSS}</style>"
-           f"<h1>{html.escape(title)}</h1>{body}")
-    return HTMLResponse(doc, status_code=status, headers=PAGE_HEADERS)
+def page(title: str, body: str, status: int = 200, *, eyebrow: str | None = None) -> HTMLResponse:
+    return HTMLResponse(shell(title, body, eyebrow=eyebrow), status_code=status,
+                        headers=PAGE_HEADERS)
 
 
 def error_page(e: PageError) -> HTMLResponse:
-    return page("Something went wrong", f"<p>{html.escape(e.message)}</p>", e.status)
+    return page("Something went wrong", f"<p>{html.escape(e.message)}</p>", e.status,
+                eyebrow="Sign-in stopped")
 
 
 def _oauth_json(body: dict[str, Any], status: int = 200) -> JSONResponse:
@@ -229,7 +222,7 @@ class OAuthApp:
             f"<form method=post action=/auth/workspace>"
             f"<input type=hidden name=flow value='{data.flow_id}'>"
             f"<input type=hidden name=csrf value='{html.escape(data.csrf, quote=True)}'>"
-            f"<ul style='list-style:none;padding:0'>{items}</ul></form>"))
+            f"<ul class=choices>{items}</ul></form>"), eyebrow="Sign in")
 
     async def workspace_post(self, request: Request) -> Response:
         f = {k: str(v) for k, v in (await request.form()).items()}
@@ -253,15 +246,15 @@ class OAuthApp:
         return page(f"Authorize {d.client_name}", (
             f"<p><b>{e(d.client_name)}</b> wants to access the <b>{e(d.workspace_name)}</b> "
             f"satchel workspace as <b>{e(d.user_label)}</b>.</p>"
-            f"<p>Requested access:</p><ul>{scopes}</ul>"
-            f"<p style='color:#6b7280;font-size:.9rem'>Client ID: <code>{e(d.client_id)}</code>"
-            f"<br>After you decide you will be sent to <code>{e(d.redirect_host)}</code>. "
-            f"Only approve if you recognise this application.</p>"
+            f"<p>Requested access:</p><ul class=scopes>{scopes}</ul>"
             f"<form method=post action=/oauth/consent>"
             f"<input type=hidden name=flow value='{d.flow_id}'>"
             f"<input type=hidden name=csrf value='{e(d.csrf, quote=True)}'>"
-            f"<button class=primary name=decision value=approve>Approve</button> "
-            f"<button name=decision value=deny>Deny</button></form>"))
+            f"<div class=actions><button class=primary name=decision value=approve>Approve</button>"
+            f"<button name=decision value=deny>Deny</button></div></form>"
+            f"<p class=note>Client ID: <code>{e(d.client_id)}</code>"
+            f"<br>After you decide you will be sent to <code>{e(d.redirect_host)}</code>. "
+            f"Only approve if you recognise this application.</p>"), eyebrow="Connect an agent")
 
     async def consent_post(self, request: Request) -> Response:
         f = {k: str(v) for k, v in (await request.form()).items()}
