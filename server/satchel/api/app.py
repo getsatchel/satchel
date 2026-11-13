@@ -54,6 +54,7 @@ from satchel.runtime import TraceMiddleware
 from satchel.settings import Settings, get_settings
 from satchel.store.db import admin_session, get_engine, workspace_session
 from satchel.store.models import AppUser, Workspace
+from satchel.web_pages import shell
 
 __all__ = ["Caller", "create_app"]
 
@@ -66,9 +67,7 @@ _API_PREFIXES = (
 _DEFAULT_UI_DIR = Path(__file__).resolve().parents[3] / "ui" / "dist"  # repo checkout
 _PACKAGED_UI_DIR = Path(__file__).resolve().parents[1] / "resources" / "ui"  # built into the wheel
 
-_NO_UI_PAGE = """<!doctype html><meta charset="utf-8"><title>satchel</title>
-<body style="font:15px/1.5 system-ui;max-width:640px;margin:48px auto;padding:0 16px">
-<h1>Satchel is running</h1>
+_NO_UI_PAGE = shell("Satchel is running", """
 <p>The API and MCP endpoint are up, but this install has no built curator UI.</p>
 <p>The PyPI package includes it: <code>uv tool install --force satchel-server</code>.
 From a satchel repo checkout, build it and point satchel at it:</p>
@@ -76,7 +75,8 @@ From a satchel repo checkout, build it and point satchel at it:</p>
 SATCHEL_UI_DIR=$PWD/dist satchel up</pre>
 <p>Or reinstall from the checkout after building, so the UI is bundled:
 <code>uv tool install --force ./server</code></p>
-<p>MCP: <code>/mcp</code> &middot; API docs: <a href="/docs">/docs</a></p></body>"""
+<p class=note>MCP: <code>/mcp</code> &middot; API docs: <a href="/docs">/docs</a></p>""",
+                    eyebrow="No curator UI")
 
 
 def _resolve_ui_dir(configured: str | None) -> Path | None:

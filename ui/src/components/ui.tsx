@@ -141,7 +141,7 @@ export function PageHeader(props: { title: string; sub?: ReactNode; actions?: Re
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="break-words text-xl font-semibold tracking-tight">{props.title}</h1>
+        <h1 className="break-words text-[22px] font-light leading-tight tracking-[-0.03em] sm:text-[26px]">{props.title}</h1>
         {props.sub && <div className="mt-1 max-w-3xl text-sm text-muted">{props.sub}</div>}
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -155,14 +155,21 @@ export function PageHeader(props: { title: string; sub?: ReactNode; actions?: Re
   );
 }
 
-export function EmptyState(props: { title: string; children?: ReactNode; action?: ReactNode }) {
+/**
+ * What fills an empty page and how. `icon` is the page's own icon (its sidebar icon), `muted` the
+ * heading's second half in grey ("No sessions yet / connect an agent and ask a data question").
+ */
+export function EmptyState(props: { title: string; muted?: string; icon?: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="card flex flex-col items-center px-6 py-12 text-center">
-      <div className="mb-3 grid h-10 w-10 place-items-center rounded-full bg-accent-soft text-accent" aria-hidden>
-        <SatchelMark size={20} />
+    <div className="card flex flex-col items-center px-6 py-14 text-center">
+      <div className="mb-5 grid h-11 w-11 place-items-center rounded-xl border border-line bg-surface text-ink" aria-hidden>
+        {props.icon ? <Icon d={props.icon} size={20} strokeWidth={1.5} /> : <SatchelMark size={20} />}
       </div>
-      <h2 className="text-base font-medium">{props.title}</h2>
-      {props.children && <p className="mt-1 max-w-md text-sm text-muted">{props.children}</p>}
+      <h2 className="max-w-lg text-balance text-lg font-normal leading-snug tracking-[-0.02em]">
+        {props.title}
+        {props.muted && <span className="text-muted"> {props.muted}</span>}
+      </h2>
+      {props.children && <p className="mt-2 max-w-md text-sm text-muted">{props.children}</p>}
       {props.action && <div className="mt-4">{props.action}</div>}
     </div>
   );

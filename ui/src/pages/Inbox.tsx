@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { ProposalOut } from "@/api/types";
 import { DescList, EmptyState, ErrorBox, GitBadge, ICONS, ItemKey, ItemLink, KeyLines, ListDetail, ListRow, Loading, Modal, Notice, PageHeader, PanelSection, SectionHeading, StatusLine, Tabs, TypeBadge, useWide } from "@/components/ui";
+import { pageIcon } from "@/components/nav";
 import { UnifiedDiff } from "@/components/UnifiedDiff";
 import { ItemEditor, metaToText, parseMeta, type EditorValue } from "@/components/ItemEditor";
 import { Markdown } from "@/components/Markdown";
@@ -61,7 +62,7 @@ function ProposalsView() {
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && list.length === 0 && (
-        <EmptyState title="Nothing to review">
+        <EmptyState title="No proposals from agents." muted="They arrive here with the session they came from." icon={pageIcon("/inbox")}>
           Agents propose context changes with the propose_context_change MCP tool, for example after a user corrects an answer.
           Proposals appear here with the session they came from. Connect an MCP client (docs/integrations/claude.md) to start receiving them.
         </EmptyState>

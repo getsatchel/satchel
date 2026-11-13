@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import { EmptyState, ErrorBox, Feedback, FilterSelect, ICONS, Loading, PageHeader, PillButton, SectionHeading, StatusDot, TableCard } from "@/components/ui";
+import { pageIcon } from "@/components/nav";
 import { timeAgo } from "@/lib/format";
 
 export function Sessions() {
@@ -43,8 +44,8 @@ export function Sessions() {
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && q.data.sessions.length === 0 && (
-        <EmptyState title="No sessions yet">
-          Connect Claude (or any MCP client) to Satchel and ask a data question: each analysis shows up here. Setup steps are in docs/integrations/claude.md.
+        <EmptyState title="No sessions yet." muted="Connect an agent and ask it a data question." icon={pageIcon("/sessions")}>
+          Each analysis from Claude or any other MCP client shows up here. Setup steps are in docs/integrations/claude.md.
         </EmptyState>
       )}
       {q.data && q.data.sessions.length > 0 && (

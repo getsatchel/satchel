@@ -7,9 +7,10 @@ import { EmptyState, ErrorBox, Feedback, ICONS, ItemLink, Loading, Meter, PageHe
 import { ms } from "@/lib/format";
 import { useTheme } from "@/lib/theme";
 
+// Series colours: cobalt (the accent) first, then hues spaced around it at similar weight.
 const PALETTE = {
-  light: ["#a85a32", "#d9b08c", "#6f7d8c", "#8a8f5c", "#5f8f89", "#8d7393"],
-  dark: ["#e0946a", "#8f6b52", "#9aa7b6", "#b3b77f", "#7fb3ac", "#b7a3cf"],
+  light: ["#2f45e8", "#1f8a8a", "#b7791f", "#7a4fd0", "#5b6472", "#c2417a"],
+  dark: ["#8796ff", "#5cc4c4", "#e0a84e", "#b394f2", "#9aa3b0", "#f07aa8"],
 };
 
 export function Observability() {
