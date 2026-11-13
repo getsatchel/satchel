@@ -1624,6 +1624,11 @@ export interface components {
             suggestions_created: number;
             /** Suggestions Extended */
             suggestions_extended: number;
+            /**
+             * Suggestions Merged
+             * @default 0
+             */
+            suggestions_merged: number;
             /** Undrafted Left */
             undrafted_left: number;
             /** Workspace */

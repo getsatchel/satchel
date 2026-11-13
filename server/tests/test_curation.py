@@ -45,6 +45,7 @@ from satchel.store.models import (
     Signal,
     Suggestion,
     SuggestionChange,
+    SuggestionSignal,
     ToolCall,
     Workspace,
 )
@@ -542,6 +543,63 @@ def test_drafting_new_key_that_exists_becomes_update_and_noop_is_dropped(ws: Ws)
     assert rep is not None
     (c,) = _changes(ws)
     assert c.op == "update_item" and c.target_item_id is not None
+
+
+def _same_edit_for_two_findings(ws: Ws) -> FakeChatProvider:
+    """Two hygiene findings on different targets, and a model that drafts the same edit for
+    both (as the demo's scripted model, or a real one, can)."""
+    _add_item(ws, "guides/revenue.md", "guide", "# Revenue\n\nOld text.", GUIDE_META)
+    for target in ("raw.customers", "analytics.metricflow_time_spine"):
+        ws.signal(None, None, "stale_reference",
+                  {"text": f"guides/revenue.md references {target}", "target": target,
+                   "dedupe": f"stale_reference:{target}"}, source="hygiene")
+    reply = {"title": "Use the revenue filters", "summary": "Same fix for both.",
+             "changes": [{"op": "update_item", "target_key": "guides/revenue.md",
+                          "proposed_body": "# Revenue\n\nUse the metric's filters.",
+                          "proposed_meta": GUIDE_META, "rationale": "Both findings."}]}
+    return FakeChatProvider(lambda _sys, _msgs, schema: (
+        {"conflict": False, "explanation": "no"} if "conflict" in schema.get("properties", {})
+        else reply))
+
+
+def test_identical_drafts_are_merged_into_the_oldest_suggestion(ws: Ws) -> None:
+    chat = _same_edit_for_two_findings(ws)
+    rep = run_curation(ws.id, engine=ws.engine, embedder=EMB, chat=chat)
+    assert rep is not None and rep.errors == []
+    assert len(rep.gaps.created) == 2 and rep.merged == 1
+    assert rep.summary()["suggestions_merged"] == 1
+    assert any("merged 1 duplicate" in line for line in rep.lines())
+    (sug,) = ws.suggestions()
+    assert sug.status == "open" and sug.evidence_count == 2
+    assert len(_changes(ws)) == 1
+    with workspace_session(ws.id, engine=ws.engine) as s:
+        homes = set(s.scalars(select(Signal.clustered_into)
+                              .where(Signal.kind == "stale_reference")))
+        linked = s.scalar(select(func.count()).select_from(SuggestionSignal))
+    assert homes == {sug.id} and linked == 2
+    # nothing is dismissed, so the drafter is not told the edit was rejected
+    assert all(x.status == "open" for x in ws.suggestions())
+    # a further run keeps the one suggestion
+    rep2 = run_curation(ws.id, engine=ws.engine, embedder=EMB, chat=chat)
+    assert rep2 is not None and rep2.merged == 0 and len(ws.suggestions()) == 1
+
+
+def test_a_suggestion_a_curator_acted_on_is_not_merged(ws: Ws) -> None:
+    from satchel.curation.merge import merge_duplicates
+    from satchel.curation.suggest import draft_suggestion, undrafted
+
+    chat = _same_edit_for_two_findings(ws)
+    cfg = CurationConfig()
+    with workspace_session(ws.id, engine=ws.engine) as s:
+        detect_gaps(s, ws.id, cfg)
+        ids = undrafted(s, ws.id, 10)
+        for sid in ids:
+            assert draft_suggestion(s, sid, chat, EMB, cfg).status == "drafted"
+        # a curator rejected the change on one of the two
+        s.execute(update(SuggestionChange).where(SuggestionChange.suggestion_id == ids[0])
+                  .values(status="rejected"))
+        assert merge_duplicates(s, ws.id) == []
+    assert len(ws.suggestions()) == 2
 
 
 def test_dismiss_reasons_are_fed_back_into_the_prompt(ws: Ws) -> None:

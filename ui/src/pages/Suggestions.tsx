@@ -129,12 +129,20 @@ export function SuggestionsView({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
+/** "2 changes" until a curator decides one; then "1 of 2 left", and "All reviewed" at the end. */
+function reviewState(s: SuggestionSummary): string {
+  if (!s.drafted) return "No draft yet";
+  if (s.pending_changes === 0) return "All reviewed";
+  if (s.pending_changes === s.change_count) return `${s.change_count} change${s.change_count === 1 ? "" : "s"}`;
+  return `${s.pending_changes} of ${s.change_count} left`;
+}
+
 function SuggestionRow({ s, active, onClick }: { s: SuggestionSummary; active: boolean; onClick: () => void }) {
   return (
     <ListRow active={active} onClick={onClick}>
       <StatusLine
         tone={s.drafted ? (s.pending_changes > 0 ? "warn" : "good") : "muted"}
-        state={s.drafted ? (s.pending_changes > 0 ? `${s.pending_changes} of ${s.change_count} to review` : "All reviewed") : "No draft yet"}
+        state={reviewState(s)}
         time={timeAgo(s.updated_at)}
         title={fullTime(s.updated_at)}
       />
@@ -143,8 +151,8 @@ function SuggestionRow({ s, active, onClick }: { s: SuggestionSummary; active: b
         <KindBadge source={s.source} />
         <span>
           {s.evidence_count} signal{s.evidence_count === 1 ? "" : "s"}
-          {s.distinct_users > 0 && ` · ${s.distinct_users} users`}
-          {s.distinct_sessions > 0 && ` · ${s.distinct_sessions} sessions`}
+          {s.distinct_users > 0 && ` · ${s.distinct_users} user${s.distinct_users === 1 ? "" : "s"}`}
+          {s.distinct_sessions > 0 && ` · ${s.distinct_sessions} session${s.distinct_sessions === 1 ? "" : "s"}`}
         </span>
       </div>
     </ListRow>
