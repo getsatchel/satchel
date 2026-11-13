@@ -76,15 +76,22 @@ class Env:
 
     def drain(self) -> int:
         """Run the queued jobs now (retries of this workspace's included), as a web server's
-        job threads would."""
+        job threads would, and return how many of this workspace's jobs finished.
+
+        The runner is not per workspace: it also runs jobs other tests left queued in the shared
+        database, so its own count would depend on test order."""
         from satchel.jobs.runner import WEB_KINDS, JobRunner, Runtime
         from satchel.store.models import Job
 
         with admin_session(engine=self.engine) as s:
             s.execute(update(Job).where(Job.workspace_id == self.ws_id, Job.status == "queued")
                       .values(run_after=func.now()))
+            start = s.scalar(select(func.clock_timestamp()))
         rt = Runtime(self.engine, st(), HashEmbedder())
-        return JobRunner(rt, kinds=WEB_KINDS, threads=0).drain()
+        JobRunner(rt, kinds=WEB_KINDS, threads=0).drain()
+        with admin_session(engine=self.engine) as s:
+            return int(s.scalar(select(func.count()).select_from(Job).where(
+                Job.workspace_id == self.ws_id, Job.finished_at >= start)) or 0)
 
     def actions(self, prefix: str) -> list[AuditEvent]:
         with admin_session(engine=self.engine) as s:
