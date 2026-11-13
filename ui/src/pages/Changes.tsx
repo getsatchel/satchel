@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { ChangeOut, EvalGate, PackOut, PreviewOut, SearchHit } from "@/api/types";
 import { CaseMoves, DeltaTable } from "@/components/EvalBits";
-import { Chevron, EmptyState, ErrorBox, GitBadge, ICONS, ItemKey, ItemLink, KeyLines, Loading, Modal, Notice, PageHeader, SectionHeading, SourceBadge, StatusDot, StatusLine, TypeBadge, type Tone } from "@/components/ui";
+import { Chevron, EmptyState, ErrorBox, ICONS, ItemKey, ItemLink, KeyLines, Loading, Modal, Notice, PageHeader, SectionHeading, StatusDot, StatusLine, TypeBadge, type Tone } from "@/components/ui";
 import { DiffStat, UnifiedDiff } from "@/components/UnifiedDiff";
 import { Pre } from "@/components/Code";
 import { useToast } from "@/components/Toast";
@@ -17,6 +17,8 @@ export function Changes() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set());
+  // Groups whose fold the user flipped from its default (large groups start folded).
+  const [folded, setFolded] = useState<Set<string>>(new Set());
   const qc = useQueryClient();
   const toast = useToast();
   const changes = q.data?.changes ?? [];
@@ -67,18 +69,30 @@ export function Changes() {
             </label>
             <span className="ml-auto font-mono text-xs text-muted">{picked.size} selected</span>
           </div>
-          <ul className="divide-y divide-line">
-            {changes.map((c) => (
-              <ChangeRow
-                key={c.key}
-                c={c}
-                checked={picked.has(c.key)}
-                expanded={open.has(c.key)}
-                onCheck={() => setPicked((s) => toggle(s, c.key))}
-                onExpand={() => setOpen((s) => toggle(s, c.key))}
+          <div className="divide-y divide-line">
+            {groupChanges(changes).map((g) => (
+              <ChangeGroup
+                key={g.id}
+                g={g}
+                picked={picked}
+                open={open}
+                collapsed={folded.has(g.id) !== (g.changes.length > FOLD_OVER)}
+                onFold={() => setFolded((s) => toggle(s, g.id))}
+                onPickAll={(on) =>
+                  setPicked((s) => {
+                    const n = new Set(s);
+                    for (const c of g.changes) {
+                      if (on) n.add(c.key);
+                      else n.delete(c.key);
+                    }
+                    return n;
+                  })
+                }
+                onCheck={(key) => setPicked((s) => toggle(s, key))}
+                onExpand={(key) => setOpen((s) => toggle(s, key))}
               />
             ))}
-          </ul>
+          </div>
           <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3 sm:px-5">
             <input
               className="input w-full sm:w-auto sm:min-w-64 sm:flex-1"
@@ -99,8 +113,128 @@ export function Changes() {
   );
 }
 
+/** Large groups start folded so the page opens on a summary. */
+const FOLD_OVER = 5;
+
+interface Group {
+  id: string;
+  title: string;
+  hint: string | null;
+  changes: ChangeOut[];
+  usual: ChangeOut["kind"];
+}
+
+const KIND_WORD: Record<ChangeOut["kind"], string> = { create: "new", update: "updated", deprecate: "removed" };
+
+/** Changes grouped by where they come from: people's edits first, then the context repo, then
+ * each source. */
+function groupChanges(changes: ChangeOut[]): Group[] {
+  const by = new Map<string, Omit<Group, "usual">>();
+  for (const c of changes) {
+    let id: string;
+    let title: string;
+    let hint: string | null = null;
+    if (c.managed_by === "source") {
+      const name = /^sources\/([^/]+)\//.exec(c.key)?.[1] ?? "source";
+      id = `source:${name}`;
+      title = name;
+      hint = "synced from a source";
+    } else if (c.managed_by === "git") {
+      id = "git";
+      title = "Context repo";
+      hint = "from git";
+    } else {
+      id = "ui";
+      title = "Edited in the UI";
+    }
+    const g = by.get(id) ?? { id, title, hint, changes: [] };
+    g.changes.push(c);
+    by.set(id, g);
+  }
+  const rank = (id: string) => (id === "ui" ? 0 : id === "git" ? 1 : 2);
+  return [...by.values()]
+    .sort((a, b) => rank(a.id) - rank(b.id) || a.title.localeCompare(b.title))
+    .map((g) => {
+      const counts = new Map<ChangeOut["kind"], number>();
+      for (const c of g.changes) counts.set(c.kind, (counts.get(c.kind) ?? 0) + 1);
+      const usual = [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? "create";
+      return { ...g, usual };
+    });
+}
+
+/** "9 new, 2 updated": the group's changes by kind. */
+function kindSummary(changes: ChangeOut[]): string {
+  return (["create", "update", "deprecate"] as const)
+    .map((k) => [k, changes.filter((c) => c.kind === k).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `${n} ${KIND_WORD[k]}`)
+    .join(", ");
+}
+
+function ChangeGroup(props: {
+  g: Group;
+  picked: Set<string>;
+  open: Set<string>;
+  collapsed: boolean;
+  onFold: () => void;
+  onPickAll: (on: boolean) => void;
+  onCheck: (key: string) => void;
+  onExpand: (key: string) => void;
+}) {
+  const { g } = props;
+  const n = g.changes.filter((c) => props.picked.has(c.key)).length;
+  const box = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (box.current) box.current.indeterminate = n > 0 && n < g.changes.length;
+  }, [n, g.changes.length]);
+  const add = g.changes.reduce((t, c) => t + c.diff.additions, 0);
+  const del = g.changes.reduce((t, c) => t + c.diff.deletions, 0);
+  const bodyId = `group-${g.id}`;
+  return (
+    <section aria-label={g.title}>
+      <div className="flex items-center gap-3 bg-sunken/40 px-4 py-2.5 sm:px-5">
+        <input
+          ref={box}
+          type="checkbox"
+          aria-label={`Select all ${g.changes.length} changes in ${g.title}`}
+          checked={n === g.changes.length}
+          onChange={() => props.onPickAll(n < g.changes.length)}
+        />
+        <button className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 text-left" aria-expanded={!props.collapsed} aria-controls={bodyId} onClick={props.onFold}>
+          <Chevron open={!props.collapsed} />
+          <span className="font-medium">{g.title}</span>
+          {g.hint && <span className="text-xs text-muted">{g.hint}</span>}
+          <span className="text-sm text-muted">· {kindSummary(g.changes)}</span>
+          {n > 0 && <span className="font-mono text-xs text-accent">{n} selected</span>}
+        </button>
+        <span className="self-center">
+          <DiffStat add={add} del={del} />
+        </span>
+      </div>
+      {!props.collapsed && (
+        <ul id={bodyId} className="divide-y divide-line border-t border-line">
+          {g.changes.map((c) => (
+            <ChangeRow
+              key={c.key}
+              c={c}
+              usual={g.usual}
+              checked={props.picked.has(c.key)}
+              expanded={props.open.has(c.key)}
+              onCheck={() => props.onCheck(c.key)}
+              onExpand={() => props.onExpand(c.key)}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** One change. The group already says where it comes from, so the row shows its kind only when it
+ * differs from the group's usual one, and versions only when there was a published version. */
 function ChangeRow(props: {
   c: ChangeOut;
+  usual: ChangeOut["kind"];
   checked: boolean;
   expanded: boolean;
   onCheck: () => void;
@@ -110,33 +244,29 @@ function ChangeRow(props: {
   const tone: Tone = c.kind === "create" ? "good" : c.kind === "deprecate" ? "bad" : "warn";
   return (
     <li>
-      <div className={`flex items-start gap-3 px-4 py-3 sm:px-5 ${props.checked ? "bg-accent-soft/70 shadow-[inset_2px_0_0_rgb(var(--accent))]" : "hover:bg-sunken/70"}`}>
+      <div className={`flex items-start gap-3 py-2.5 pl-8 pr-4 sm:pl-10 sm:pr-5 ${props.checked ? "bg-accent-soft/70 shadow-[inset_2px_0_0_rgb(var(--accent))]" : "hover:bg-sunken/70"}`}>
         <input className="mt-1.5" type="checkbox" aria-label={`Select ${c.key}`} checked={props.checked} onChange={props.onCheck} />
-        <button
-          className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left"
-          onClick={props.onExpand}
-          aria-expanded={props.expanded}
-        >
+        <button className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left" onClick={props.onExpand} aria-expanded={props.expanded}>
           <Chevron open={props.expanded} />
           <span className="min-w-0 flex-1 text-sm" title={c.key}>
-            <KeyLines itemKey={c.key} />
+            <KeyLines itemKey={c.managed_by === "source" ? c.key.replace(/^sources\/[^/]+\//, "") : c.key} />
           </span>
           <span className="hidden sm:inline-flex">
             <TypeBadge type={c.type} />
           </span>
-          <StatusLine tone={tone} state={c.kind} />
-          {c.managed_by === "git" && <GitBadge />}
-          {c.managed_by === "source" && <SourceBadge />}
+          {c.kind !== props.usual && <StatusLine tone={tone} state={KIND_WORD[c.kind]} />}
         </button>
-        <span className="hidden self-center whitespace-nowrap font-mono text-xs text-muted md:inline">
-          {c.from_seq != null ? `v${c.from_seq}` : "new"} → {c.to_seq != null ? `v${c.to_seq}` : "removed"}
-        </span>
+        {c.from_seq != null && (
+          <span className="hidden self-center whitespace-nowrap font-mono text-xs text-muted md:inline">
+            v{c.from_seq} → {c.to_seq != null ? `v${c.to_seq}` : "removed"}
+          </span>
+        )}
         <span className="self-center">
           <DiffStat add={c.diff.additions} del={c.diff.deletions} />
         </span>
       </div>
       {props.expanded && (
-        <div className="px-3 pb-3 pl-10">
+        <div className="px-3 pb-3 pl-16 sm:pl-[4.5rem]">
           <UnifiedDiff text={c.diff.unified} empty={c.diff.meta_changed ? "Only the metadata changed." : "No textual change."} />
         </div>
       )}
