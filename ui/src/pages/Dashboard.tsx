@@ -233,14 +233,6 @@ function AgentActivity() {
           <StatGrid>
             <StatCell label="Sessions" tone="info" value={s((d) => fmt(d.total_sessions))} info="Analyses an agent ran against this workspace in the period." />
             <StatCell
-              label="Tool calls"
-              tone="muted"
-              glyph="ring"
-              value={s((d) => fmt(d.top_tools.reduce((n, t) => n + t.calls, 0)))}
-              secondary={s2((d) => `${d.top_tools.length} tools`)}
-              info="Calls agents made to Satchel tools such as search and context packs."
-            />
-            <StatCell
               label="Tool errors"
               tone="bad"
               glyph="triangle"
@@ -252,14 +244,6 @@ function AgentActivity() {
               info="Tool calls that returned an error, as a count and a share of all calls."
             />
             <StatCell
-              label="Signals"
-              tone="warn"
-              glyph="square"
-              value={s((d) => fmt(d.signals_by_kind.reduce((n, k) => n + k.count, 0)))}
-              secondary={s2((d) => `${d.signals_by_kind.length} kinds`)}
-              info="Everything agents and checks flagged: gaps, SQL errors, doubts, divergences. Curation turns these into suggestions."
-            />
-            <StatCell
               label="Gaps flagged"
               tone="warn"
               glyph="triangle"
@@ -267,25 +251,11 @@ function AgentActivity() {
               info="Times an agent said the context did not cover what it needed."
             />
             <StatCell
-              label="User doubt"
-              tone="accent"
-              glyph="diamond"
-              value={s((d) => fmt(signalCount(d, "user_doubt")))}
-              info="Times a user questioned or corrected an agent's answer."
-            />
-            <StatCell
-              label="Thumbs up"
-              tone="good"
-              value={s((d) => fmt(d.feedback.positive))}
-              secondary={s2((d) => `${d.feedback.human_positive} human`)}
-              info="Positive feedback from people and agents. The secondary number is the human share."
-            />
-            <StatCell
               label="Thumbs down"
               tone="bad"
               value={s((d) => fmt(d.feedback.negative))}
               secondary={s2((d) => `${d.feedback.human_negative} human`)}
-              info="Negative feedback from people and agents. The secondary number is the human share."
+              info="Negative feedback from people and agents. The secondary number is the human share. Positive feedback, tool calls and every signal kind are on Observability."
             />
           </StatGrid>
         )}
@@ -335,11 +305,9 @@ function ContextHealth() {
             tone="good"
             glyph="ring"
             value={cov((c) => pct(c.documented, c.tables))}
-            secondary={cov2((c) => `${c.documented}/${c.tables} tables`)}
+            secondary={cov2((c) => `${c.documented}/${c.tables} tables${c.excluded ? ` · ${c.excluded} hidden from agents` : ""}`)}
             info="Share of live tables and views in the catalog that have a context doc."
           />
-          <StatCell label="Endorsed" tone="good" glyph="square" value={cov((c) => fmt(c.endorsed))} info="Tables and views a curator marked as the trusted source." />
-          <StatCell label="Excluded" tone="bad" glyph="square" value={cov((c) => fmt(c.excluded))} info="Tables and views hidden from AI agents." />
           <StatCell
             label="Release"
             tone="accent"
@@ -354,8 +322,6 @@ function ContextHealth() {
             value={val(pub, (d) => fmt(d.total))}
             info="Context items live in the current release."
           />
-          <StatCell label="Drafts" tone="warn" value={val(draft, (d) => fmt(d.total))} info="Items with edits that are not published yet." />
-          <StatCell label="Proposed" tone="info" value={val(proposed, (d) => fmt(d.total))} info="Items created from a proposal and waiting for a curator." />
           <StatCell
             label="Last eval"
             tone={runRate == null ? "muted" : runRate >= 0.9 ? "good" : runRate >= 0.7 ? "warn" : "bad"}

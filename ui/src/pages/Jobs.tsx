@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { JobOut } from "@/api/types";
-import { EmptyState, ErrorBox, ICONS, Loading, PageHeader, SectionHeading, Segmented, StatCell, StatGrid, StatusDot, TableCard, type Tone } from "@/components/ui";
+import { EmptyState, ErrorBox, ICONS, Loading, PageHeader, SectionHeading, Segmented, StatusDot, TableCard, type Tone } from "@/components/ui";
 import { useToast } from "@/components/Toast";
 import { errMsg, fullTime, timeAgo, timeUntil } from "@/lib/format";
 
@@ -49,8 +49,13 @@ export function Jobs() {
     onError: (e) => toast("err", errMsg(e)),
   });
 
+  // Counts for the tabs come from the unfiltered list (the same query as the All tab).
+  const everything = useQuery({ queryKey: ["jobs", "all"], queryFn: () => endpoints.listJobs(), enabled: filter !== "all" });
+  const counted = filter === "all" ? q.data : everything.data;
   const rows = q.data ?? [];
-  const count = (s: JobOut["status"]) => rows.filter((j) => j.status === s).length;
+  const [opened, setOpened] = useState<Set<number>>(new Set());
+  const count = (s: JobOut["status"]) => counted?.filter((j) => j.status === s).length ?? 0;
+  const tab = (id: JobOut["status"], label: string) => ({ id, label: count(id) ? `${label} (${count(id)})` : label });
   return (
     <>
       <PageHeader
@@ -64,10 +69,10 @@ export function Jobs() {
           onChange={setFilter}
           options={[
             { id: "all", label: "All" },
-            { id: "queued", label: "Queued" },
-            { id: "running", label: "Running" },
-            { id: "failed", label: "Failed" },
-            { id: "done", label: "Done" },
+            tab("queued", "Queued"),
+            tab("running", "Running"),
+            tab("failed", "Failed"),
+            tab("done", "Done"),
           ]}
         />
       </div>
@@ -78,16 +83,6 @@ export function Jobs() {
           Jobs appear here when work is queued: Sync now on Sources, Crawl in Settings, Run curation, an eval run, a push webhook, or the schedules <code>satchel worker</code> runs.
         </EmptyState>
       )}
-      {filter === "all" && rows.length > 0 && (
-        <div className="card mb-9 overflow-hidden">
-          <StatGrid>
-            <StatCell label="Queued" tone="muted" value={count("queued")} info="Waiting for a job thread, or for a retry after a failed attempt." />
-            <StatCell label="Running" tone="info" value={count("running")} info="Running now on a web server or worker." />
-            <StatCell label="Failed" tone="bad" glyph="triangle" value={count("failed")} info="Out of attempts. Retry a sync, crawl or curation pass; start a new eval run from Evals." />
-            <StatCell label="Done" tone="good" value={count("done")} info="Finished. Jobs are kept for two weeks." />
-          </StatGrid>
-        </div>
-      )}
       {rows.length > 0 && <SectionHeading icon={ICONS.clock} title="Recent jobs" count={rows.length} />}
       {rows.length > 0 && (
         <TableCard>
@@ -95,7 +90,6 @@ export function Jobs() {
             <tr>
               <th className="th w-full">Job</th>
               <th className="th">Status</th>
-              <th className="th hidden text-right sm:table-cell">Attempts</th>
               <th className="th hidden md:table-cell">When</th>
               <th className="th">
                 <span className="sr-only">Actions</span>
@@ -116,15 +110,30 @@ export function Jobs() {
                     <div className="mt-0.5 font-mono text-xs text-muted/80">
                       #{j.id}
                       {j.trigger && ` · ${j.trigger}`}
+                      {j.attempts > 1 && ` · attempt ${j.attempts} of ${j.max_attempts}`}
                       <span className="md:hidden" title={w.title}> · {w.text}</span>
                     </div>
-                    {j.error && <div className="mt-1 max-w-2xl break-words font-mono text-xs text-muted">{j.error}</div>}
+                    {j.error && (
+                      <button
+                        type="button"
+                        className={`mt-1 max-w-2xl text-left font-mono text-xs ${j.status === "failed" ? "text-bad" : "text-muted"} ${opened.has(j.id) ? "block [overflow-wrap:anywhere]" : "line-clamp-1 break-all"}`}
+                        aria-expanded={opened.has(j.id)}
+                        title={opened.has(j.id) ? "Show less" : "Show the whole error"}
+                        onClick={() =>
+                          setOpened((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(j.id)) next.delete(j.id);
+                            else next.add(j.id);
+                            return next;
+                          })
+                        }
+                      >
+                        {j.error}
+                      </button>
+                    )}
                   </td>
                   <td className="td whitespace-nowrap">
                     <StatusDot tone={st.tone}>{st.word}</StatusDot>
-                  </td>
-                  <td className="td hidden whitespace-nowrap text-right font-mono tabular-nums text-muted sm:table-cell">
-                    {j.attempts}/{j.max_attempts}
                   </td>
                   <td className="td hidden whitespace-nowrap text-muted md:table-cell" title={w.title}>
                     {w.text}
