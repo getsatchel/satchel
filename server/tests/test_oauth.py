@@ -248,11 +248,16 @@ def test_register_validation(c: TestClient) -> None:
         {"redirect_uris": ["https://a.test/cb"],
          "token_endpoint_auth_method": "client_secret_basic"},
         {"redirect_uris": ["https://a.test/cb"], "grant_types": ["implicit"]},
+        {"redirect_uris": ["https://a.test/cb"], "grant_types": "authorization_code"},
     ]
     for b in bad:
         r = c.post("/oauth/register", json=b)
         assert r.status_code == 400 and r.json()["error"] == "invalid_client_metadata", b
     assert c.post("/oauth/register", content=b"[]").status_code == 400
+    extra = c.post("/oauth/register", json={
+        "redirect_uris": ["https://a.test/cb"],
+        "grant_types": ["authorization_code", "urn:ietf:params:oauth:grant-type:jwt-bearer"]})
+    assert extra.status_code == 201 and extra.json()["grant_types"] == ["authorization_code"]
 
 
 # ---- authorize validation ------------------------------------------------------------------
@@ -602,6 +607,15 @@ def test_cimd_client(c: TestClient, env: Env) -> None:
     g = authorize(c, env, url, workspace=env.wa)
     r = token_req(c, g)
     assert r.status_code == 200
+    # Grant types Satchel does not support are dropped, not refused. Claude's own document
+    # (https://claude.ai/oauth/mcp-oauth-client-metadata) also lists jwt-bearer.
+    claude = "https://claude.example.com/oauth/mcp-oauth-client-metadata"
+    env.cimd_docs[claude] = {
+        "client_id": claude, "client_name": "Claude", "redirect_uris": [REDIRECT],
+        "grant_types": ["authorization_code", "refresh_token",
+                        "urn:ietf:params:oauth:grant-type:jwt-bearer"],
+        "response_types": ["code"], "token_endpoint_auth_method": "none"}
+    assert token_req(c, authorize(c, env, claude, workspace=env.wa)).status_code == 200
     # Mismatched client_id in the document, secrets and bad URLs are all refused.
     bad = "https://app.example.com/oauth/other.json"
     env.cimd_docs[bad] = {"client_id": "https://evil.test/x.json", "redirect_uris": [REDIRECT]}

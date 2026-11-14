@@ -65,9 +65,12 @@ def validate_metadata(meta: dict[str, Any]) -> tuple[str, list[str], list[str], 
     if method != "none":
         raise ClientMetadataError("only public clients are supported "
                                   "(token_endpoint_auth_method must be 'none')")
-    grants = meta.get("grant_types") or ["authorization_code"]
-    if not isinstance(grants, list) or not set(grants) <= set(GRANTS):
-        raise ClientMetadataError(f"grant_types must be a subset of {list(GRANTS)}")
+    asked = meta.get("grant_types") or ["authorization_code"]
+    if not isinstance(asked, list) or not all(isinstance(g, str) for g in asked):
+        raise ClientMetadataError("grant_types must be an array of strings")
+    # Keep the grants we support and drop the rest (RFC 7591 section 3.2.1 lets the server
+    # replace requested values). Claude's metadata document also lists jwt-bearer, for example.
+    grants = [g for g in GRANTS if g in asked]
     if "authorization_code" not in grants:
         raise ClientMetadataError("grant_types must include authorization_code")
     rtypes = meta.get("response_types") or ["code"]
@@ -182,7 +185,9 @@ def _fetch_cimd(
         if doc.get("client_id") != client_id:
             raise ClientMetadataError("metadata client_id does not match its URL")
         name, uris, grants, scope = validate_metadata(doc)
-    except ClientMetadataError:
+    except ClientMetadataError as e:
+        # The authorize page only says "unknown client"; the reason belongs in the server log.
+        log.warning("client metadata document rejected: %s: %s", client_id[:200], e)
         return None
     with admin_session(engine=engine) as s:
         row = s.scalars(select(OAuthClient).where(OAuthClient.client_id == client_id)).first()
