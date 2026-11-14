@@ -98,7 +98,7 @@ The Gateway backend timeout is raised to an hour so MCP server-sent-event stream
 
 ## 8. Upgrades
 
-1. Set `image_tag = "0.2.0"`.
+1. Set `image_tag = "0.3.0"`.
 2. `terraform apply`. The Helm pre-upgrade hook migrates first; if it fails, `atomic = true` rolls the release back and the old pods keep serving.
 3. Chart-only changes (a new chart version in the repository) apply the same way.
 
