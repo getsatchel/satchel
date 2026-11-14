@@ -21,6 +21,7 @@ Start with the [self-hosting overview](self-hosting/index.md) (architecture, pre
 
 | Target | Page |
 |---|---|
+| One VM (Docker Compose + Caddy, e.g. EC2) | [One VM](deploy/vm.md) |
 | Any container runtime | [Container image](deploy/container.md) |
 | Kubernetes (any cluster) | [Helm chart](deploy/helm.md) |
 | GKE (Terraform + Helm) | [GKE](deploy/gke.md) |
@@ -54,7 +55,7 @@ Configure and operate it:
 ## 5. Design and contributing
 
 - [Master architecture diagram](architecture/system.md)
-- [Release notes](releases/0.2.0.md) (all releases: [GitHub releases](https://github.com/getsatchel/satchel/releases))
+- [Release notes](releases/0.3.0.md) (all releases: [GitHub releases](https://github.com/getsatchel/satchel/releases))
 - [Contributing](https://github.com/getsatchel/satchel/blob/main/CONTRIBUTING.md)
 
 ## Working on these docs

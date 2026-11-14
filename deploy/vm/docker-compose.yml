@@ -1,0 +1,112 @@
+# Satchel on one VM: Postgres, the web server, the worker and Caddy for HTTPS.
+# Walkthrough: docs/deploy/vm.md. Settings come from .env (copy .env.example).
+#
+#   docker compose up -d          # first run: bootstrap roles, migrate, create the workspace, start
+#   docker compose logs -f web    # follow the server
+#   docker compose pull && docker compose up -d   # after changing SATCHEL_IMAGE_TAG
+
+x-satchel: &satchel
+  image: ghcr.io/getsatchel/satchel:${SATCHEL_IMAGE_TAG:?set SATCHEL_IMAGE_TAG in .env}
+  environment: &satchel-env
+    SATCHEL_ENV: production
+    SATCHEL_PUBLIC_URL: https://${SATCHEL_DOMAIN:?set SATCHEL_DOMAIN in .env}
+    SATCHEL_DATABASE_URL: postgresql+psycopg://satchel_app:${SATCHEL_APP_DB_PASSWORD:?}@postgres:5432/satchel
+    SATCHEL_ADMIN_DATABASE_URL: postgresql+psycopg://satchel_worker:${SATCHEL_WORKER_DB_PASSWORD:?}@postgres:5432/satchel
+    SATCHEL_OIDC_ISSUER: ${SATCHEL_OIDC_ISSUER:?}
+    SATCHEL_OIDC_CLIENT_ID: ${SATCHEL_OIDC_CLIENT_ID:?}
+    SATCHEL_OIDC_CLIENT_SECRET: ${SATCHEL_OIDC_CLIENT_SECRET:?}
+    SATCHEL_ENCRYPTION_KEY: ${SATCHEL_ENCRYPTION_KEY:?}
+    SATCHEL_LOG_FORMAT: json
+    # Embeddings: fastembed (local, about 1.3 GiB per process), openai_compat or hash. See docs/deploy/vm.md.
+    SATCHEL_EMBEDDING_PROVIDER: ${SATCHEL_EMBEDDING_PROVIDER:-fastembed}
+    SATCHEL_EMBEDDING_BASE_URL: ${SATCHEL_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+    SATCHEL_EMBEDDING_MODEL: ${SATCHEL_EMBEDDING_MODEL:-text-embedding-3-large}
+    SATCHEL_EMBEDDING_API_KEY: ${SATCHEL_EMBEDDING_API_KEY:-}
+  volumes:
+    - results:/var/lib/satchel/results
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: satchel          # superuser and table owner; used only by the setup steps
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: satchel
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U satchel -d satchel"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # No published port: only the containers on this network reach the database.
+
+  # One-shot setup steps, in order. Each is safe to run again, so every `up` re-runs them.
+  db-bootstrap:
+    image: ghcr.io/getsatchel/satchel:${SATCHEL_IMAGE_TAG}
+    command: ["db", "bootstrap"]
+    environment:
+      SATCHEL_BOOTSTRAP_DATABASE_URL: postgresql+psycopg://satchel:${POSTGRES_PASSWORD}@postgres:5432/satchel
+      SATCHEL_APP_DB_PASSWORD: ${SATCHEL_APP_DB_PASSWORD}
+      SATCHEL_WORKER_DB_PASSWORD: ${SATCHEL_WORKER_DB_PASSWORD}
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  db-upgrade:
+    image: ghcr.io/getsatchel/satchel:${SATCHEL_IMAGE_TAG}
+    command: ["db", "upgrade"]
+    environment:
+      SATCHEL_MIGRATION_DATABASE_URL: postgresql+psycopg://satchel:${POSTGRES_PASSWORD}@postgres:5432/satchel
+    depends_on:
+      db-bootstrap: {condition: service_completed_successfully}
+
+  first-workspace:
+    <<: *satchel
+    command: ["workspace", "create", "${SATCHEL_WORKSPACE:?}", "--name", "${SATCHEL_WORKSPACE_NAME:-Main}",
+              "--admin-email", "${SATCHEL_ADMIN_EMAIL:?}"]
+    depends_on:
+      db-upgrade: {condition: service_completed_successfully}
+
+  web:
+    <<: *satchel
+    restart: unless-stopped
+    command: ["serve", "api", "--host", "0.0.0.0", "--port", "8080"]
+    depends_on:
+      first-workspace: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/readyz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    <<: *satchel
+    restart: unless-stopped
+    command: ["worker"]
+    stop_grace_period: 60s            # SIGTERM ends the loop after the current pass
+    depends_on:
+      first-workspace: {condition: service_completed_successfully}
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SATCHEL_DOMAIN: ${SATCHEL_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data              # the TLS certificates; keep this volume
+      - caddy-config:/config
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  results:
+  caddy-data:
+  caddy-config:

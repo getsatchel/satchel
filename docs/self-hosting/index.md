@@ -21,6 +21,7 @@ deployment path.
 |---|---|---|
 | `satchel init` + `satchel up` | Laptop, evaluation | [Install](../install.md) |
 | Terraform on Cloud Run | Google Cloud, single service + scheduled Jobs | [Cloud Run](../deploy/cloud-run.md) |
+| One VM | A trial or small team: Compose with Postgres, Caddy and OIDC on one machine | [One VM](../deploy/vm.md) |
 | Container | Single host with Caddy/Nginx, Docker Compose, ECS, your own platform | [Container](../deploy/container.md) |
 | Helm | Any Kubernetes 1.29+ | [Helm](../deploy/helm.md) |
 | Terraform + Helm on GKE | Google Cloud, multi-replica Kubernetes | [GKE](../deploy/gke.md) |

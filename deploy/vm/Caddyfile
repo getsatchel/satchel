@@ -1,0 +1,8 @@
+# HTTPS for Satchel. Caddy gets and renews a Let's Encrypt certificate for SATCHEL_DOMAIN, which
+# must already point at this machine, with ports 80 and 443 open.
+{$SATCHEL_DOMAIN} {
+	reverse_proxy web:8080 {
+		# /mcp streams server-sent events: pass each event through as it is written.
+		flush_interval -1
+	}
+}
