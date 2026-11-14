@@ -96,7 +96,7 @@ Add a page by adding it to `NAV_GROUPS` in `src/components/nav.ts`; the sidebar 
 
 ## Brand marks
 
-- **Favicon** (`public/favicon.svg`): the satchel mark in white on a cobalt (`#2F45E8`) rounded tile. The website uses the same file.
+- **Favicon** (`src/assets/favicon.svg`, linked from `index.html` so the build gives it a content-hashed URL): the satchel mark in white on a cobalt (`#2F45E8`) rounded tile. The website uses the same file.
 - **Charts** (`PALETTE` in `src/pages/Observability.tsx`): cobalt first, then teal, amber, violet, slate and rose at similar weight, with lighter variants for dark.
 - **MCP app widgets** (`ui-widgets/src/style.css`) copy the `ink`, `muted`, `line`, `sunken`, `accent`, `good` and `bad` values from this table. Change them together.
 - **Server-rendered pages** (OAuth sign-in and consent, "Satchel is running" without a UI) use `satchel/web_pages.py`: the same colours, the mark, an ink primary button and a mono eyebrow, with system fonts and inline CSS (they are served under a strict CSP and may run air-gapped). Light and dark follow the visitor's system setting.

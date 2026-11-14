@@ -34,14 +34,20 @@ def test_serves_index_assets_and_spa_fallback(app_engine: Engine, dist: Path) ->
     c = _client(app_engine, dist)
     r = c.get("/")
     assert r.status_code == 200 and "<div id=root>" in r.text
-    # client-side routes (deep links) fall back to index.html
-    for path in ("/library", "/library/item/guides/x.md", "/sessions/123"):
+    # client-side routes (deep links) fall back to index.html, including items named like files
+    for path in ("/library", "/library/item/guides/x.md", "/sessions/123",
+                 "/library/item/glossary/business-terms.yaml%23net-revenue"):
         r = c.get(path)
         assert r.status_code == 200 and "<div id=root>" in r.text, path
     assert c.get("/assets/app.js").text == "console.log(1)"
     assert c.get("/favicon.svg").text == "<svg/>"
-    # a missing asset falls back to index.html (SPA), traversal does not escape the dist dir
-    assert "<div id=root>" in c.get("/assets/missing.js").text
+    # a missing file is a 404, not the app page: browsers probe /favicon.ico, and a stale chunk
+    # that comes back as HTML fails with a confusing parse error
+    for path in ("/favicon.ico", "/robots.txt", "/apple-touch-icon.png", "/assets/missing.js",
+                 "/assets/old/chunk.js"):
+        r = c.get(path)
+        assert r.status_code == 404 and "<div id=root>" not in r.text, path
+    # traversal does not escape the dist dir
     r = c.get("/..%2f..%2fetc/passwd")
     assert "root:" not in r.text
 

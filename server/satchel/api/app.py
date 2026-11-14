@@ -104,6 +104,11 @@ def _mount_ui(app: FastAPI, ui_dir: Path) -> bool:
         candidate = (root / path).resolve()
         if path and candidate.is_file() and candidate.is_relative_to(root):
             return FileResponse(candidate)
+        # A missing top-level file (/favicon.ico, /robots.txt) or anything under /assets/ is a
+        # 404, not the app page: a browser probing for an icon must not get HTML back. UI
+        # routes have no dot in their first segment; deeper ones (an item named x.yaml) do.
+        if head == "assets" or ("/" not in path and "." in path):
+            raise HTTPException(404, "Not Found")
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
     return True
