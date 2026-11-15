@@ -7,6 +7,7 @@ import html
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy import Engine, select
 from starlette.concurrency import run_in_threadpool
@@ -20,7 +21,13 @@ from satchel.oauth.clients import (
     ClientMetadataError,
     register_client,
 )
-from satchel.oauth.common import SUPPORTED_SCOPES, cookie_secure, issuer, mcp_resource
+from satchel.oauth.common import (
+    SUPPORTED_SCOPES,
+    cookie_secure,
+    issuer,
+    mcp_resource,
+    safe_next,
+)
 from satchel.oauth.flows import FlowService, Outcome, PageError, RedirectError
 from satchel.oauth.oidc import OidcProvider, make_provider
 from satchel.settings import Settings, get_settings
@@ -46,9 +53,43 @@ def page(title: str, body: str, status: int = 200, *, eyebrow: str | None = None
                         headers=PAGE_HEADERS)
 
 
+ERROR_TITLES = {403: "No access", 502: "Identity provider unavailable",
+                503: "Sign-in isn't set up"}
+
+
 def error_page(e: PageError) -> HTMLResponse:
-    return page("Something went wrong", f"<p>{html.escape(e.message)}</p>", e.status,
-                eyebrow="Sign-in stopped")
+    title = e.title or ERROR_TITLES.get(e.status, "Sign-in stopped")
+    again = ""
+    if e.retry:
+        label = "Sign in with another account" if title == "No access" else "Start again"
+        again = f"<div class=actions><a class=button href=/auth/login>{label}</a></div>"
+    return page(title, f"<p>{html.escape(e.message)}</p>{again}", e.status, eyebrow="Sign in")
+
+
+def provider_name(settings: Settings) -> str | None:
+    """The identity provider's name for the sign-in button, or None for a plain "Sign in"."""
+    if settings.oidc_display_name:
+        return settings.oidc_display_name
+    u = urlsplit(settings.oidc_issuer or "")
+    host = (u.hostname or "").lower()
+    known = [("accounts.google.com", "Google"), ("login.microsoftonline.com", "Microsoft"),
+             ("okta.com", "Okta"), ("oktapreview.com", "Okta"), ("auth0.com", "Auth0"),
+             ("amazoncognito.com", "Cognito")]
+    for suffix, name in known:
+        if host == suffix or host.endswith("." + suffix):
+            return name
+    if host.startswith("cognito-idp."):
+        return "Cognito"
+    return "Keycloak" if "/realms/" in u.path else None
+
+
+NOT_CONFIGURED = (
+    "<p>This server has no identity provider, so the web UI can't sign anyone in. Whoever runs "
+    "it sets <code>SATCHEL_OIDC_ISSUER</code>, <code>SATCHEL_OIDC_CLIENT_ID</code> and "
+    "<code>SATCHEL_OIDC_CLIENT_SECRET</code>, and restarts it.</p>"
+    "<p class=note>Agents can still connect with a personal access token: "
+    "<code>satchel token create</code>.</p>"
+)
 
 
 def _oauth_json(body: dict[str, Any], status: int = 200) -> JSONResponse:
@@ -204,6 +245,34 @@ class OAuthApp:
         return await self._flow_step(run)
 
     async def login(self, request: Request) -> Response:
+        """The sign-in page. Signing in starts at ``/auth/login/start``, so a page that sends
+        people here (an expired session, signing out) does not bounce them straight to the
+        identity provider."""
+        q = request.query_params
+        if self.oidc is None:
+            return page("Sign-in isn't set up", NOT_CONFIGURED, 503, eyebrow="Sign in")
+        signed_out = q.get("signed_out") == "1"
+        nxt = safe_next(q.get("next"))
+        if not signed_out:
+            info = await run_in_threadpool(
+                sessions.load_session, request.cookies.get(sessions.COOKIE), engine=self.engine)
+            if info is not None:
+                return RedirectResponse(nxt, status_code=302,
+                                        headers={"Cache-Control": "no-store"})
+        e = html.escape
+        name = provider_name(self.settings)
+        hidden = f"<input type=hidden name=next value='{e(nxt, quote=True)}'>"
+        if q.get("workspace"):
+            hidden += f"<input type=hidden name=workspace value='{e(q['workspace'], quote=True)}'>"
+        host = urlsplit(self.settings.oidc_issuer or "").hostname or "your identity provider"
+        return page("Sign in", (
+            ("<p class=notice role=status>You're signed out.</p>" if signed_out else "")
+            + f"<form class=wide method=get action=/auth/login/start>{hidden}"
+            f"<button class=primary>{'Sign in with ' + e(name) if name else 'Sign in'}</button>"
+            f"</form><p class=note>Signs in through <b>{e(host)}</b>. Only workspace members "
+            f"can sign in; a workspace admin can invite you.</p>"))
+
+    async def login_start(self, request: Request) -> Response:
         q = request.query_params
         return await self._flow_step(
             lambda: self.flows.start_web_login(q.get("next"), q.get("workspace")))
@@ -217,7 +286,8 @@ class OAuthApp:
             return error_page(e)
         items = "".join(
             f"<li><button name=workspace value='{html.escape(slug, quote=True)}'>"
-            f"{html.escape(name)}</button></li>" for slug, name in data.workspaces)
+            f"<span>{html.escape(name)}</span><span class=slug>{html.escape(slug)}</span>"
+            f"</button></li>" for slug, name in data.workspaces)
         return page("Choose a workspace", (
             f"<form method=post action=/auth/workspace>"
             f"<input type=hidden name=flow value='{data.flow_id}'>"
@@ -314,6 +384,7 @@ class OAuthApp:
             Route("/oauth/consent", self.consent_get, methods=["GET"]),
             Route("/oauth/consent", self.consent_post, methods=["POST"]),
             Route("/auth/login", self.login, methods=["GET"]),
+            Route("/auth/login/start", self.login_start, methods=["GET"]),
             Route("/auth/callback", self.callback, methods=["GET"]),
             Route("/auth/workspace", self.workspace_get, methods=["GET"]),
             Route("/auth/workspace", self.workspace_post, methods=["POST"]),

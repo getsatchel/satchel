@@ -43,11 +43,20 @@ margin-top:22px}
 button{font:inherit;font-size:14px;font-weight:500;min-height:40px;padding:0 18px;
 border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);
 cursor:pointer}
-button:hover{background:var(--sunken)}
+button:hover,a.button:hover{background:var(--sunken)}
+a.button{display:inline-flex;align-items:center;font-size:14px;font-weight:500;min-height:40px;
+padding:0 18px;border-radius:8px;border:1px solid var(--line);background:var(--surface);
+color:var(--ink);text-decoration:none}
 button.primary{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-button.primary:hover{opacity:.88}
+button.primary:hover{background:var(--ink);opacity:.88}
 button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.choices button{width:100%;text-align:left;min-height:48px}
+form.wide button{width:100%;min-height:44px}
+.choices button{width:100%;text-align:left;min-height:48px;display:flex;align-items:center;
+justify-content:space-between;gap:12px}
+.slug{color:var(--muted);font:12px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.notice{border:1px solid var(--line);background:var(--surface);border-radius:10px;
+padding:10px 14px;margin:0 0 20px;font-size:14px}
+.muted{color:var(--muted)}
 """
 
 # The satchel mark (ui/src/components/Logo.tsx), drawn in the accent.
