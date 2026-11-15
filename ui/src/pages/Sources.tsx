@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
 import type { SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
@@ -89,7 +89,13 @@ export function Sources() {
   const kinds = useQuery({ queryKey: ["source-kinds"], queryFn: endpoints.listSourceKinds });
   const llm = useQuery({ queryKey: ["llm-connections"], queryFn: endpoints.listLlmConnections, retry: false });
   const admin = me.data?.role === "admin";
-  const [form, setForm] = useState<{ editing: SourceOut | null } | null>(null);
+  const [sp, setSp] = useSearchParams();
+  // "?add=1" (the dashboard's Set up list) opens the add dialog straight away.
+  const [form, setForm] = useState<{ editing: SourceOut | null } | null>(sp.get("add") ? { editing: null } : null);
+  const closeForm = () => {
+    setForm(null);
+    if (sp.get("add")) setSp({}, { replace: true });
+  };
   const sync = useSourceSync();
 
   const addButton = admin && kinds.data && (
@@ -153,8 +159,8 @@ export function Sources() {
             </tbody>
         </TableCard>
       )}
-      {form && kinds.data && (
-        <SourceForm kinds={kinds.data} editing={form.editing} encryption={llm.data?.encryption_configured ?? true} onClose={() => setForm(null)} />
+      {form && kinds.data && admin && (
+        <SourceForm kinds={kinds.data} editing={form.editing} encryption={llm.data?.encryption_configured ?? true} onClose={closeForm} />
       )}
     </>
   );

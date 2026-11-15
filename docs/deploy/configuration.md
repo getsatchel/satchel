@@ -90,6 +90,9 @@ workspace connections apply once it is removed. Existing installs keep working u
 
 Warehouses agents query (`run_sql`, the semantic layer) and that Satchel crawls into the catalog.
 
+- **Adding one.** **Add connection** is one form: the kind, a name and the connection details, with
+  **Test** beside Save. After saving, the dialog offers to crawl the connection into the Catalog.
+
 - **Kinds.** PostgreSQL (host, port, database, user, optional role for `SET ROLE`, password or a full
   `postgresql://` URL) and DuckDB (a database file on the server). Sessions are read-only with a
   statement timeout; give the user `SELECT` only.
@@ -119,6 +122,14 @@ Warehouses agents query (`run_sql`, the semantic layer) and that Satchel crawls 
 
 Admins add, edit and remove dbt, Cube and SQLMesh sources; curators sync them. The form is
 generated from each adapter's own configuration schema.
+
+**Add source** splits that form into three steps: the kind and a name, where its files are (a git
+repository, or a bucket or upload), then the options (warehouse connection, publishing, priority,
+schedule). Saving opens the new source's page, where you sync it. Editing a source shows the whole
+form.
+
+On a new workspace the Dashboard has a **Set up** list of what is still missing (a warehouse
+connection, context, a published release, a connected agent). It goes away when nothing is.
 
 Click a source to open its page. From the top: **Needs attention** (a failed sync, a blocked
 publish, held drafts and warnings; shown only when there are some), **Last sync** (when, what it

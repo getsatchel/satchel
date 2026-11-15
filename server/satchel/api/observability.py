@@ -7,12 +7,13 @@ everyone but admins.
 """
 
 import uuid
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import ColumnElement, and_, case, distinct, exists, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from satchel.api.auth import Auth, Caller
 from satchel.api.common import audit
@@ -32,6 +33,9 @@ from satchel.api.schemas import (
     SignalStat,
     ToolCallOut,
     ToolStat,
+    TurnOut,
+    TurnPage,
+    TurnRowOut,
 )
 from satchel.curation.redact import metadata_only, redact_json, truncate
 from satchel.store.db import workspace_session
@@ -42,6 +46,7 @@ from satchel.store.models import (
     Feedback,
     Release,
     ServedContext,
+    SessionTurn,
     Signal,
     ToolCall,
 )
@@ -226,8 +231,12 @@ def make_router(auth: Auth) -> APIRouter:
             .where(Feedback.session_id == SessionRow.id, Feedback.rating < 0)
             .scalar_subquery()
         )
+        nt = (
+            select(func.count()).where(SessionTurn.session_id == SessionRow.id)
+            .scalar_subquery()
+        )
         q = (
-            select(SessionRow, AppUser.display_name, AppUser.email, tc, sg, fu, fd)
+            select(SessionRow, AppUser.display_name, AppUser.email, tc, sg, fu, fd, nt)
             .outerjoin(AppUser, AppUser.id == SessionRow.user_id)
             .where(*conds)
             .order_by(SessionRow.started_at.desc(), SessionRow.id)
@@ -235,7 +244,7 @@ def make_router(auth: Auth) -> APIRouter:
             .offset(offset)
         )
         out: list[SessionRowOut] = []
-        for sess, name, email, ntc, nsg, nfu, nfd in s.execute(q):
+        for sess, name, email, ntc, nsg, nfu, nfd, nturns in s.execute(q):
             level = evidence_level(who, sess.user_id, sess.sensitive)
             out.append(
                 SessionRowOut(
@@ -243,7 +252,7 @@ def make_router(auth: Auth) -> APIRouter:
                     client=sess.client, status=sess.status, started_at=sess.started_at,
                     ended_at=sess.ended_at, question=_text(level, sess.question),
                     sensitive=sess.sensitive, tool_call_count=ntc, signal_count=nsg,
-                    thumbs_up=nfu, thumbs_down=nfd,
+                    thumbs_up=nfu, thumbs_down=nfd, turn_count=max(nturns, 1),
                 )
             )
         return total, out
@@ -275,6 +284,75 @@ def make_router(auth: Auth) -> APIRouter:
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             total, items = rows(s, who, conds, limit, offset)
             return SessionPage(total=total, limit=limit, offset=offset, sessions=items)
+
+    @r.get("/v1/turns", response_model=TurnPage)
+    def list_turns(
+        who: Any_,
+        client: Annotated[str | None, Query()] = None,
+        user_id: Annotated[uuid.UUID | None, Query()] = None,
+        status: Annotated[str | None, Query()] = None,
+        days: Annotated[int | None, Query(ge=1, le=365)] = None,
+        include_evals: Annotated[bool, Query()] = False,
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> TurnPage:
+        """Every question agents were asked, newest first: one row per turn, so a session
+        that was reused for follow-up questions has one row for each."""
+        conds: list[ColumnElement[bool]] = [] if include_evals else [session_not_eval()]
+        if not who.has_role("curator"):
+            if who.user_id is None or (user_id is not None and user_id != who.user_id):
+                raise HTTPException(403, "you can only list your own sessions")
+            user_id = who.user_id
+        if client:
+            conds.append(SessionRow.client == client)
+        if user_id:
+            conds.append(SessionRow.user_id == user_id)
+        if status:
+            conds.append(SessionTurn.status == status)
+        if days:
+            conds.append(SessionTurn.started_at >= datetime.now(UTC) - timedelta(days=days))
+        sib = aliased(SessionTurn)
+        tc = select(func.count()).where(ToolCall.turn_id == SessionTurn.id).scalar_subquery()
+        sg = select(func.count()).where(Signal.turn_id == SessionTurn.id).scalar_subquery()
+        nt = select(func.count()).where(sib.session_id == SessionTurn.session_id).scalar_subquery()
+
+        def thumbs(cond: ColumnElement[bool]) -> Any:
+            return (
+                select(func.count()).select_from(Feedback)
+                .join(ToolCall, ToolCall.id == Feedback.tool_call_id)
+                .where(ToolCall.turn_id == SessionTurn.id, cond).scalar_subquery()
+            )
+
+        with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
+            base = select(SessionTurn).join(SessionRow, SessionRow.id == SessionTurn.session_id)
+            total = s.scalar(
+                select(func.count()).select_from(base.where(*conds).subquery())
+            ) or 0
+            q = (
+                select(SessionTurn, SessionRow, AppUser.display_name, AppUser.email, tc, sg,
+                       thumbs(Feedback.rating > 0), thumbs(Feedback.rating < 0), nt)
+                .join(SessionRow, SessionRow.id == SessionTurn.session_id)
+                .outerjoin(AppUser, AppUser.id == SessionRow.user_id)
+                .where(*conds)
+                .order_by(SessionTurn.started_at.desc(), SessionTurn.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            out: list[TurnRowOut] = []
+            for turn, sess, name, email, ntc, nsg, nfu, nfd, nturns in s.execute(q):
+                level = evidence_level(who, sess.user_id, sess.sensitive)
+                out.append(
+                    TurnRowOut(
+                        id=turn.id, seq=turn.seq, question=_text(level, turn.question),
+                        status="answered" if turn.status == "answered" else "active",
+                        started_at=turn.started_at, ended_at=turn.ended_at,
+                        tool_call_count=ntc, session_id=sess.id, turn_count=nturns,
+                        user_id=sess.user_id, user_label=name or email, client=sess.client,
+                        sensitive=sess.sensitive, signal_count=nsg, thumbs_up=nfu,
+                        thumbs_down=nfd,
+                    )
+                )
+            return TurnPage(total=total, limit=limit, offset=offset, turns=out)
 
     @r.get("/v1/sessions/{session_id}", response_model=SessionDetail)
     def get_session(session_id: uuid.UUID, who: Any_) -> SessionDetail:
@@ -309,9 +387,23 @@ def make_router(auth: Auth) -> APIRouter:
                     served_by_call.setdefault(tcid, []).append(
                         ServedOut(item_key=key, item_type=typ, seq=seq, rank=rank, score=score)
                     )
+            per_turn = Counter(c.turn_id for c in calls)
+            turns = [
+                TurnOut(
+                    id=t.id, seq=t.seq, question=_text(level, t.question),
+                    status="answered" if t.status == "answered" else "active",
+                    started_at=t.started_at, ended_at=t.ended_at,
+                    tool_call_count=per_turn.get(t.id, 0),
+                )
+                for t in s.scalars(
+                    select(SessionTurn).where(SessionTurn.session_id == session_id)
+                    .order_by(SessionTurn.seq)
+                )
+            ]
             timeline = [
                 ToolCallOut(
-                    id=c.id, tool=c.tool, created_at=c.created_at, latency_ms=c.latency_ms,
+                    id=c.id, turn_id=c.turn_id, tool=c.tool, created_at=c.created_at,
+                    latency_ms=c.latency_ms,
                     has_error=c.error is not None, error=_text(level, c.error),
                     args=_obj(level, c.args),
                     result_meta=(
@@ -335,7 +427,8 @@ def make_router(auth: Auth) -> APIRouter:
             )
             signals = [
                 SignalOut(
-                    id=sg.id, kind=sg.kind, source=sg.source, created_at=sg.created_at,
+                    id=sg.id, turn_id=sg.turn_id, kind=sg.kind, source=sg.source,
+                    created_at=sg.created_at,
                     payload=_obj(level, sg.payload),
                     item_keys=sorted(keys[i] for i in sg.item_ids if i in keys),
                 )
@@ -355,8 +448,8 @@ def make_router(auth: Auth) -> APIRouter:
             rel_seq = s.scalar(select(Release.seq).where(Release.id == sess.release_id)) \
                 if sess.release_id else None
             return SessionDetail(
-                **head.model_dump(), redaction=level, release_seq=rel_seq, timeline=timeline,
-                signals=signals, feedback=feedback,
+                **head.model_dump(), redaction=level, release_seq=rel_seq, turns=turns,
+                timeline=timeline, signals=signals, feedback=feedback,
             )
 
     @r.post("/v1/sessions/{session_id}/sensitive", response_model=SessionRowOut)

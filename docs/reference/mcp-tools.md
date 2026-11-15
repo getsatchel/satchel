@@ -2,7 +2,8 @@
 
 Served at `/mcp` (streamable HTTP; PAT or OAuth) or over stdio (`satchel mcp stdio`). Tool visibility is per
 principal and workspace; the data tools only appear when the workspace has a connection. Every call after
-`start_analysis` carries the `session_id` it returns.
+`start_analysis` carries the `session_id` it returns. When an agent reuses a session for a follow-up question, Satchel
+starts a new turn inside it (see [How it works](../concepts/how-it-works.md#a-typical-agent-session)).
 
 The authoritative schemas are in `server/satchel/tools/definitions.py`; clients receive them via `tools/list`.
 
@@ -43,6 +44,7 @@ The authoritative schemas are in `server/satchel/tools/definitions.py`; clients 
 | `rate_result` | App-only: the result widget's 👍/👎 (`source=human`). |
 
 If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics` and `get_result` also return
-`structuredContent` rendered by the `ui://satchel/result` widget.
+`structuredContent` rendered by the `ui://satchel/result` widget. Their text then ends with a note telling
+the agent not to repeat the rows in its reply, because the user already sees the table.
 
 <!-- site: McpToolsExplorer -->

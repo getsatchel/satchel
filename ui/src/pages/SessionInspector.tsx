@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
-import type { SessionDetail, ToolCall } from "@/api/types";
+import type { SessionDetail, ToolCall, Turn } from "@/api/types";
 import { CodeEditor, Pre } from "@/components/Code";
 import { useToast } from "@/components/Toast";
-import { Chevron, Crumb, ErrorBox, Icon, ICONS, ItemLink, Loading, Notice, PageHeader, PillButton, SectionHeading, StatusDot } from "@/components/ui";
+import { Chevron, Crumb, ErrorBox, Icon, ICONS, ItemLink, ListRow, Loading, Notice, PageHeader, PillButton, SectionHeading, StatusDot } from "@/components/ui";
 import { errMsg, fullTime, ms, pretty, timeAgo } from "@/lib/format";
 
 export function SessionInspector() {
@@ -29,10 +29,36 @@ function Inspector({ s, isAdmin }: { s: SessionDetail; isAdmin: boolean }) {
     },
     onError: (e) => toast("err", errMsg(e)),
   });
-  const t0 = s.timeline[0] ? new Date(s.timeline[0].created_at).getTime() : 0;
-  const errors = s.timeline.filter((c) => c.has_error).length;
+  // A session reused for follow-up questions has several turns: the page then shows one at a time.
+  const [sp, setSp] = useSearchParams();
+  const turn = s.turns.length > 1 ? (s.turns.find((t) => String(t.seq) === sp.get("turn")) ?? s.turns[0] ?? null) : null;
+  const inTurn = (id: number | null | undefined) => !turn || id == null || id === turn.id;
+  const calls = s.timeline.filter((c) => inTurn(c.turn_id));
+  const callIds = new Set(calls.map((c) => c.id));
+  const signals = s.signals.filter((g) => inTurn(g.turn_id));
+  const feedback = s.feedback.filter((f) => !turn || f.tool_call_id == null || callIds.has(f.tool_call_id));
+  const question = turn ? turn.question : s.question;
+  const status = turn ? turn.status : s.status;
+  const t0 = calls[0] ? new Date(calls[0].created_at).getTime() : 0;
+  const offset = (c: ToolCall) => new Date(c.created_at).getTime() - t0;
+  // How long the question took, for the bar that places each call in it.
+  const totalMs = Math.max(1, ...calls.map((c) => offset(c) + (c.latency_ms ?? 0)));
+  const errors = calls.filter((c) => c.has_error).length;
   const [open, setOpen] = useState<Set<number>>(() => new Set());
-  const allOpen = s.timeline.length > 0 && open.size === s.timeline.length;
+  const allOpen = calls.length > 0 && calls.every((c) => open.has(c.id));
+  const turnList = turn && (
+    <TurnList
+      turns={s.turns}
+      current={turn}
+      onSelect={(t) =>
+        setSp((prev) => {
+          const n = new URLSearchParams(prev);
+          n.set("turn", String(t.seq));
+          return n;
+        })
+      }
+    />
+  );
   const toggle = (id: number) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -45,13 +71,18 @@ function Inspector({ s, isAdmin }: { s: SessionDetail; isAdmin: boolean }) {
     <>
       <Crumb to="/sessions" label="Sessions" rest="Session" />
       <PageHeader
-        title={s.question ?? "(no question recorded)"}
+        title={question ?? "(no question recorded)"}
         sub={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>{s.client ?? "unknown client"}</span>
             <span>{s.user_label ?? "unknown user"}</span>
             <span title={fullTime(s.started_at)}>{timeAgo(s.started_at)}</span>
-            <StatusDot tone={s.status === "answered" ? "good" : s.status === "error" ? "bad" : "muted"}>{s.status}</StatusDot>
+            <StatusDot tone={status === "answered" ? "good" : status === "error" ? "bad" : "muted"}>{status}</StatusDot>
+            {turn && (
+              <span>
+                Question {turn.seq} of {s.turns.length}
+              </span>
+            )}
             {s.release_seq != null && <span className="mono">release #{s.release_seq}</span>}
             {s.sensitive && <span className="badge badge-warn">sensitive</span>}
           </span>
@@ -74,37 +105,40 @@ function Inspector({ s, isAdmin }: { s: SessionDetail; isAdmin: boolean }) {
         </div>
       )}
 
-      <Answer s={s} />
+      {turnList && <div className="mb-9 lg:hidden">{turnList}</div>}
+
+      <Answer calls={calls} status={status} redaction={s.redaction} />
 
       <div className="grid items-start gap-9 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="min-w-0" aria-label="Tool call timeline">
           <SectionHeading
             icon={ICONS.list}
             title="Timeline"
-            count={s.timeline.length}
+            count={calls.length}
             actions={
-              s.timeline.length > 0 && (
+              calls.length > 0 && (
                 <>
                   {errors > 0 && <StatusDot tone="bad">{errors === 1 ? "1 error" : `${errors} errors`}</StatusDot>}
-                  <button type="button" className="btn btn-ghost text-xs" onClick={() => setOpen(allOpen ? new Set() : new Set(s.timeline.map((c) => c.id)))}>
+                  <button type="button" className="btn btn-ghost text-xs" onClick={() => setOpen(allOpen ? new Set() : new Set(calls.map((c) => c.id)))}>
                     {allOpen ? "Collapse all" : "Expand all"}
                   </button>
                 </>
               )
             }
           />
-          {s.timeline.length === 0 ? (
+          {calls.length === 0 ? (
             <p className="text-sm text-muted">No tool calls were recorded.</p>
           ) : (
             <ol className="card divide-y divide-line overflow-hidden">
-              {s.timeline.map((c) => (
+              {calls.map((c) => (
                 <Call
                   key={c.id}
                   c={c}
-                  offsetMs={new Date(c.created_at).getTime() - t0}
-                  question={s.question}
+                  offsetMs={offset(c)}
+                  totalMs={totalMs}
+                  question={question}
                   redaction={s.redaction}
-                  ratings={s.feedback.filter((f) => f.tool_call_id === c.id && f.source === "human")}
+                  ratings={feedback.filter((f) => f.tool_call_id === c.id && f.source === "human")}
                   open={open.has(c.id)}
                   onToggle={() => toggle(c.id)}
                 />
@@ -114,13 +148,14 @@ function Inspector({ s, isAdmin }: { s: SessionDetail; isAdmin: boolean }) {
         </section>
 
         <aside className="space-y-9 lg:sticky lg:top-5">
+          {turnList && <div className="hidden lg:block">{turnList}</div>}
           <section aria-label="Signals">
-            <SectionHeading icon={ICONS.alert} title="Signals" count={s.signals.length} />
-            {s.signals.length === 0 ? (
+            <SectionHeading icon={ICONS.alert} title="Signals" count={signals.length} />
+            {signals.length === 0 ? (
               <p className="text-sm text-muted">None. Signals are recorded when an agent flags a gap or Satchel detects a SQL error, retry storm or unendorsed table.</p>
             ) : (
               <ul className="space-y-2">
-                {s.signals.map((g) => (
+                {signals.map((g) => (
                   <li key={g.id} className="card p-3 text-sm">
                     <div className="flex items-center gap-2">
                       <span className="badge badge-warn">{g.kind}</span>
@@ -139,12 +174,12 @@ function Inspector({ s, isAdmin }: { s: SessionDetail; isAdmin: boolean }) {
             )}
           </section>
           <section aria-label="Feedback">
-            <SectionHeading icon={ICONS.thumbUp} title="Feedback" count={s.feedback.length} />
-            {s.feedback.length === 0 ? (
+            <SectionHeading icon={ICONS.thumbUp} title="Feedback" count={feedback.length} />
+            {feedback.length === 0 ? (
               <p className="text-sm text-muted">No thumbs yet. Users rate results with the buttons in the result widget, or the agent relays them with record_user_feedback.</p>
             ) : (
               <ul className="space-y-2">
-                {s.feedback.map((f) => (
+                {feedback.map((f) => (
                   <li key={f.id} className="card p-3 text-sm">
                     <span aria-label={f.rating > 0 ? "positive" : "negative"} className={`inline-block align-[-2px] ${f.rating > 0 ? "text-good" : "text-bad"}`}>
                       <Icon d={f.rating > 0 ? ICONS.thumbUp : ICONS.thumbDown} size={14} />
@@ -160,6 +195,34 @@ function Inspector({ s, isAdmin }: { s: SessionDetail; isAdmin: boolean }) {
         </aside>
       </div>
     </>
+  );
+}
+
+/** The questions asked in this session, in order. Picking one shows its answer, calls, signals and feedback. */
+function TurnList({ turns, current, onSelect }: { turns: Turn[]; current: Turn; onSelect: (t: Turn) => void }) {
+  return (
+    <nav aria-label="Questions in this conversation">
+      <SectionHeading icon={ICONS.layers} title="Questions" count={turns.length} />
+      <ol className="card max-h-[22rem] divide-y divide-line overflow-y-auto">
+        {turns.map((t) => (
+          <ListRow key={t.id} active={t.id === current.id} onClick={() => onSelect(t)}>
+            <span className="flex gap-2.5">
+              <span className="w-4 shrink-0 text-right font-mono text-xs leading-5 text-muted tabular-nums">{t.seq}</span>
+              <span className="min-w-0 flex-1">
+                <span className="line-clamp-2 text-sm">{t.question ?? <span className="text-muted">(no question recorded)</span>}</span>
+                <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                  <StatusDot tone={t.status === "answered" ? "good" : "muted"}>{t.status}</StatusDot>
+                  <span className="tabular-nums">
+                    {t.tool_call_count} {t.tool_call_count === 1 ? "call" : "calls"}
+                  </span>
+                  <span title={fullTime(t.started_at)}>{timeAgo(t.started_at)}</span>
+                </span>
+              </span>
+            </span>
+          </ListRow>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
@@ -211,8 +274,8 @@ type Confidence = "high" | "medium" | "low";
 const CONFIDENCE_TONE: Record<Confidence, "good" | "muted" | "warn"> = { high: "good", medium: "muted", low: "warn" };
 
 /** What the agent concluded, from its report_answer call: the first thing to read. */
-function Answer({ s }: { s: SessionDetail }) {
-  const report = [...s.timeline].reverse().find((c) => c.tool === "report_answer");
+function Answer({ calls, status, redaction }: { calls: ToolCall[]; status: string; redaction: SessionDetail["redaction"] }) {
+  const report = [...calls].reverse().find((c) => c.tool === "report_answer");
   const a = report?.args ?? null;
   const summary = typeof a?.["answer_summary"] === "string" ? (a["answer_summary"] as string) : null;
   const confidence = typeof a?.["confidence"] === "string" ? (a["confidence"] as Confidence) : null;
@@ -223,13 +286,13 @@ function Answer({ s }: { s: SessionDetail }) {
   if (!report) {
     body = (
       <p className="text-sm text-muted">
-        {s.status === "error"
+        {status === "error"
           ? "The session ended in an error before the agent reported an answer. The failing call is marked in the timeline."
-          : "No answer was reported: the agent never called report_answer, so the session is still open or was abandoned."}
+          : "No answer was reported: the agent never called report_answer for this question, so it is still open or was abandoned."}
       </p>
     );
   } else if (a === null) {
-    body = <p className="text-sm text-muted">The agent reported an answer. Its text is hidden ({s.redaction === "metadata_only" ? "sensitive session" : "redacted"}).</p>;
+    body = <p className="text-sm text-muted">The agent reported an answer. Its text is hidden ({redaction === "metadata_only" ? "sensitive session" : "redacted"}).</p>;
   } else {
     body = (
       <>
@@ -280,6 +343,7 @@ function gist(c: ToolCall, question: string | null): string | null {
 function Call({
   c,
   offsetMs,
+  totalMs,
   question,
   redaction,
   ratings,
@@ -288,6 +352,7 @@ function Call({
 }: {
   c: ToolCall;
   offsetMs: number;
+  totalMs: number;
   question: string | null;
   redaction: SessionDetail["redaction"];
   ratings: SessionDetail["feedback"];
@@ -332,6 +397,13 @@ function Call({
             <span className="sr-only">{f.rating > 0 ? "rated up" : "rated down"}</span>
           </span>
         ))}
+        {/* Where the call sits in the question's duration; the numbers beside it say the same in text. */}
+        <span className="relative hidden h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-sunken md:block" aria-hidden>
+          <span
+            className={`absolute inset-y-0 rounded-full ${c.has_error ? "bg-bad" : "bg-accent/70"}`}
+            style={{ left: `${Math.min(98, (offsetMs / totalMs) * 100)}%`, width: `${Math.max(2, ((c.latency_ms ?? 0) / totalMs) * 100)}%` }}
+          />
+        </span>
         <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums text-muted" title={`${ms(offsetMs)} after the first call; took ${ms(c.latency_ms)}`}>
           +{ms(offsetMs)} · {ms(c.latency_ms)}
         </span>

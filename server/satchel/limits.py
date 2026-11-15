@@ -30,6 +30,7 @@ from satchel.store.models import (
     Feedback,
     QueryResult,
     ServedContext,
+    SessionTurn,
     Signal,
     ToolCall,
     Workspace,
@@ -180,11 +181,13 @@ def _purge_workspace(s: Session, ws: Workspace, days: int, now: datetime,
               .values(session_id=None, tool_call_id=None))
     s.execute(update(QueryResult).where(QueryResult.tool_call_id.in_(calls))
               .values(tool_call_id=None))
-    s.execute(update(Signal).where(Signal.session_id.in_(ids)).values(session_id=None))
+    s.execute(update(Signal).where(Signal.session_id.in_(ids))
+              .values(session_id=None, turn_id=None))
     s.execute(update(EvalCaseResult).where(EvalCaseResult.session_id.in_(ids))
               .values(session_id=None))
     n_calls = len(list(s.scalars(select(ToolCall.id).where(ToolCall.session_id.in_(ids)))))
     s.execute(delete(ToolCall).where(ToolCall.session_id.in_(ids)))
+    s.execute(delete(SessionTurn).where(SessionTurn.session_id.in_(ids)))
     s.execute(delete(AgentSession).where(AgentSession.id.in_(ids)))
     record_audit(s, ws.id, None, "retention.purge",
                  {"sessions": len(ids), "tool_calls": n_calls, "older_than_days": days})

@@ -49,6 +49,8 @@ and publish.
 3. `query_metrics` (preferred) or `run_sql` fetches data through the guarded SQL gateway.
 4. `report_answer` closes the session. `flag_context_gap` and `record_user_feedback` feed the loop.
 
+Agents often keep one session for a whole conversation. Satchel groups a session's tool calls into **turns**, one per question: a new turn starts when a call carries a different question from the one being worked on. A follow-up after `report_answer` always starts one; before the answer, a reworded version of the same question stays in its turn. **Sessions** lists one row per question (switch to **Conversations** for one row per session), and a session with several questions shows them as a list to step through. Each signal records the turn it came from, so it is clustered with the question that was being asked, not the first one of the session.
+
 ## Architecture in one paragraph
 
 One stateless server process (`satchel serve api`) serves the UI, REST, MCP at `/mcp`, and OAuth/OIDC. A

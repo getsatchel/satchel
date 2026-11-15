@@ -2,7 +2,7 @@
 
 > **Living document.** Update this file in the same PR as any change that adds, removes or renames a component, table, tool or data flow, or that changes a component's status. Status colours: **built** (green) · **in progress** (amber) · **planned** (grey).
 >
-> Last updated: 2026-11-13.
+> Last updated: 2026-11-15.
 
 ## 1. System overview
 
@@ -184,6 +184,9 @@ erDiagram
   app_user ||--o{ session : runs
   release ||--o{ session : served_from
   session ||--o{ tool_call : contains
+  session ||--o{ session_turn : "asks (one per question)"
+  session_turn ||--o{ tool_call : groups
+  session_turn ||--o{ signal : "about (nullable)"
   tool_call ||--o{ served_context : served
   context_version ||--o{ served_context : served_as
   session ||--o{ signal : emits
@@ -310,6 +313,14 @@ erDiagram
     text client
     text question
     bool sensitive "migration 0005: metadata only except to admins"
+  }
+  session_turn {
+    bigint id PK
+    uuid session_id FK
+    int seq "order in the session; migration 0017"
+    text question "a new turn starts when a call carries a different question"
+    text status "active | answered (report_answer)"
+    timestamptz ended_at
   }
   query_result {
     uuid id PK

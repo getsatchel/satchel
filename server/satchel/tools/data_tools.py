@@ -47,6 +47,7 @@ from satchel.store.models import (
     Feedback,
     QueryResult,
     ServedContext,
+    SessionTurn,
     Signal,
     ToolCall,
 )
@@ -238,6 +239,15 @@ def _format(
     return "\n".join(head) + f"\n\n{extra}sql:\n```sql\n{sql.strip()}\n```\n\n{body}{more}"
 
 
+def _shown_note(c: Call) -> str:
+    """Appended to a result's text when the widget payload was attached, so the agent does not
+    redraw the table under the widget. Conditional when the client's UI support is unknown
+    (stateless HTTP): the same text also reaches clients that show no widget."""
+    if c.structured is None:
+        return ""
+    return "\n\n" + (text.RESULT_SHOWN if c.ctx.ui_supported else text.RESULT_MAYBE_SHOWN)
+
+
 _CTX_TYPE_LABEL = {
     "asset_doc": "table doc", "glossary_term": "glossary", "guide": "guide",
     "golden_query": "golden query", "workspace_rule": "rule", "caveat": "caveat",
@@ -372,6 +382,13 @@ def _pretty_sql(sql: str, dialect: str | None) -> str:
         return sql.strip()
 
 
+def _turn_question(c: Call) -> str | None:
+    """The question this call answers: its turn's, since a session can hold several."""
+    assert c.session is not None
+    turn = c.s.get(SessionTurn, c.turn_id) if c.turn_id is not None else None
+    return (turn.question if turn is not None else None) or c.session.question
+
+
 def _set_widget(
     c: Call,
     *,
@@ -402,7 +419,7 @@ def _set_widget(
         "result_id": str(result_id),
         "tool_call_id": tool_call_id,
         "connection": connection,
-        "question": c.session.question,
+        "question": _turn_question(c),
         "sql": _pretty_sql(sql, dialect),
         "metric": metric,
         "formats": formats or {},
@@ -492,7 +509,7 @@ def run_sql(c: Call) -> str:
                 row_count=row.row_count, truncated=gr.truncated,
                 formats=_asset_doc_formats(c, gr.tables, cols),
                 dialect=sqlglot_dialect(conn.kind) or conn.kind)
-    return _format(row.id, conn.name, a.sql, gr)
+    return _format(row.id, conn.name, a.sql, gr) + _shown_note(c)
 
 
 def _semantic(c: Call) -> tuple[dict[str, Any], list[Any]]:
@@ -579,7 +596,7 @@ def query_metrics(c: Call) -> str:
                 formats=_metric_formats(mdl, a.metrics),
                 dialect=sqlglot_dialect(conn.kind) or conn.kind)
     extra = f"cube_query: {q}\nsemantic_sql: {compiled.semantic_sql}\n"
-    return _format(row.id, conn.name, compiled.sql, gr, extra)
+    return _format(row.id, conn.name, compiled.sql, gr, extra) + _shown_note(c)
 
 
 def get_result(c: Call) -> str:
@@ -613,7 +630,7 @@ def get_result(c: Call) -> str:
     tail = (f"\n(next page: get_result(result_id, offset={nxt}))" if nxt < row.row_count else "")
     return (f"result_id: {row.id}\nrows {a.offset + 1 if rows else 0}-{nxt} of {row.row_count}"
             f"{' (truncated at the row cap)' if row.truncated else ''}\n\n"
-            f"{markdown_table(cols, rows)}{tail}")
+            f"{markdown_table(cols, rows)}{tail}{_shown_note(c)}")
 
 
 def rate_result(c: Call) -> dict[str, Any]:

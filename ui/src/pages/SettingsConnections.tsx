@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { ConnectionKind, ConnectionOut, ConnectionPatch, ConnectionTestOut, ConnectionTestRequest } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, SectionHeading, StatusDot, TableCard } from "@/components/ui";
+import { DOCS_URL } from "@/components/nav";
+import { EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, SectionHeading, Segmented, StatusDot, TableCard } from "@/components/ui";
 import { errMsg } from "@/lib/format";
 
 /** Next to the Test button, so the outcome is visible without scrolling the form. */
@@ -55,8 +56,17 @@ function ConnectionForm(props: {
   const [makeDefault, setMakeDefault] = useState(e ? e.default_for_ai : props.first);
   const [result, setResult] = useState<ConnectionTestOut | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A connection that was just added: the dialog then offers to crawl it, the next thing to do.
+  const [saved, setSaved] = useState<{ id: string; name: string } | null>(null);
   const qc = useQueryClient();
   const toast = useToast();
+  const crawl = useMutation({
+    mutationFn: () => endpoints.crawlConnection(saved?.id ?? ""),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["connections"] });
+      void qc.invalidateQueries({ queryKey: ["assets"] });
+    },
+  });
 
   const config = () => Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== ""));
 
@@ -90,8 +100,12 @@ function ConnectionForm(props: {
       return endpoints.updateConnection(e.id, patch);
     },
     onSuccess: (c) => {
-      toast("ok", e ? `Saved ${c.name}` : `Added ${c.name}. Crawl it to fill the catalog.`);
       void qc.invalidateQueries({ queryKey: ["connections"] });
+      if (!e) {
+        setSaved({ id: c.id, name: c.name });
+        return;
+      }
+      toast("ok", `Saved ${c.name}`);
       props.onClose();
     },
     onError: (err) => setError(errMsg(err)),
@@ -100,6 +114,55 @@ function ConnectionForm(props: {
   const blocked = Boolean(secret) && !props.encryption;
   const secretPlaceholder =
     e?.secret === "stored" ? "Stored. Leave empty to keep it." : e?.secret === "env" ? "Read from an environment variable (set with the CLI). Type to replace." : "";
+
+  const pickKind = (next: string) => {
+    const k = props.kinds.find((x) => x.kind === next);
+    setKind(next);
+    setValues(Object.fromEntries((k?.fields ?? []).map((f) => [f.name, f.default == null ? "" : String(f.default)])));
+    setSecret("");
+    setPassphrase("");
+    setResult(null);
+  };
+  if (saved) {
+    return (
+      <Modal
+        open
+        onClose={props.onClose}
+        title={`Added ${saved.name}`}
+        footer={
+          crawl.isSuccess ? (
+            <button type="button" className="btn btn-primary" onClick={props.onClose}>
+              Close
+            </button>
+          ) : (
+            <>
+              <button type="button" className="btn" onClick={props.onClose} disabled={crawl.isPending}>
+                Not now
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => crawl.mutate()} disabled={crawl.isPending}>
+                {crawl.isPending ? "Crawling..." : "Crawl"}
+              </button>
+            </>
+          )
+        }
+      >
+        <div className="space-y-3 text-sm">
+          {crawl.isSuccess ? (
+            <p role="status">
+              {crawl.data.seen.toLocaleString()} objects found, {crawl.data.created.toLocaleString()} new. See them in the{" "}
+              <Link className="text-accent hover:underline" to="/catalog">
+                Catalog
+              </Link>
+              .
+            </p>
+          ) : (
+            <p>Crawl it to list its schemas, tables and columns in the Catalog. A crawl reads names and types, not rows.</p>
+          )}
+          {crawl.isError && <ErrorBox error={crawl.error} />}
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -132,36 +195,23 @@ function ConnectionForm(props: {
           save.mutate();
         }}
       >
-        <label className="block">
-          <span className="label">Name</span>
-          <input className="input mono w-full" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="warehouse" required autoFocus />
-          <span className="mt-1 block text-xs text-muted">Agents pass this name to run_sql when there is more than one connection.</span>
-        </label>
-        <label className="block">
+        <div>
           <span className="label">Kind</span>
           {e ? (
             <span className="text-sm">{spec?.label ?? kind}</span>
           ) : (
-            <select
-              className="input w-full"
+            <Segmented
+              label="Kind"
               value={kind}
-              onChange={(ev) => {
-                const k = props.kinds.find((x) => x.kind === ev.target.value);
-                setKind(ev.target.value);
-                setValues(Object.fromEntries((k?.fields ?? []).map((f) => [f.name, f.default == null ? "" : String(f.default)])));
-                setSecret("");
-                setPassphrase("");
-                setResult(null);
-              }}
-            >
-              {props.kinds.map((k) => (
-                <option key={k.kind} value={k.kind} disabled={!k.available}>
-                  {k.label}
-                  {k.available ? "" : ` (${k.note ?? "unavailable"})`}
-                </option>
-              ))}
-            </select>
+              onChange={pickKind}
+              options={props.kinds.map((k) => ({ id: k.kind, label: k.label, disabled: k.available ? null : (k.note ?? "Not installed on this server") }))}
+            />
           )}
+        </div>
+        <label className="block">
+          <span className="label">Name</span>
+          <input className="input mono w-full" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="warehouse" required autoFocus />
+          <span className="mt-1 block text-xs text-muted">Agents pass this name to run_sql when there is more than one connection.</span>
         </label>
         {spec?.fields.map((f) => (
           <label key={f.name} className="block">
@@ -233,7 +283,12 @@ function ConnectionForm(props: {
             )}
           </div>
         )}
-        {spec?.note && <p className="text-xs text-muted">{spec.note}</p>}
+        <p className="text-xs text-muted">
+          {spec?.note ? `${spec.note} ` : ""}
+          <a className="text-accent hover:underline" href={`${DOCS_URL}/integrations/warehouses.md`} target="_blank" rel="noreferrer">
+            Setup guide
+          </a>
+        </p>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={makeDefault} disabled={Boolean(e?.default_for_ai)} onChange={(ev) => setMakeDefault(ev.target.checked)} />
           Default for agents
@@ -252,7 +307,21 @@ function ConnectionForm(props: {
 export function ConnectionsSection({ admin, encryption }: { admin: boolean; encryption: boolean }) {
   const conns = useQuery({ queryKey: ["connections"], queryFn: endpoints.listConnections });
   const kinds = useQuery({ queryKey: ["connection-kinds"], queryFn: endpoints.listConnectionKinds });
-  const [form, setForm] = useState<{ editing: ConnectionOut | null } | null>(null);
+  const [sp, setSp] = useSearchParams();
+  // "?add=1" (the dashboard's Set up list) opens the add dialog straight away.
+  const [form, setForm] = useState<{ editing: ConnectionOut | null } | null>(sp.get("add") && admin ? { editing: null } : null);
+  const closeForm = () => {
+    setForm(null);
+    if (sp.get("add"))
+      setSp(
+        (prev) => {
+          const n = new URLSearchParams(prev);
+          n.delete("add");
+          return n;
+        },
+        { replace: true },
+      );
+  };
   const [removing, setRemoving] = useState<ConnectionOut | null>(null);
   const qc = useQueryClient();
   const toast = useToast();
@@ -393,7 +462,7 @@ export function ConnectionsSection({ admin, encryption }: { admin: boolean; encr
           </table>
         </TableCard>
       )}
-      {form && <ConnectionForm kinds={kinds.data} editing={form.editing} encryption={encryption} first={rows.length === 0} onClose={() => setForm(null)} />}
+      {form && <ConnectionForm kinds={kinds.data} editing={form.editing} encryption={encryption} first={rows.length === 0} onClose={closeForm} />}
       <Modal
         open={removing !== null}
         onClose={() => setRemoving(null)}

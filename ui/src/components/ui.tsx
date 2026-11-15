@@ -259,6 +259,10 @@ export function ItemKey({ itemKey, fit }: { itemKey: string; fit?: boolean }) {
   );
 }
 
+/**
+ * A dialog. On phones it is a sheet that rises from the bottom edge. `step` adds "Step 2 of 3"
+ * under the title, for a form long enough to be split up (add a source).
+ */
 export function Modal(props: {
   open: boolean;
   onClose: () => void;
@@ -266,27 +270,59 @@ export function Modal(props: {
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  step?: { current: number; total: number };
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
     if (props.open && !d.open) d.showModal();
     if (!props.open && d.open) d.close();
   }, [props.open]);
+  // Opening, and each new step, puts focus on the first field (the browser would pick the Close
+  // button). A step without fields focuses the body, so a screen reader reads what it says.
+  const step = props.step?.current;
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!props.open || !body) return;
+    const field = body.querySelector<HTMLElement>('input:not([disabled]):not([type="radio"]), input[type="radio"]:checked, select:not([disabled]), textarea:not([disabled])');
+    if (field) field.focus();
+    else if (step !== undefined) body.focus();
+  }, [props.open, step]);
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       onClose={props.onClose}
       onClick={(e) => {
-        if (e.target === ref.current) props.onClose();
+        // A click outside closes a simple dialog, but not a stepped one: it would throw away
+        // what was filled in on earlier steps.
+        if (e.target === ref.current && !props.step) props.onClose();
       }}
-      className={`w-[calc(100%-1.5rem)] rounded-xl border border-line bg-surface p-0 text-ink shadow-pop backdrop:bg-black/40 ${props.wide ? "max-w-4xl" : "max-w-md"}`}
+      className={`w-[calc(100%-1.5rem)] rounded-xl border border-line bg-surface p-0 text-ink shadow-pop backdrop:bg-black/40 max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 ${props.wide ? "sm:max-w-4xl" : "sm:max-w-md"}`}
     >
       {props.open && (
-        <div className="flex max-h-[85vh] flex-col">
-          <div className="border-b border-line px-5 py-4 text-base font-semibold">{props.title}</div>
-          <div className="overflow-auto px-5 py-5">{props.children}</div>
+        <div className="flex max-h-[85vh] flex-col max-sm:max-h-[92dvh]">
+          <div className="flex items-start gap-3 border-b border-line px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <h2 id={titleId} className="text-base font-semibold">
+                {props.title}
+              </h2>
+              {props.step && (
+                <p className="mt-0.5 text-xs text-muted">
+                  Step {props.step.current + 1} of {props.step.total}
+                </p>
+              )}
+            </div>
+            <button type="button" className="btn btn-ghost -mr-2 -mt-1 shrink-0 px-2" aria-label="Close" onClick={props.onClose}>
+              <Icon d={ICONS.close} size={16} />
+            </button>
+          </div>
+          <div ref={bodyRef} tabIndex={-1} className="overflow-auto px-5 py-5 outline-none">
+            {props.children}
+          </div>
           {props.footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4">{props.footer}</div>}
         </div>
       )}
@@ -319,7 +355,8 @@ export function Tabs<T extends string>(props: {
 }
 
 export function Segmented<T extends string | number>(props: {
-  options: { id: T; label: string }[];
+  /** `disabled` is why an option cannot be picked; it shows as the option's tooltip. */
+  options: { id: T; label: string; disabled?: string | null }[];
   value: T;
   onChange: (id: T) => void;
   label: string;
@@ -331,8 +368,10 @@ export function Segmented<T extends string | number>(props: {
           key={String(o.id)}
           type="button"
           aria-pressed={props.value === o.id}
+          disabled={Boolean(o.disabled)}
+          title={o.disabled ?? undefined}
           onClick={() => props.onChange(o.id)}
-          className={`h-8 shrink-0 whitespace-nowrap rounded px-2.5 text-xs font-medium sm:h-7 ${
+          className={`h-8 shrink-0 whitespace-nowrap rounded px-2.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 ${
             props.value === o.id ? "bg-primary text-primary-ink" : "text-muted hover:text-ink"
           }`}
         >

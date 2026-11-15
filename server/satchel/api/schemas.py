@@ -313,6 +313,7 @@ class SessionRowOut(BaseModel):
     signal_count: int
     thumbs_up: int
     thumbs_down: int
+    turn_count: int = Field(1, description="Questions asked in this session.")
 
 
 class SessionPage(Page):
@@ -327,8 +328,39 @@ class ServedOut(BaseModel):
     score: float | None
 
 
+class TurnOut(BaseModel):
+    """One question inside a session, in order. ``timeline`` calls point at it by ``turn_id``."""
+
+    id: int
+    seq: int
+    question: str | None
+    status: Literal["active", "answered"]
+    started_at: datetime
+    ended_at: datetime | None
+    tool_call_count: int
+
+
+class TurnRowOut(TurnOut):
+    """A question with the session it was asked in, for the list of questions."""
+
+    session_id: uuid.UUID
+    turn_count: int = Field(description="Questions asked in the same session.")
+    user_id: uuid.UUID | None
+    user_label: str | None
+    client: str | None
+    sensitive: bool
+    signal_count: int
+    thumbs_up: int
+    thumbs_down: int
+
+
+class TurnPage(Page):
+    turns: list[TurnRowOut]
+
+
 class ToolCallOut(BaseModel):
     id: int
+    turn_id: int | None
     tool: str
     created_at: datetime
     latency_ms: int | None
@@ -341,6 +373,7 @@ class ToolCallOut(BaseModel):
 
 class SignalOut(BaseModel):
     id: int
+    turn_id: int | None
     kind: str
     source: str
     created_at: datetime
@@ -362,6 +395,7 @@ class FeedbackOut(BaseModel):
 class SessionDetail(SessionRowOut):
     redaction: Redaction
     release_seq: int | None
+    turns: list[TurnOut]
     timeline: list[ToolCallOut]
     signals: list[SignalOut]
     feedback: list[FeedbackOut]
