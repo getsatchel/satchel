@@ -188,7 +188,7 @@ function SuggestionPanel({ id, onClosed }: { id: string; onClosed: () => void })
     onSuccess: (p) => {
       toast("ok", `Preview #${p.seq} created; running evals`);
       void qc.invalidateQueries({ queryKey: ["releases"] });
-      nav(`/changes?preview=${p.id}&evals=1`);
+      nav(`/releases?preview=${p.id}&evals=1`);
     },
     onError: (e) => toast("err", errMsg(e)),
   });
@@ -414,7 +414,7 @@ function ChangeCard({ suggestionId, c, open }: { suggestionId: string; c: Sugges
         )}
         {c.status === "accepted" && typeof c.result["item_key"] === "string" && (
           <p className="text-sm">
-            Draft saved as <ItemLink itemKey={c.result["item_key"]} />. Preview and publish it from <Link to="/changes" className="text-accent hover:underline">Changes</Link>.
+            Draft saved as <ItemLink itemKey={c.result["item_key"]} />. Preview and publish it from <Link to="/releases" className="text-accent hover:underline">Releases</Link>.
           </p>
         )}
         {manual && (

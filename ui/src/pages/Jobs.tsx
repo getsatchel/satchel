@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { JobOut } from "@/api/types";
-import { EmptyState, ErrorBox, ICONS, Loading, PageHeader, SectionHeading, Segmented, StatusDot, TableCard, type Tone } from "@/components/ui";
+import { EmptyState, ErrorBox, ICONS, Loading, SectionHeading, Segmented, StatusDot, TableCard, type Tone } from "@/components/ui";
 import { useToast } from "@/components/Toast";
 import { errMsg, fullTime, timeAgo, timeUntil } from "@/lib/format";
 
@@ -30,7 +30,8 @@ function when(j: JobOut): { text: string; title: string } {
   return { text: timeAgo(j.created_at), title: `Queued ${fullTime(j.created_at)}` };
 }
 
-export function Jobs() {
+/** Settings → Jobs: background work and its retries (curator). */
+export function JobsSection() {
   const [filter, setFilter] = useState<Filter>("all");
   const qc = useQueryClient();
   const toast = useToast();
@@ -58,10 +59,9 @@ export function Jobs() {
   const tab = (id: JobOut["status"], label: string) => ({ id, label: count(id) ? `${label} (${count(id)})` : label });
   return (
     <>
-      <PageHeader
-        title="Jobs"
-        sub="Background work: source syncs, crawls, curation passes and eval runs. The web server and satchel worker run them; a failed sync, crawl or curation pass can be retried. CLI and upload syncs run where they were started and are listed here once finished."
-      />
+      <p className="mb-4 text-sm text-muted">
+        Source syncs, crawls, curation passes and eval runs. A failed sync, crawl or curation pass can be retried. CLI and upload syncs are listed once finished.
+      </p>
       <div className="mb-4">
         <Segmented
           label="Status"

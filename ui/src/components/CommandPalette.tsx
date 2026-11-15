@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import { useToast } from "@/components/Toast";
 import { Dropdown, Icon, ICONS, Kbd, type MenuItem } from "@/components/ui";
-import { ALL_PAGES } from "@/components/nav";
+import { ALL_PAGES, SUB_PAGES } from "@/components/nav";
 import { errMsg } from "@/lib/format";
 import { toggleTheme, useTheme } from "@/lib/theme";
 
@@ -90,9 +90,9 @@ function Palette({ onClose }: { onClose: () => void }) {
 
   const commands = useMemo<Command[]>(() => {
     const go = (to: string) => () => nav(to);
-    const cmds: Command[] = ALL_PAGES.map((p) => ({ id: p.to, group: "Pages", label: p.label, icon: p.icon, keywords: p.keywords, run: go(p.to) }));
+    const cmds: Command[] = [...ALL_PAGES, ...SUB_PAGES].map((p) => ({ id: `${p.to} ${p.label}`, group: "Pages", label: p.label, icon: p.icon, keywords: p.keywords, run: go(p.to) }));
     cmds.push({ id: "new-item", group: "Actions", label: "New context item", icon: ICONS.plus, keywords: "create add guide glossary", run: go("/library/new") });
-    cmds.push({ id: "publish", group: "Actions", label: "Preview and publish changes", icon: ICONS.play, keywords: "release ship", run: go("/changes") });
+    cmds.push({ id: "publish", group: "Actions", label: "Preview and publish changes", icon: ICONS.play, keywords: "release ship", run: go("/releases") });
     if (curation.allowed) {
       cmds.push({ id: "curate", group: "Actions", label: "Run curation now", icon: ICONS.pulse, keywords: "suggestions signals", run: () => curation.run.mutate() });
     }
@@ -208,7 +208,7 @@ export function HeaderActions() {
   const curation = useRunCuration();
   const items: MenuItem[] = [
     { label: "Context item", icon: ICONS.plus, to: "/library/new" },
-    { label: "Release preview", icon: ICONS.play, to: "/changes" },
+    { label: "Release preview", icon: ICONS.play, to: "/releases" },
   ];
   if (curation.allowed) items.push({ label: "Curation run", icon: ICONS.pulse, onSelect: () => curation.run.mutate(), disabled: curation.run.isPending });
   return (

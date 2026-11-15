@@ -84,7 +84,7 @@ A pull request preview never changes what agents are served or what curators are
 - Changed files get new versions that are **not** made current, so the Library, Changes and the
   published release stay as they were. Files new in the pull request are hidden from the Library
   until the merge. Deleted files are left out of the preview.
-- The preview shows on the Changes page (the comment links it) with its test box and the gate,
+- The preview shows under **Releases > Changes** (the comment links it) with its test box and the gate,
   but without a **Publish** button: it is published by merging the pull request. When the merge
   is imported, the versions the preview created are reused, so the published content is exactly
   what the gate measured.
