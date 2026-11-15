@@ -51,7 +51,7 @@ npm run gen:api      # regenerate src/api/schema.d.ts after `satchel openapi -o 
 
 The MCP Apps result widget lives in `ui-widgets/` (TypeScript + esbuild). `cd ui-widgets && npm ci && npm run build` writes the committed single-file `server/satchel/resources/widgets/result.html`; `npm run check` (CI) fails when it is stale and `npm run test:e2e` drives it headlessly with a fake host.
 
-Sign-in: without any setting the UI redirects to `/auth/login` (OIDC session cookie, CSRF handled). For local work without an IdP, run the API with `SATCHEL_DEV_AUTH=1` and start the UI with `VITE_DEV_AUTH=1` (optionally `VITE_DEV_WORKSPACE` and `VITE_DEV_USER`, a user UUID); it then asks for a workspace slug and user id and sends the dev headers.
+Sign-in: without any setting the UI sends people to the sign-in page at `/auth/login` (OIDC session cookie, CSRF handled). For local work without an IdP, run the API with `SATCHEL_DEV_AUTH=1` and start the UI with `VITE_DEV_AUTH=1` (optionally `VITE_DEV_WORKSPACE` and `VITE_DEV_USER`, a user UUID); it then asks for a workspace slug and user id and sends the dev headers.
 
 ## Curation loop
 
