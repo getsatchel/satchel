@@ -59,6 +59,8 @@ function renderTable(): void {
   thead.append(head);
   grid.append(thead);
   const ordered = sort ? sortRows(rows, sort.col, sort.dir) : rows;
+  // A number column without units shows one number of decimals, so the figures line up.
+  const decimals = data.columns.map((c, i) => (c.kind === "number" && !data?.formats?.[c.name] ? colDecimals(rows, i) : null));
   const visible = showAll ? ordered : ordered.slice(0, SHOWN);
   const body = el("tbody");
   for (const r of visible) {
@@ -66,7 +68,10 @@ function renderTable(): void {
     data.columns.forEach((c, i) => {
       const v = r[i] ?? null;
       // A midnight timestamp is a date (month or day buckets): show it as one.
-      const shown = c.kind === "time" && typeof v === "string" ? v.replace(/T00:00:00(\.0+)?(Z|\+00:00)?$/, "") : fmtValue(v, data?.formats?.[c.name]);
+      const dec = decimals[i];
+      const shown = c.kind === "time" && typeof v === "string" ? v.replace(/T00:00:00(\.0+)?(Z|\+00:00)?$/, "")
+        : dec != null && typeof v === "number" ? v.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec })
+        : fmtValue(v, data?.formats?.[c.name]);
       const td = el("td", shown, c.kind === "number" ? "num" : v === null ? "null" : "");
       if (v === null) td.textContent = "∅";
       tr.append(td);
@@ -87,6 +92,11 @@ function renderTable(): void {
   const btn = $<HTMLButtonElement>("more-btn");
   btn.textContent = hiddenLoaded > 0 ? "Show loaded rows" : "Load more rows";
   btn.hidden = false;
+}
+
+/** 0 when every loaded value is whole, else 2. */
+function colDecimals(rs: Cell[][], i: number): number {
+  return rs.some((r) => typeof r[i] === "number" && !Number.isInteger(r[i])) ? 2 : 0;
 }
 
 function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>): SVGElementTagNameMap[K] {

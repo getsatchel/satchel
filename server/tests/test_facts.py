@@ -63,7 +63,7 @@ def test_no_rows_single_row_and_bad_cells() -> None:
 
 
 def test_fmt_number() -> None:
-    assert fmt_number(1234.5) == "1,234.5"
+    assert fmt_number(1234.5) == "1,234.50" and fmt_number(19.5) == "19.5"
     assert fmt_number(19.4166) == "19.42"
     assert fmt_number(-3.5, {"style": "currency", "currency": "EUR"}) == "-€3.50"
     assert fmt_number(12, {"style": "percent"}) == "12%"

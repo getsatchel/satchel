@@ -143,7 +143,16 @@ uv run satchel serve api --port 8080 &
 
 ## 6. Result widgets (MCP Apps)
 
-When Claude runs `run_sql`, `query_metrics` or pages a result, supporting clients render an interactive widget in the conversation instead of (only) a text table:
+Supporting clients show Satchel's results as cards in the conversation, in Satchel's own look. A question ends
+with one **answer card** from `report_answer`: the agent's headline and key points, the results as tabs, the
+facts Satchel computed from the rows, caveats and the steps taken. Each `run_sql` or `query_metrics` call before it
+shows as a one-line card that opens with **Show result**. The full description is in the
+[MCP tools reference](../reference/mcp-tools.md#cards-in-claude-and-other-mcp-apps-hosts).
+
+<!-- site: AnswerCardShot -->
+![A question in the Jaffle Shop demo: two collapsed query cards, then the answer card](../screenshots/answer-card-light.png)
+
+A result inside a card shows:
 
 - a single-value result (one row, 1 to 3 numbers) as a big **number tile** with a "Show as table" toggle; anything else is a sortable table (first 50 rows, "N more", **Load more rows**);
 - the filters and time range of a metric query as chips under the title (for example `order_date: 2025-01-01 → 2025-12-31`, `status ≠ returned`), so a person can judge "was this right?";

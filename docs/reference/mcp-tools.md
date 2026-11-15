@@ -64,6 +64,9 @@ If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics
 with Satchel's mark, colours and type so it looks like the web UI. Clients without the extension get the same
 answer as text.
 
+<!-- site: AnswerCardShot -->
+![A question in the Jaffle Shop demo: two collapsed query cards, then the answer card](../screenshots/answer-card-light.png)
+
 - **Answer card** (`report_answer`). The question, the agent's `headline` (or `answer_summary`) and up to five
   `key_points`, then the question's results as tabs: the ones listed in `result_ids`, most important first, or
   by default the question's results that returned rows (up to four). Each tab has its chart, table, SQL and

@@ -60,7 +60,9 @@ def fmt_number(v: float, f: dict[str, Any] | None = None) -> str:
     """Like the widget's fmtValue: units only when the server knows them."""
     dec = f.get("decimals") if f else None
     style = f.get("style") if f else None
-    trim = dec is None and style != "currency"
+    # Non-whole numbers get two decimals, so 3,258.20 sits next to 1,671.55; only short
+    # values drop trailing zeros (19.5, not 19.50).
+    trim = dec is None and style != "currency" and abs(v) < 100
     if dec is None:
         dec = 2 if style == "currency" or not float(v).is_integer() else 0
     body = f"{v:,.{dec}f}"
