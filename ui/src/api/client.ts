@@ -125,5 +125,5 @@ export async function logout(): Promise<void> {
     credentials: "same-origin",
     headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
   }).catch(() => undefined);
-  location.assign("/auth/login");
+  location.assign("/auth/login?signed_out=1");
 }
