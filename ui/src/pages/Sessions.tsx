@@ -165,7 +165,7 @@ function SessionList() {
             ]}
           />
         )}
-        <div className="grid min-w-0 flex-1 grid-cols-2 items-center gap-2 sm:flex sm:flex-none sm:flex-wrap">
+        <div className="grid w-full min-w-0 grid-cols-2 items-center gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <FilterSelect label="Client" value={client} onChange={(v) => set("client", v)} options={clients} />
           <FilterSelect label="Status" value={status} onChange={(v) => set("status", v)} options={statuses} />
         </div>

@@ -242,7 +242,7 @@ function NeedsReview() {
                     <StatusLine tone={r.tone} state={r.kind} time={timeAgo(r.at)} title={fullTime(r.at)} />
                     <div className="mt-1 truncate text-sm font-medium [overflow-wrap:anywhere]">{r.title}</div>
                     {r.detail && <div className="truncate text-sm text-muted">{r.detail}</div>}
-                    {r.meta && <div className="mt-0.5 font-mono text-xs text-muted/80">{r.meta}</div>}
+                    {r.meta && <div className="mt-0.5 font-mono text-xs text-muted">{r.meta}</div>}
                   </div>
                   <Icon d={ICONS.chevron} size={14} className="mt-1 text-muted/60 group-hover:text-ink" />
                 </Link>

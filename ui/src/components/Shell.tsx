@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
@@ -36,12 +36,15 @@ function initials(s: string | null | undefined) {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
-function SearchRow() {
+function SearchRow({ onOpen }: { onOpen: () => void }) {
   const open = useCommandPalette();
   return (
     <button
       type="button"
-      onClick={open}
+      onClick={() => {
+        onOpen();
+        open();
+      }}
       className="flex h-10 w-full items-center gap-3 rounded-md border border-line bg-surface px-2.5 text-sm text-muted transition-colors hover:border-ink/20 hover:text-ink md:h-9"
       aria-label="Search pages and actions"
       aria-keyshortcuts="Meta+K Control+K"
@@ -62,16 +65,39 @@ function ShellBody() {
   const nav = navFor(m?.role);
   const here = pagesFor(m?.role).find((n) => !n.to.includes("?") && loc.pathname.startsWith(n.to));
 
+  const openBtn = useRef<HTMLButtonElement>(null);
+  const closeBtn = useRef<HTMLButtonElement>(null);
+  const drawer = useRef<HTMLElement>(null);
+
   useEffect(() => setMenu(false), [loc.pathname]);
+  // The phone drawer is modal: focus moves in, Tab stays inside, Escape closes it and focus goes
+  // back to the menu button (unless a link inside moved it to a new page).
   useEffect(() => {
     if (!menu) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
+    closeBtn.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(false);
+      if (e.key !== "Tab" || !drawer.current) return;
+      const els = [...drawer.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")].filter((el) => el.offsetParent !== null);
+      const first = els[0];
+      const last = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const opener = openBtn.current;
+    const panel = drawer.current;
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      if (!document.activeElement || document.activeElement === document.body || panel?.contains(document.activeElement)) opener?.focus();
     };
   }, [menu]);
 
@@ -98,7 +124,7 @@ function ShellBody() {
 
       <div className="flex min-h-0 flex-1 flex-col bg-bg md:flex-row md:overflow-hidden md:rounded-2xl md:border md:border-line md:shadow-panel">
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-bg px-3 pt-[env(safe-area-inset-top)] md:hidden">
-          <button className="btn btn-ghost px-2" onClick={() => setMenu(true)} aria-label="Open navigation" aria-expanded={menu} aria-controls="sidenav">
+          <button ref={openBtn} className="btn btn-ghost px-2.5" onClick={() => setMenu(true)} aria-label="Open navigation" aria-expanded={menu} aria-controls="sidenav">
             <Icon d="M4 6h16M4 12h16M4 18h16" size={18} />
           </button>
           <Logo />
@@ -108,14 +134,16 @@ function ShellBody() {
         {menu && <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setMenu(false)} aria-hidden />}
 
         <aside
+          ref={drawer}
           id="sidenav"
+          aria-label="Navigation"
           className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-bg transition-transform duration-200 md:static md:w-60 md:shrink-0 md:translate-x-0 md:border-r md:border-line/70 md:transition-none lg:w-64 ${
             menu ? "translate-x-0 shadow-xl" : "invisible -translate-x-full md:visible"
           }`}
         >
           <div className="flex h-16 shrink-0 items-center justify-between px-5 pt-[env(safe-area-inset-top)] md:pt-0">
             <Logo />
-            <button className="btn btn-ghost px-2 md:hidden" onClick={() => setMenu(false)} aria-label="Close navigation">
+            <button ref={closeBtn} className="btn btn-ghost px-2.5 md:hidden" onClick={() => setMenu(false)} aria-label="Close navigation">
               <Icon d={ICONS.close} size={16} strokeWidth={2} />
             </button>
           </div>
@@ -128,7 +156,8 @@ function ShellBody() {
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{m?.workspace_name ?? "..."}</span>
               {m?.auth === "dev" && <span className="badge badge-warn">dev auth</span>}
             </div>
-            <SearchRow />
+            {/* The palette replaces the phone drawer rather than stacking on it. */}
+            <SearchRow onOpen={() => setMenu(false)} />
           </div>
 
           <nav aria-label="Main" className="flex flex-1 flex-col overflow-y-auto px-3 pb-1 pt-1">
@@ -190,7 +219,7 @@ function ShellBody() {
           </div>
         </aside>
 
-        <main id="main" className="min-w-0 flex-1 overflow-auto">
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-auto outline-none">
           <div className="mx-auto max-w-[1280px] px-4 py-5 sm:px-6 md:px-8 md:py-7 lg:px-10">
             <Outlet />
           </div>

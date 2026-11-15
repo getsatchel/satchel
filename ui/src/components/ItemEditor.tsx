@@ -47,7 +47,7 @@ export function ItemEditor(props: {
         />
       </div>
       <div>
-        <button className="inline-flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink" onClick={() => setShowMeta((s) => !s)} aria-expanded={showMeta}>
+        <button type="button" className="inline-flex min-h-10 items-center gap-1.5 text-xs font-medium text-muted hover:text-ink sm:min-h-0" onClick={() => setShowMeta((s) => !s)} aria-expanded={showMeta}>
           <Chevron open={showMeta} />
           Metadata (JSON)
         </button>

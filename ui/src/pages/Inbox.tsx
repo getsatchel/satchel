@@ -81,7 +81,7 @@ function ProposalsView() {
                     <KeyLines itemKey={p.key} />
                   </div>
                   {p.rationale && <div className="line-clamp-2 text-sm text-muted">{p.rationale}</div>}
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-xs text-muted/80">
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-xs text-muted">
                     <TypeBadge type={p.type} />
                     {p.proposed_by_label && <span>from {p.proposed_by_label}</span>}
                   </div>

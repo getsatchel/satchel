@@ -107,7 +107,7 @@ export function JobsSection() {
                       {KIND[j.kind] ?? <span className="font-mono">{j.kind}</span>}
                       {j.subject && <span className="font-mono text-muted"> · {j.subject}</span>}
                     </div>
-                    <div className="mt-0.5 font-mono text-xs text-muted/80">
+                    <div className="mt-0.5 font-mono text-xs text-muted">
                       #{j.id}
                       {j.trigger && ` · ${j.trigger}`}
                       {j.attempts > 1 && ` · attempt ${j.attempts} of ${j.max_attempts}`}

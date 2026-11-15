@@ -343,62 +343,67 @@ function ConnectionsTable(props: {
   });
   return (
     <TableCard>
-      <table className="w-full text-sm">
-        <thead>
-          <tr>
-            <th className="th w-full">Name</th>
-            <th className="th w-px whitespace-nowrap">Provider</th>
-            <th className="th hidden w-px whitespace-nowrap md:table-cell">Model</th>
-            <th className="th hidden w-px whitespace-nowrap sm:table-cell">Key</th>
-            <th className="th hidden w-px whitespace-nowrap lg:table-cell">Updated</th>
-            {props.admin && <th className="th w-px"><span className="sr-only">Actions</span></th>}
-          </tr>
-        </thead>
-        <tbody>
-          {props.rows.map((c) => {
-            const r = results[c.id];
-            return (
-              <tr key={c.id} className="border-t border-line">
-                <td className="td">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{c.name}</span>
-                    {c.is_default && (props.overridden ? <span className="badge" title="The deployment provider is used instead">default (overridden)</span> : <span className="badge badge-good">default</span>)}
-                    {r && <StatusDot tone={r.ok ? "good" : "bad"}>{r.ok ? "ok" : "failed"}</StatusDot>}
-                  </div>
-                  {c.base_url && <div className="mt-0.5 font-mono text-xs text-muted [overflow-wrap:anywhere]">{c.base_url}</div>}
+      <thead>
+        <tr>
+          <th className="th w-full">Name</th>
+          <th className="th hidden w-px whitespace-nowrap sm:table-cell">Provider</th>
+          <th className="th hidden w-px whitespace-nowrap md:table-cell">Model</th>
+          <th className="th hidden w-px whitespace-nowrap sm:table-cell">Key</th>
+          <th className="th hidden w-px whitespace-nowrap lg:table-cell">Updated</th>
+          {props.admin && <th className="th hidden w-px md:table-cell"><span className="sr-only">Actions</span></th>}
+        </tr>
+      </thead>
+      <tbody>
+        {props.rows.map((c) => {
+          const r = results[c.id];
+          // Below `md` the actions fold under the name.
+          const actions = (
+            <>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => test.mutate(c)} disabled={test.isPending && test.variables?.id === c.id}>
+                {test.isPending && test.variables?.id === c.id ? "Testing..." : "Test"}
+              </button>
+              {!c.is_default && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => makeDefault.mutate(c)}>
+                  Make default
+                </button>
+              )}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => props.onEdit(c)}>
+                Edit
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => props.onDelete(c)} aria-label={`Delete ${c.name}`}>
+                Delete
+              </button>
+            </>
+          );
+          return (
+            <tr key={c.id} className="border-t border-line">
+              <td className="td">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{c.name}</span>
+                  <span className="text-xs text-muted sm:hidden">{PROVIDER_LABEL[c.provider as Provider] ?? c.provider}</span>
+                  {c.is_default && (props.overridden ? <span className="badge" title="The deployment provider is used instead">default (overridden)</span> : <span className="badge badge-good">default</span>)}
+                  {r && <StatusDot tone={r.ok ? "good" : "bad"}>{r.ok ? "ok" : "failed"}</StatusDot>}
+                </div>
+                {c.base_url && <div className="mt-0.5 font-mono text-xs text-muted [overflow-wrap:anywhere]">{c.base_url}</div>}
+                {c.default_model && <div className="mt-0.5 font-mono text-xs text-muted [overflow-wrap:anywhere] md:hidden">{c.default_model}</div>}
+                {props.admin && <div className="-ml-2 mt-1.5 flex flex-wrap gap-1 md:hidden">{actions}</div>}
+              </td>
+              <td className="td hidden whitespace-nowrap sm:table-cell">{PROVIDER_LABEL[c.provider as Provider] ?? c.provider}</td>
+              <td className="td hidden whitespace-nowrap font-mono text-xs md:table-cell">{c.default_model ?? "–"}</td>
+              <td className="td hidden whitespace-nowrap font-mono text-xs sm:table-cell">
+                {c.has_api_key ? c.api_key_hint : "–"}
+                {c.extra_header_names.length > 0 && <span className="ml-1 text-muted" title={c.extra_header_names.join(", ")}>+{c.extra_header_names.length} hdr</span>}
+              </td>
+              <td className="td hidden whitespace-nowrap text-xs text-muted lg:table-cell" title={fullTime(c.updated_at)}>{timeAgo(c.updated_at)}</td>
+              {props.admin && (
+                <td className="td hidden whitespace-nowrap md:table-cell">
+                  <div className="flex justify-end gap-1">{actions}</div>
                 </td>
-                <td className="td whitespace-nowrap">{PROVIDER_LABEL[c.provider as Provider] ?? c.provider}</td>
-                <td className="td hidden whitespace-nowrap font-mono text-xs md:table-cell">{c.default_model ?? "–"}</td>
-                <td className="td hidden whitespace-nowrap font-mono text-xs sm:table-cell">
-                  {c.has_api_key ? c.api_key_hint : "–"}
-                  {c.extra_header_names.length > 0 && <span className="ml-1 text-muted" title={c.extra_header_names.join(", ")}>+{c.extra_header_names.length} hdr</span>}
-                </td>
-                <td className="td hidden whitespace-nowrap text-xs text-muted lg:table-cell" title={fullTime(c.updated_at)}>{timeAgo(c.updated_at)}</td>
-                {props.admin && (
-                  <td className="td whitespace-nowrap">
-                    <div className="flex justify-end gap-1">
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => test.mutate(c)} disabled={test.isPending && test.variables?.id === c.id}>
-                        {test.isPending && test.variables?.id === c.id ? "Testing..." : "Test"}
-                      </button>
-                      {!c.is_default && (
-                        <button type="button" className="btn btn-ghost btn-sm hidden sm:inline-flex" onClick={() => makeDefault.mutate(c)}>
-                          Make default
-                        </button>
-                      )}
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => props.onEdit(c)}>
-                        Edit
-                      </button>
-                      <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => props.onDelete(c)} aria-label={`Delete ${c.name}`}>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
     </TableCard>
   );
 }

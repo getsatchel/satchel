@@ -17,7 +17,7 @@ export function CodeEditor(props: {
 }) {
   const [theme] = useTheme();
   return (
-    <div className="overflow-hidden rounded border border-line" aria-label={props.label}>
+    <div role="group" className="overflow-hidden rounded border border-line" aria-label={props.label}>
       <Suspense fallback={<Loading label="Loading editor" />}>
         <MonacoEditor {...props} dark={theme === "dark"} />
       </Suspense>
@@ -34,7 +34,7 @@ export function CodeDiff(props: {
 }) {
   const [theme] = useTheme();
   return (
-    <div className="overflow-hidden rounded border border-line" aria-label={props.label}>
+    <div role="group" className="overflow-hidden rounded border border-line" aria-label={props.label}>
       <Suspense fallback={<Loading label="Loading diff" />}>
         <MonacoDiff {...props} dark={theme === "dark"} />
       </Suspense>

@@ -118,6 +118,7 @@ function Suites() {
                   {role >= RANK.analyst && (
                     <button
                       className="btn btn-sm"
+                      aria-label={`Run ${s.key}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         setRunning(s);
