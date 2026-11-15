@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { GitTestOut, SourceKindOut, SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { DOCS_URL } from "@/components/nav";
+import { docsUrl } from "@/components/nav";
 import { ErrorBox, InfoTip, Modal, Notice, Segmented, StatusDot } from "@/components/ui";
 import { errMsg } from "@/lib/format";
 
@@ -263,7 +263,7 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
             )}
             {wizard && DOC_PAGES.has(kind) && (
               <p className="mt-1 text-xs text-muted">
-                <a className="text-accent hover:underline" href={`${DOCS_URL}/integrations/${kind}.md`} target="_blank" rel="noreferrer">
+                <a className="text-accent hover:underline" href={docsUrl(`integrations/${kind}`)} target="_blank" rel="noreferrer">
                   Setup guide
                 </a>
               </p>

@@ -6,13 +6,13 @@ Bring your own agent (Claude, Claude Code, Cursor, ChatGPT, Codex) and connect i
 
 - It serves curated, versioned, permissioned context about your data: guides, glossary, metrics, golden queries, table docs and endorsements.
 - It learns from how agents use that context. It records tool traces, the gaps agents flag, and user feedback.
-- It turns those signals into suggestions that analysts review, then evaluates each change before it is published.
+- It turns those signals into suggestions that curators review, then evaluates each change before it is published.
 
 The semantic SQL engine (wren-core) and notebooks (marimo) are reused open-source projects. Satchel builds the part nobody ships: shared context, a feedback loop, and curation.
 
 **Status:** pre-alpha. Not ready for production use.
 
-- Documentation: [`docs/README.md`](docs/README.md)
+- Documentation: https://getsatchel.dev (the source is [`docs/`](docs/README.md))
 - Architecture: [`docs/architecture/system.md`](docs/architecture/system.md)
 
 ## Quickstart
@@ -38,7 +38,7 @@ More screenshots (light and dark) are in [`docs/screenshots/`](docs/screenshots/
 
 ## Curator UI
 
-The UI (`ui/`: React 18, TypeScript, Vite, TanStack Query, Tailwind, Monaco, Recharts) talks to the REST API in `/v1`. `satchel serve api` serves the built UI at `/` when `ui/dist` exists (override with `SATCHEL_UI_DIR`).
+The UI (`ui/`: React 18, TypeScript, Vite, TanStack Query, Tailwind, Monaco, Recharts) talks to the REST API in `/v1`. `satchel serve api` serves the built UI at `/` when `ui/dist` exists (override with `SATCHEL_UI_DIR`). What it shows depends on the member's role: explorers and analysts get Home, Library, Catalog and Sessions; curators and admins get the full curation UI ([roles](docs/concepts/how-it-works.md#roles)).
 
 ```bash
 cd ui

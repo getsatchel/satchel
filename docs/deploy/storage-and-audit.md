@@ -67,9 +67,9 @@ that is already gone does not block deleting the row. The command exits 1 if any
 | `release.publish`, `release.rollback`, `release.publish_override` | curator API |
 | `proposal.accept`, `proposal.reject`, `suggestion.*` | curator API |
 | `curate.run` | **Run curation** (`POST /v1/curate/run`, admin) or the worker's pass; a queued run has `job_id` and the admin who asked as actor, a scheduled one no actor |
-| `job.retry` | **Retry** on the Jobs page (`POST /v1/jobs/{id}/retry`, curator), with `job_id` and `kind` |
+| `job.retry` | **Retry** under **Settings > Jobs** (`POST /v1/jobs/{id}/retry`, curator), with `job_id` and `kind` |
 | `eval.suite.save`, `eval.run.start`, `eval.gate.start` | evals API; scheduled runs write `eval.run.start` from the worker (`trigger: schedule`, no actor) |
-| `session.sensitive` | observability API |
+| `session.sensitive` | An admin marks a session sensitive or not in the session inspector (`POST /v1/sessions/{id}/sensitive`) |
 | `source.queue_sync` | **Sync now** / `POST /v1/sources/{id}/sync` without files: the sync was queued (`job_id`); the `source.sync` event follows when it runs, with the same actor |
 | `source.sync` | sources API (`trigger: manual`), worker schedule and push webhook (`trigger: schedule` / `webhook`, no actor; webhook adds `provider`, `ref`, `delivery`; failed automatic syncs have `status: error`) |
 | `sync.preview`, `sync.import` | context repo uploads (`POST /v1/sync/preview`, `POST /v1/sync/import`, e.g. the GitHub Action), with the git `ref` |

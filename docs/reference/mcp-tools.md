@@ -1,9 +1,13 @@
 # MCP tools
 
 Served at `/mcp` (streamable HTTP; PAT or OAuth) or over stdio (`satchel mcp stdio`). Tool visibility is per
-principal and workspace; the data tools only appear when the workspace has a connection. Every call after
-`start_analysis` carries the `session_id` it returns. When an agent reuses a session for a follow-up question, Satchel
-starts a new turn inside it (see [How it works](../concepts/how-it-works.md#a-typical-agent-session)).
+principal and workspace; the data tools only appear when the workspace has a connection. Every member can use every
+tool except `propose_context_change`, which needs the analyst role or above ([roles](../concepts/how-it-works.md#roles)).
+
+Every call after `start_analysis` carries the `session_id` it returns, and the user's question. When an agent reuses a
+session for a follow-up question, Satchel starts a new question (turn) inside it: after `report_answer`, any call with a
+different question starts one. Signals, feedback and proposals record the question they belong to, so curation and the
+Inbox treat each question on its own (see [How it works](../concepts/how-it-works.md#questions-within-a-session)).
 
 The authoritative schemas are in `server/satchel/tools/definitions.py`; clients receive them via `tools/list`.
 
@@ -49,8 +53,8 @@ agent instructions and the suggestion engine never drafts them.
 | Tool | Purpose |
 |---|---|
 | `flag_context_gap` | A term or metric was undefined, ambiguous or conflicting. |
-| `record_user_feedback` | The user doubted, corrected or praised an answer. |
-| `propose_context_change` | Propose a new or changed item. Never publishes; goes to the Inbox. Agent instructions cannot be proposed. |
+| `record_user_feedback` | The user doubted, corrected or praised an answer. Recorded against the question being answered. |
+| `propose_context_change` | Analyst role and above. Propose a new or changed item. Never publishes; goes to the Inbox with the question it came from. Agent instructions cannot be proposed. |
 | `rate_result` | App-only: the result widget's 👍/👎 (`source=human`). |
 
 If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics` and `get_result` also return

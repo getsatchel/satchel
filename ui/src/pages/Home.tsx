@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { AssetNode } from "@/api/types";
 import { CopyField } from "@/components/CopyField";
-import { DOCS_URL } from "@/components/nav";
+import { docsUrl } from "@/components/nav";
 import { CardFooter, CardHeader, ErrorBox, Icon, ICONS, PageHeader, PillButton, SectionHeading, StatCell, StatGrid, StatusDot, type Tone } from "@/components/ui";
 import { fullTime, timeAgo } from "@/lib/format";
 import { useRole } from "@/lib/role";
@@ -110,7 +110,7 @@ function ConnectAgent({ compact }: { compact: boolean }) {
           </div>
         </div>
         <CardFooter>
-          <a className="btn-pill" href={`${DOCS_URL}/integrations/claude.md`} target="_blank" rel="noreferrer">
+          <a className="btn-pill" href={docsUrl("integrations/claude")} target="_blank" rel="noreferrer">
             Setup guide
             <Icon d={ICONS.external} size={12} strokeWidth={2.2} />
           </a>

@@ -74,7 +74,7 @@ Each tone has a `-soft` background for badges and error boxes.
 ## Frame and navigation
 
 - **Frame.** From `md` the app is one rounded panel on the flat `backdrop`, with a 12 to 16px margin. Below `md` it is full-bleed with a 48px top bar and a slide-in drawer.
-- **Sidebar.** Wordmark, workspace row, Search (`⌘K`), Dashboard, then the groups. Each group has a short coloured dash and a caps label. Bottom: Docs ↗ (`DOCS_URL` in `src/components/nav.ts`) and the account row (menu: theme, sign out).
+- **Sidebar.** Wordmark, workspace row, Search (`⌘K`), Dashboard, then the groups. Each group has a short coloured dash and a caps label. Bottom: Docs ↗ (`docsUrl()` in `src/components/nav.ts`: the documentation site, https://getsatchel.dev; link a page with `docsUrl("integrations/claude")`, never the GitHub repository) and the account row (menu: theme, sign out).
 - **Active nav row:** surface fill, hairline ring, 2px accent bar, accent icon.
 
 | Group | Pages |

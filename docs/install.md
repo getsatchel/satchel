@@ -63,7 +63,9 @@ satchel down --all      # also stop satchel's Postgres (data is kept)
 satchel down --purge    # ... and delete its data volume, after asking
 ```
 
-`satchel up` offers to upgrade an out-of-date database (`--yes` to skip the question). The UI is served when a built `ui/dist` exists (a repo checkout; an installed tool serves REST and MCP only).
+`satchel up` offers to upgrade an out-of-date database (`--yes` to skip the question). It serves the web UI at http://localhost:8080 (the PyPI package includes it; a git install or a checkout serves `ui/dist` once you have built it).
+
+**Signing in to the UI** needs an identity provider: set the `SATCHEL_OIDC_*` variables, or run the local Dex identity provider ([Connecting Claude: local end-to-end with Dex](integrations/claude.md#local-end-to-end-with-dex)). Without one, the sign-in page says which settings are missing. Agents and the CLI do not need it: they use tokens. To look around without an identity provider, run `scripts/demo.sh` from a checkout, which signs you in with development headers on localhost only. Once people can sign in, invite them under **Settings > Members**; what each role can do is in [How Satchel works: roles](concepts/how-it-works.md#roles).
 
 ## 4. Connect a client
 

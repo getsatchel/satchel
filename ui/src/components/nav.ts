@@ -1,8 +1,16 @@
 import { ICONS } from "@/components/ui";
 import { atLeast, type Role } from "@/lib/role";
 
-/** Where the sidebar's "Docs" link points. */
-export const DOCS_URL = "https://github.com/getsatchel/satchel/tree/main/docs";
+/** The documentation site. Its pages are the repository's `docs/` folder, at `#/docs/<page>`. */
+export const DOCS_SITE = "https://getsatchel.dev";
+
+/**
+ * A page of the documentation site: the path of a file under `docs/` without `.md`
+ * (`integrations/claude` for docs/integrations/claude.md). No page: the docs overview.
+ */
+export function docsUrl(page = "overview"): string {
+  return `${DOCS_SITE}/#/docs/${page}`;
+}
 
 export interface NavItem {
   to: string;

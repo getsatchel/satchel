@@ -12,7 +12,7 @@ deployment path.
 | **migrate Job** (`satchel db upgrade`) | yes | Runs before each release. Optionally runs `satchel db bootstrap` first. |
 | **Postgres 17 + pgvector** | yes | The only required dependency. The app connects as a non-superuser role so RLS applies. |
 | **Object store** (GCS or S3) | optional | Result cache (Parquet) and audit exports. A local directory works for one replica. |
-| **OIDC identity provider** | production | Okta, Google, Entra, Dex. `SATCHEL_DEV_AUTH` is for localhost only. |
+| **OIDC identity provider** | production | Okta, Google, Entra, Amazon Cognito, Keycloak, Dex. People sign in to the UI and connect agents through it. `SATCHEL_DEV_AUTH` is for localhost only. |
 | **LLM / embedding APIs** | optional | Needed to draft suggestions. Embeddings default to local `fastembed`. |
 
 ## Deployment options
@@ -49,6 +49,7 @@ deployment path.
 - [ ] Result store on GCS or S3 if running more than one replica ([Storage](../deploy/storage-and-audit.md)).
 - [ ] Audit export scheduled (`satchel audit export`).
 - [ ] Postgres backups and a tested restore ([Operations](operations.md)).
+- [ ] Sign-in works, and the first admin has invited the team under **Settings > Members** with the right [roles](../concepts/how-it-works.md#roles). Decide whether people who were not invited are refused (the default) or join as explorers.
 - [ ] `satchel doctor` clean.
 
 ## Configuration model
