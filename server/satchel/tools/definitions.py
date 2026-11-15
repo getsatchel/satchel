@@ -6,6 +6,7 @@ from __future__ import annotations
 import difflib
 import re
 import uuid
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -90,6 +91,9 @@ class DescribeArgs(_Base):
     session_id: str = Field(description=_SID)
     question: str = Field(description=_Q)
     table: str = Field(min_length=1, description="Table name, e.g. analytics.orders")
+    connection: str | None = Field(
+        default=None, description="Connection name, only when the table is on several"
+    )
 
 
 class ReportArgs(_Base):
@@ -324,6 +328,41 @@ def _table_docs(
     return [(a, *(docs.get(a.id) or (None, None))) for a in assets]
 
 
+@dataclass
+class _Table:
+    """One table as agents see it. ``asset`` has the live columns (the connected asset when
+    there is one); the doc may sit on another asset of the same name, ``doc_asset``."""
+
+    asset: Asset
+    item: ContextItem | None
+    ver: ContextVersion | None
+    doc_asset: Asset | None
+
+
+def _tables(s: OrmSession, wid: uuid.UUID, release_id: uuid.UUID | None = None) -> list[_Table]:
+    """Table assets with the same name are one table. A doc imported or synced without a
+    connection (context imported before the connection was added, a dbt or Cube source with no
+    connection) sits on its own asset; it describes the connected table of that name, so it is
+    merged into it. Only tables on different connections stay apart."""
+    groups: dict[str, list[tuple[Asset, ContextItem | None, ContextVersion | None]]] = {}
+    for row in _table_docs(s, wid, release_id):
+        groups.setdefault(row[0].fqn.lower(), []).append(row)
+    out: list[_Table] = []
+    for rows in groups.values():
+        bound = [r for r in rows if r[0].connection_id is not None]
+        loose = [r for r in rows if r[0].connection_id is None]
+        shared = next((r for r in loose if r[2] is not None), None)
+        if not bound:
+            best = shared or loose[0]
+            out.append(_Table(best[0], best[1], best[2], best[0] if best[2] else None))
+            continue
+        for asset, item, ver in bound:
+            own = (asset, item, ver) if ver is not None else shared
+            out.append(_Table(asset, own[1] if own else None, own[2] if own else None,
+                              own[0] if own else None))
+    return out
+
+
 def _doc(ver: ContextVersion | None) -> dict[str, Any]:
     if ver is None:
         return {}
@@ -332,15 +371,12 @@ def _doc(ver: ContextVersion | None) -> dict[str, Any]:
 
 def list_tables(c: Call) -> dict[str, Any]:
     a: ListArgs = c.args
-    rows = _table_docs(c.s, c.ctx.principal.workspace_id, c.ctx.release_id)
-    conn_names = {}
-    if rows:
-        from satchel.store.models import Connection
-
-        conn_names = {x.id: x.name for x in c.s.scalars(select(Connection))}
+    tables = _tables(c.s, c.ctx.principal.workspace_id, c.ctx.release_id)
+    conn_names = _conn_names(c.s) if tables else {}
     out = []
     served: list[tuple[uuid.UUID, float | None]] = []
-    for asset, _item, ver in rows:
+    for t in tables:
+        asset, ver = t.asset, t.ver
         doc = _doc(ver)
         cname = conn_names.get(asset.connection_id) if asset.connection_id else None
         if a.connection and cname != a.connection:
@@ -365,24 +401,44 @@ def list_tables(c: Call) -> dict[str, Any]:
     return {"tables": out}
 
 
+def _conn_names(s: OrmSession) -> dict[uuid.UUID, str]:
+    from satchel.store.models import Connection
+
+    return {x.id: x.name for x in s.scalars(select(Connection))}
+
+
 def describe_table(c: Call) -> dict[str, Any]:
     a: DescribeArgs = c.args
-    rows = _table_docs(c.s, c.ctx.principal.workspace_id, c.ctx.release_id)
+    tables = _tables(c.s, c.ctx.principal.workspace_id, c.ctx.release_id)
+    conn_names = _conn_names(c.s)
+
+    def conn_of(t: _Table) -> str | None:
+        return conn_names.get(t.asset.connection_id) if t.asset.connection_id else None
+
+    if a.connection:
+        tables = [t for t in tables if conn_of(t) == a.connection]
     want = a.table.lower()
-    exact = [r for r in rows if r[0].fqn.lower() == want]
-    found = exact or [r for r in rows if r[0].fqn.lower().endswith("." + want)]
+    exact = [t for t in tables if t.asset.fqn.lower() == want]
+    found = exact or [t for t in tables if t.asset.fqn.lower().endswith("." + want)]
     if not found:
-        names = [r[0].fqn for r in rows]
+        names = sorted({t.asset.fqn for t in tables})
         close = difflib.get_close_matches(a.table, names, n=5, cutoff=0.3)
+        where = f" on connection {a.connection!r}" if a.connection else ""
         raise ToolUserError(
-            f"Unknown table {a.table!r}. Did you mean: {close or names[:10]}? "
+            f"Unknown table {a.table!r}{where}. Did you mean: {close or names[:10]}? "
             "Call list_tables to see documented tables."
         )
     if len(found) > 1:
-        raise ToolUserError(
-            f"Ambiguous table {a.table!r}: {[r[0].fqn for r in found]}. Use the full name."
-        )
-    asset, item, ver = found[0]
+        names = sorted({t.asset.fqn for t in found})
+        if len(names) == 1:
+            conns = sorted(str(conn_of(t)) for t in found)
+            raise ToolUserError(
+                f"Table {names[0]!r} is on several connections: {', '.join(conns)}. Pass "
+                "connection=<name> to say which."
+            )
+        raise ToolUserError(f"Ambiguous table {a.table!r}: {names}. Use the full name.")
+    t = found[0]
+    asset, item, ver = t.asset, t.item, t.ver
     doc = _doc(ver)
     served: list[tuple[uuid.UUID, float | None]] = []
     caveats = []
@@ -408,12 +464,13 @@ def describe_table(c: Call) -> dict[str, Any]:
     ]
     out: dict[str, Any] = {
         "table": asset.fqn,
+        "connection": conn_of(t),
         "tag": f"[ctx:{item.key}@v{ver.seq}]" if item and ver else None,
         "documented": ver is not None,
         "doc": doc,
         "caveats": caveats,
     }
-    group = _doc_groups(c.s, c.ctx.release_id).get(asset.id)
+    group = _doc_groups(c.s, c.ctx.release_id).get(t.doc_asset.id) if t.doc_asset else None
     if group is not None and group.overlapping:  # several sources describe it; this is the primary
         out["also_described_by"] = [describe(m.ref) for m in group.others]
         out["also_described_facts"] = fold_facts(group)
