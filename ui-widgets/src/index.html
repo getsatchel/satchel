@@ -3,30 +3,71 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>satchel result</title>
+<title>Satchel</title>
+<style>/*__FONTS__*/</style>
 <style>/*__CSS__*/</style>
 </head>
 <body>
 <div id="app" class="wrap" hidden>
-  <header class="head">
-    <div class="title" id="title"></div>
-    <div class="meta" id="meta"></div>
-    <button type="button" class="btn small" id="view-btn" hidden></button>
+  <header class="brand">
+    <svg class="mark" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M8.5 7V5.6A1.6 1.6 0 0 1 10.1 4h3.8a1.6 1.6 0 0 1 1.6 1.6V7" />
+      <path d="M3.5 9.2A2.2 2.2 0 0 1 5.7 7h12.6a2.2 2.2 0 0 1 2.2 2.2v8.6a2.2 2.2 0 0 1-2.2 2.2H5.7a2.2 2.2 0 0 1-2.2-2.2z" />
+      <path d="M3.5 9.5c0 2.2 1.6 3.7 3.8 3.7h9.4c2.2 0 3.8-1.5 3.8-3.7" />
+      <path d="M10.6 12.2h2.8v3.2h-2.8z" />
+    </svg>
+    <span class="word">Satchel</span>
+    <span class="kind" id="kind"></span>
+    <span class="conf" id="conf" hidden></span>
   </header>
-  <div class="chips" id="chips" aria-label="Filters and time range"></div>
-  <div id="kpi" class="kpi" hidden></div>
-  <div id="chart" class="chart" hidden></div>
-  <p id="none" class="none" hidden>No rows matched this query.</p>
-  <div class="tablewrap" id="tablewrap"><table id="grid"></table></div>
-  <div class="more" id="more" hidden>
-    <span id="more-text"></span>
-    <button type="button" id="more-btn" class="btn">Load more rows</button>
+
+  <section id="answer" class="answer" hidden aria-labelledby="headline">
+    <p class="question" id="question"></p>
+    <h2 class="headline" id="headline"></h2>
+    <ul class="points" id="points"></ul>
+  </section>
+
+  <div id="tabs" class="tabs" role="tablist" aria-label="Results" hidden></div>
+
+  <div id="result" role="tabpanel">
+    <div class="head" id="rhead">
+      <div class="title" id="title"></div>
+      <div class="meta" id="meta"></div>
+      <span class="spacer"></span>
+      <button type="button" class="btn small" id="view-btn" hidden></button>
+      <button type="button" class="btn small" id="toggle" aria-expanded="false" aria-controls="rbody" hidden>Show result</button>
+    </div>
+    <p class="glance" id="glance" hidden></p>
+    <div id="rbody" class="rbody">
+      <div class="chips" id="chips" aria-label="Filters and time range"></div>
+      <div id="kpi" class="kpi" hidden></div>
+      <div id="chart" class="chart" hidden></div>
+      <p id="none" class="none" hidden>No rows matched this query.</p>
+      <section id="factbox" class="facts" hidden aria-labelledby="facts-label">
+        <h3 class="caps" id="facts-label">What Satchel noticed</h3>
+        <ul id="facts"></ul>
+      </section>
+      <div class="tablewrap" id="tablewrap"><table id="grid"></table></div>
+      <div class="more" id="more" hidden>
+        <span id="more-text"></span>
+        <button type="button" id="more-btn" class="btn">Load more rows</button>
+      </div>
+      <details class="box" id="sqlbox">
+        <summary id="sql-summary">How this was calculated</summary>
+        <p class="qline" id="qline"></p>
+        <pre id="sql"></pre>
+        <details class="raw" id="rawbox"><summary>Raw metric query</summary><pre id="rawq"></pre></details>
+      </details>
+    </div>
   </div>
-  <details class="box" id="sqlbox">
-    <summary id="sql-summary">How this was calculated</summary>
-    <p class="qline" id="qline"></p>
-    <pre id="sql"></pre>
-    <details class="raw" id="rawbox"><summary>Raw metric query</summary><pre id="rawq"></pre></details>
+
+  <section id="caveats" class="caveats" hidden aria-labelledby="caveats-label">
+    <h3 class="caps warn" id="caveats-label">Caveats</h3>
+    <ul id="caveat-list"></ul>
+  </section>
+  <details class="box" id="steps" hidden>
+    <summary id="steps-summary">How this was answered</summary>
+    <ol class="steps" id="step-list"></ol>
   </details>
   <details class="box ctxbox" id="ctxbox" hidden>
     <summary id="ctx-summary">Context</summary>
@@ -51,7 +92,6 @@
       <button type="button" class="btn primary" id="wrong-send">Send</button>
     </div>
   </div>
-</div>
 </div>
 <div id="empty" class="empty">Waiting for the result&hellip;</div>
 <script>/*__JS__*/</script>

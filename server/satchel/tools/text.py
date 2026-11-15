@@ -50,7 +50,10 @@ D_DESCRIBE = (
 D_REPORT = (
     "REQUIRED final step of every analysis: record the answer you are about to give the user "
     "(summary, metrics used, tables used, confidence, caveats). Call it before replying to the "
-    "user, once per answer. Put any assumptions or missing definitions in caveats."
+    "user, once per answer. Put any assumptions or missing definitions in caveats. Clients that "
+    "show Satchel cards present it as the answer card: a headline, key points, the results you "
+    "list in result_ids as tabs, caveats and the steps you took, so give a headline that "
+    "answers the question and key points drawn from the results' facts."
 )
 D_GAP = (
     "Call this whenever the user's question uses a term, metric or concept that search/pack "
@@ -126,6 +129,17 @@ RESULT_MAYBE_SHOWN = (
     "If your client displays this result to the user as an interactive Satchel table, "
     + _NO_REPEAT
     + " Otherwise present the rows yourself."
+)
+
+_ANSWER_REPLY = (
+    "do NOT repeat its headline, points, numbers or caveats. Reply in two or three sentences "
+    "with what the card does not say: what it means for the user's decision, or a useful next "
+    "question."
+)
+ANSWER_SHOWN = "The user sees this answer as a Satchel answer card above your reply, so " + _ANSWER_REPLY
+ANSWER_MAYBE_SHOWN = (
+    "If your client shows this answer to the user as a Satchel answer card, "
+    + _ANSWER_REPLY + " Otherwise give the full answer yourself."
 )
 
 ERR_NO_SESSION = (
