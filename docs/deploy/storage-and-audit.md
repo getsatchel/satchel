@@ -75,8 +75,9 @@ that is already gone does not block deleting the row. The command exits 1 if any
 | `sync.preview`, `sync.import` | context repo uploads (`POST /v1/sync/preview`, `POST /v1/sync/import`, e.g. the GitHub Action), with the git `ref` |
 | `source.webhook.create`, `source.webhook.rotate`, `source.webhook.remove` | A source's page → Automation (never the secret) |
 | `token.create`, `token.revoke` | PAT creation / revocation (CLI, `satchel init`) |
-| `user.create`, `user.role_change`, `user.provision` | token / workspace bootstrap, OIDC auto-provisioning |
-| `workspace.create`, `workspace.auth.update` | workspace bootstrap, `satchel workspace auth` |
+| `user.create`, `user.role_change`, `user.provision` | token / workspace bootstrap, OIDC auto-provisioning; Settings → Members (`role_change` has `from` and `to`) |
+| `user.invite`, `user.uninvite`, `user.disable`, `user.enable` | Settings → Members: invite by email, remove an unused invite, deactivate, reactivate |
+| `workspace.create`, `workspace.auth.update` | workspace bootstrap, `satchel workspace auth`, Settings → Members → Sign-in (`via: ui`) |
 | `source.add`, `source.update`, `source.remove` | `satchel source add/remove`, Sources page (changed field names, never secret values) |
 | `connection.add`, `connection.update`, `connection.remove` | `satchel connection add`, Settings → Connections (`secret_ref` for env references or `"stored"`, never a secret) |
 | `auth.login` | OIDC login (web and MCP flows) |

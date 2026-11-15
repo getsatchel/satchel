@@ -52,7 +52,7 @@ def load_session(raw: str | None, *, engine: Engine | None = None) -> SessionInf
         row = s.execute(
             select(WebSession, AppUser.role)
             .join(AppUser, AppUser.id == WebSession.user_id)
-            .where(WebSession.hash == sha256_hex(raw))
+            .where(WebSession.hash == sha256_hex(raw), AppUser.disabled_at.is_(None))
         ).first()
         if row is None:
             return None

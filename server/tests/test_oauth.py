@@ -23,7 +23,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from jwt.algorithms import RSAAlgorithm
-from sqlalchemy import Engine, select, update
+from sqlalchemy import Engine, func, select, update
 
 from satchel.api.app import create_app
 from satchel.llm.embeddings import HashEmbedder
@@ -513,6 +513,15 @@ def test_email_link_then_sub_match_and_no_relink(c: TestClient, env: Env) -> Non
     assert _login_only(c, env, env.wa).status_code == 403
     env.idp.identity = Identity("sub-link-1", None, False, None)  # by subject alone
     assert _login_only(c, env, env.wa).status_code == 302
+    # A deactivated member is refused, by subject and by email.
+    with admin_session(engine=env.engine) as s:
+        u = s.scalars(select(AppUser).where(AppUser.external_sub == "sub-link-1")).one()
+        u.disabled_at = func.now()
+        s.add(AppUser(workspace_id=env.wa_id, email=f"off-{SFX}@x.test", role="analyst",
+                      disabled_at=func.now()))
+    assert _login_only(c, env, env.wa).status_code == 403
+    env.idp.identity = Identity("sub-off", f"off-{SFX}@x.test", True, "Off")
+    assert _login_only(c, env, env.wa).status_code == 403
     env.idp.identity = Identity("sub-alice", ALICE, True, "Alice")  # restore for other tests
 
 

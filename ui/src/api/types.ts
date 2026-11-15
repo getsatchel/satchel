@@ -77,6 +77,14 @@ export type LlmConnectionPatch = S["LlmConnectionPatch"];
 export type LlmTestRequest = Partial<S["LlmTestRequest"]>;
 export type LlmTestOut = S["LlmTestOut"];
 
+export type Member = Req<S["MemberOut"]>;
+export type SignInPolicy = Req<S["SignInPolicy"]>;
+export type MembersOut = { members: Member[]; sign_in: SignInPolicy; oidc_configured: boolean };
+export type MemberRole = Member["role"];
+export type InviteIn = S["InviteIn"];
+export type InviteOut = { invited: Member[]; existing: string[] };
+export type MemberPatch = S["MemberPatch"];
+
 export type ConnectionKind = Req<S["ConnectionKindOut"]>;
 export type ConnectionKindField = S["KindFieldOut"];
 export type ConnectionSaved = S["ConnectionSavedOut"];

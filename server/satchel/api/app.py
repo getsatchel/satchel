@@ -24,6 +24,7 @@ from satchel.api import (
     hooks,
     library,
     llm,
+    members,
     observability,
     proposals,
     sources,
@@ -190,6 +191,7 @@ def create_app(
     app.include_router(llm.make_router(auth))
     app.include_router(connections.make_router(auth))
     app.include_router(workspace_settings.make_router(auth))
+    app.include_router(members.make_router(auth))
 
     search_r = APIRouter(tags=["retrieval"])
 
