@@ -4,7 +4,7 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { AssetNode, EvalRun, ObservabilitySummary } from "@/api/types";
 import { HeaderActions } from "@/components/CommandPalette";
-import { DOCS_URL } from "@/components/nav";
+import { docsUrl } from "@/components/nav";
 import {
   CardFooter,
   CardHeader,
@@ -129,7 +129,7 @@ function GetStarted() {
       title: "Connect an agent",
       detail: "Claude or another MCP client. Sessions appear once it asks a question.",
       done: sessions.data.total > 0,
-      href: `${DOCS_URL}/integrations/claude.md`,
+      href: docsUrl("integrations/claude"),
       action: "Setup guide",
     },
   ];

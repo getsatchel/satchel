@@ -50,7 +50,7 @@
 | Command | Purpose |
 |---|---|
 | `sync import` / `sync reembed` | Import a context repo folder; re-embed chunks after a model change. |
-| `source kinds` / `list` / `info` / `add` / `sync` / `remove` / `validate` | Manage dbt, Cube, SQLMesh and external adapters. |
+| `source kinds` / `list` / `info` / `add` / `sync` / `webhook` / `remove` / `validate` | Manage dbt, Cube, SQLMesh and external adapters; `webhook` sets up, rotates or removes a source's push webhook. |
 | `eval run` / `compare` / `gate` / `retrieval` / `suite` | Run suites, compare runs, gate publishing in CI, measure retrieval. |
 | `openapi` | Print the REST OpenAPI document. |
 

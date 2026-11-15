@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { ConnectionKind, ConnectionOut, ConnectionPatch, ConnectionTestOut, ConnectionTestRequest } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { DOCS_URL } from "@/components/nav";
+import { docsUrl } from "@/components/nav";
 import { EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, SectionHeading, Segmented, StatusDot, TableCard } from "@/components/ui";
 import { errMsg } from "@/lib/format";
 
@@ -285,7 +285,7 @@ function ConnectionForm(props: {
         )}
         <p className="text-xs text-muted">
           {spec?.note ? `${spec.note} ` : ""}
-          <a className="text-accent hover:underline" href={`${DOCS_URL}/integrations/warehouses.md`} target="_blank" rel="noreferrer">
+          <a className="text-accent hover:underline" href={docsUrl("integrations/warehouses")} target="_blank" rel="noreferrer">
             Setup guide
           </a>
         </p>

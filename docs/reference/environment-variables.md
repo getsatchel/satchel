@@ -34,6 +34,8 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_CHAT_MAX_RETRIES` | `4` | Chat request retries. |
 | `SATCHEL_CURATE_INTERVAL_MIN` | `1440` | Minutes between worker passes: each queues a curation run per workspace and runs the purges. |
 | `SATCHEL_SOURCE_TICK_MIN` | `5` | Minutes between the worker's checks for scheduled source syncs; `0` turns them off. |
+| `SATCHEL_DBT_BIN` | — | The dbt Core executable that builds `manifest.json` for dbt sources from git (`dbt deps` + `dbt parse`). Unset: `/opt/dbt/bin/dbt` (in the image), else `dbt` on `PATH` ([dbt](../integrations/dbt.md)). |
+| `SATCHEL_DBT_TIMEOUT_S` | `300` | Wall-clock limit in seconds for `dbt deps` and `dbt parse` together. |
 | `SATCHEL_EVAL_TICK_MIN` | `15` | Minutes between the worker's checks for scheduled eval runs; `0` turns them off ([evals](../concepts/evals.md#scheduled-runs)). |
 | `SATCHEL_WORKER_JOB_THREADS` | `2` | Threads in `satchel worker` that run queued jobs (every kind); `0` = none. |
 | `SATCHEL_WEB_JOB_THREADS` | `2` | Threads in each web server process that run queued eval runs, source syncs (Sync now, push webhooks), connection crawls and curation runs; `0` leaves them to the worker. |

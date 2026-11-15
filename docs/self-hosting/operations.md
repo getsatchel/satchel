@@ -11,6 +11,7 @@ database and on existing ones, so upgrades are in place.
 | Helm | `helm upgrade satchel oci://ghcr.io/getsatchel/charts/satchel --version <new>`; the pre-upgrade hook Job runs migrations before new pods start. |
 | Cloud Run | Roll the image, then run the migrate Job. See [Cloud Run §8](../deploy/cloud-run.md). |
 | Container | Run `satchel db upgrade` with the owner URL, then roll the replicas. |
+| One VM (Compose) | Set `SATCHEL_IMAGE_TAG` in `.env`, then `docker compose pull && docker compose up -d`; the `db-upgrade` step migrates first. See [One VM](../deploy/vm.md). |
 
 Read the [release notes](https://github.com/getsatchel/satchel/releases) for each version you skip. Back up first. Roll web and worker to the same version. `satchel status` shows the schema revision against head.
 
@@ -36,6 +37,9 @@ Read the [release notes](https://github.com/getsatchel/satchel/releases) for eac
 |---|---|
 | `password authentication failed for user "satchel_worker"` | Run `satchel db upgrade`; otherwise reset the role password ([Database](../deploy/database.md)). |
 | UI redirects forever or login fails | `SATCHEL_PUBLIC_URL` must match the URL users visit and the OIDC redirect URI. |
+| "Sign-in isn't set up" | The server has no identity provider: set `SATCHEL_OIDC_ISSUER`, `SATCHEL_OIDC_CLIENT_ID` and `SATCHEL_OIDC_CLIENT_SECRET`, and restart. |
+| "No access" after signing in | The account isn't a member of the workspace, or its email isn't verified at the identity provider. The page names the email that signed in: an admin invites that address under **Settings > Members** (or allows explorers to join under **Sign-in**). A deactivated member also gets this until reactivated. |
+| Someone sees "This page is for curators" | Their role doesn't include that page ([roles](../concepts/how-it-works.md#roles)); an admin changes it under **Settings > Members**. |
 | MCP client connects then drops | Proxy buffering or idle timeout on the stream ([Helm: exposure](../deploy/helm.md)). |
 | "sealed with key …" on a connection | `SATCHEL_ENCRYPTION_KEY` changed; restore it or re-enter secrets ([rotation](../deploy/configuration.md)). |
 | Cannot save an LLM API key | `SATCHEL_ENCRYPTION_KEY` is not set. |

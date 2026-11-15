@@ -5,7 +5,7 @@ Satchel has two places configuration lives, the same split Langfuse uses for sel
 | Where | What | Who changes it |
 |---|---|---|
 | **Environment** (`SATCHEL_*`, set by Helm / Terraform / your secret store) | Anything needed before the database is reachable or that could lock people out: database URLs, `SATCHEL_PUBLIC_URL`, `SATCHEL_ENV`, OIDC, session and OAuth lifetimes, the result store, `SATCHEL_ENCRYPTION_KEY`. | Whoever runs the deployment. Restart to apply. |
-| **Settings** in the UI (per workspace, stored in Postgres) | Things a workspace admin should manage without a redeploy: **Models** (LLM connections), **Connections** (warehouses), **Limits** (SQL row cap and timeout, result cache, session retention) and, on the Sources page, **sources** (dbt, Cube, SQLMesh). **Deployment** shows the environment's values read-only. | Workspace admins. Applies immediately on every replica (read from the database per use). |
+| **Settings** in the UI (per workspace, stored in Postgres) | Things a workspace admin should manage without a redeploy: **Models** (LLM connections), **Connections** (warehouses), **Members** (who can sign in, with which role), **Limits** (SQL row cap and timeout, result cache, session retention) and, on the Sources page, **sources** (dbt, Cube, SQLMesh). **Jobs** shows background work. **Deployment** shows the environment's values read-only. | Workspace admins. Curators see Models, Connections, Jobs and Limits read-only. Applies immediately on every replica (read from the database per use). |
 
 **The environment wins.** When a value is set in the environment it applies to every workspace,
 and Settings shows it read-only ("managed by deployment"). GitOps installs can pin values that
@@ -272,6 +272,42 @@ Restrictions that apply to sources created or edited over REST (the CLI is uncha
 - `*_url` fields must not point at link-local or cloud metadata addresses.
 - Removing a source deprecates its items and detaches them; nothing is deleted.
 
+## Settings → Members
+
+Admins only. Who can use the workspace, and with which [role](../concepts/how-it-works.md#roles).
+
+- **Members** lists everyone with their role, status (active, invited, deactivated) and last activity.
+  Filter by status or search by name or email.
+- **Invite** takes one or more email addresses and a role (default analyst). An invite is a member with
+  an email and no sign-in yet: their first sign-in with that verified email links the account. The dialog
+  then shows an **invite link** for each person (also **Copy link** on their row). It opens the sign-in
+  page with the workspace chosen and passes the email to the identity provider as `login_hint`.
+- **The account at the identity provider.** The person also needs an account there with that email.
+  With Amazon Cognito, `SATCHEL_OIDC_CREATE_USERS=true` creates it when you invite them and Cognito emails
+  a temporary password; the dialog shows, per address, whether it was created, already existed or failed.
+  A failure never undoes the invite, and inviting the same email again retries it. With other providers,
+  create the account there (or let people sign up) and send the invite link.
+- **Change a role** from the role menu on a member's row. **Deactivate** refuses the member's tokens,
+  sessions and sign-ins until an admin reactivates them; their sessions, feedback and context changes
+  stay. **Remove** deletes an invite nobody has used.
+- **Guards.** You cannot change your own role or deactivate yourself, and the workspace always keeps one
+  active admin.
+- **Sign-in** sets whether people who were not invited are refused (the default) or join as explorers on
+  their first sign-in, optionally only from some email domains. The CLI equivalent is
+  `satchel workspace auth -w SLUG --provision explorer --allow-domain example.com`.
+
+Every change is audited (`user.invite`, `user.role_change`, `user.disable`, `user.enable`,
+`user.uninvite`, `user.idp_account`, `workspace.auth.update`). REST: `GET/POST /v1/members`,
+`PATCH/DELETE /v1/members/{id}`, `PUT /v1/members/sign-in`.
+
+## Settings → Jobs
+
+Curators and admins. Background work runs as jobs from a queue in Postgres: source syncs, warehouse
+crawls, curation runs and eval runs. The tab lists them by status (queued, running, failed, done) with
+their attempts and last error. **Retry** re-queues a failed sync, crawl or curation run (audited as
+`job.retry`). Finished jobs are deleted after 14 days. REST: `GET /v1/jobs`, `GET /v1/jobs/{id}`,
+`POST /v1/jobs/{id}/retry`.
+
 ## Settings → Limits
 
 Each limit's default comes from the environment; an admin can override it for their workspace or
@@ -285,8 +321,8 @@ set it back to the default. Overrides are stored in `workspace.settings.limits` 
 | Result cache | `SATCHEL_RESULT_TTL_DAYS` (7) | 1 – 365 days | new results (existing ones keep their expiry) |
 | Session retention | `SATCHEL_SESSION_RETENTION_DAYS` (unset: keep forever) | 7 – 3,650 days, or keep forever | agent sessions, see below |
 
-**Session retention.** After each pass the worker deletes sessions that started more than the
-retention period ago, with their tool calls and the record of context served to them, at most 500
+**Session retention.** After each pass the worker deletes sessions whose latest question is older
+than the retention period (a conversation still in use is kept), with their questions, tool calls and the record of context served to them, at most 500
 per workspace per pass. What points at them is kept and detached: signals (and so the suggestions
 built from them), eval results and cached query results. Sessions with feedback are kept, since
 feedback is evidence for suggestions. Each deletion is audited as `retention.purge` with counts.

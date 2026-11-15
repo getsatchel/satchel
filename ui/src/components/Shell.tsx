@@ -6,7 +6,7 @@ import { DEV_AUTH, devAuth, logout } from "@/api/client";
 import { useTheme } from "@/lib/theme";
 import { Dropdown, Icon, ICONS, Kbd, type MenuItem } from "@/components/ui";
 import { Logo } from "@/components/Logo";
-import { DOCS_URL, navFor, pagesFor, type NavItem } from "@/components/nav";
+import { docsUrl, navFor, pagesFor, type NavItem } from "@/components/nav";
 import { CommandPaletteProvider, MOD_KEY, useCommandPalette } from "@/components/CommandPalette";
 
 function NavRow({ n }: { n: NavItem }) {
@@ -152,7 +152,7 @@ function ShellBody() {
 
           <div className="shrink-0 space-y-0.5 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <a
-              href={DOCS_URL}
+              href={docsUrl()}
               target="_blank"
               rel="noreferrer"
               className="flex h-10 items-center gap-3 rounded-md px-2.5 text-sm text-ink/75 hover:bg-sunken hover:text-ink md:h-9"

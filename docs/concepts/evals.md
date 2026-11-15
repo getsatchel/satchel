@@ -33,7 +33,7 @@ cases:
 
 A suite has at most 100 cases, and a case at most 15 rubrics. Each case runs the reference agent:
 a tool-use loop that calls Satchel's MCP tools in-process, pinned to the release under test. Eval
-sessions are tagged and kept out of observability, signals and curation.
+sessions are tagged and kept out of **Sessions**, **Usage**, signals and curation.
 
 | Grader | Passes when | Needs an LLM |
 | --- | --- | --- |
@@ -54,7 +54,8 @@ cases are `skipped`.
 
 ## Running a suite
 
-- **UI:** Evals → Suites → **Run**, then pick a published release or a preview.
+- **UI** (curators and admins): **Evals** → Suites → **Run**, then pick a published release or a preview.
+  **Releases** → Changes runs the publish gate's suites on a preview.
 - **CLI:** `satchel eval run core --workspace acme [--preview <id>] [--model claude-haiku-4-5]`.
   `satchel eval compare <run-a> <run-b> --workspace acme` compares two runs.
 - **API:** `POST /v1/evals/runs` with `suite_key` and `release_id`.
@@ -64,7 +65,8 @@ status `running`. Each web server runs queued runs on `SATCHEL_WEB_JOB_THREADS` 
 2), and so does `satchel worker`. If the process running it stops (a deploy, a crash), the run is
 started again from the beginning once, then marked failed with "the run was interrupted".
 
-Analysts and above run evals; curators and above add suites. Run history lists every run with
+Analysts and above may run evals (through the CLI or the API; the **Evals** page is for curators), and
+curators and above add suites. Run history lists every run with
 what started it: by hand, the publish gate, or the schedule. Tick two completed runs to compare
 pass rates per measure and see which cases started or stopped passing.
 
