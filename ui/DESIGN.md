@@ -225,5 +225,4 @@ These share the tokens above. Change them together.
 
 - **Touch targets** are 40px on phones for buttons and inputs and 36px for `.btn-sm` and `Segmented`; the common guideline is 44px. `InfoTip` is 28px, and `<details>` summaries are one text line tall.
 - **Monaco diffs** label their wrapper, but the inner text areas of a diff editor still have no accessible name.
-- **The website** (getsatchel.dev) and the MCP app widgets (`ui-widgets/src/style.css`, built into `server/satchel/resources/widgets/`) still use the old light `good` (and the website the old `warn`); update them to `#1C7446` and `#965A08`. The widgets only put `good` on `surface`, where the old value passes.
 - **No automated UI tests:** only review checks these rules.

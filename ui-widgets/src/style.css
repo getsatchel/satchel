@@ -2,7 +2,7 @@
 :root {
   --ink: 15 16 17; --muted: 104 105 108; --line: 226 226 222; --sunken: 239 239 236;
   --accent: 47 69 232; --accent-ink: 255 255 255; --accent-soft: 233 236 253;
-  --good: 31 125 76; --bad: 190 50 38; --bad-soft: 251 228 224;
+  --good: 28 116 70; --bad: 190 50 38; --bad-soft: 251 228 224;
   color-scheme: light;
 }
 :root[data-theme="dark"] {

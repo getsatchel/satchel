@@ -40,7 +40,7 @@ Test locally: `scripts/floci-aws-e2e.sh` applies this stack against the floci AW
 - A private, versioned S3 bucket for Terraform state (see `examples/eks/backend.tf.example`). State holds the generated database passwords, so restrict access to it.
 - If you restrict the Kubernetes API (`cluster_public_access_cidrs`), include the address you run Terraform from. Terraform's Kubernetes and Helm providers reach the endpoint from there.
 
-The image defaults to `ghcr.io/getsatchel/satchel:<tag>`. Nodes pull it directly through the NAT gateway. To pull from your own ECR instead, set `helm_extra_values = { image = { repository = "ACCOUNT.dkr.ecr.REGION.amazonaws.com/satchel", tag = "0.4.0" } }`.
+The image defaults to `ghcr.io/getsatchel/satchel:<tag>`. Nodes pull it directly through the NAT gateway. To pull from your own ECR instead, set `helm_extra_values = { image = { repository = "ACCOUNT.dkr.ecr.REGION.amazonaws.com/satchel", tag = "0.5.0" } }`.
 
 ## 2. Create the OIDC client
 
@@ -152,7 +152,7 @@ The ALB idle timeout is raised to an hour so MCP server-sent-event streams are n
 
 ## 9. Upgrades
 
-1. Set `image_tag = "0.4.0"`.
+1. Set `image_tag = "0.5.0"`.
 2. Run `terraform apply`. The Helm pre-upgrade hook migrates first. If it fails, `atomic = true` rolls the release back and the old pods keep serving.
 3. Chart-only changes apply the same way.
 
