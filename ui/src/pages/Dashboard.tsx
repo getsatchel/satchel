@@ -116,7 +116,7 @@ function GetStarted() {
       title: "Publish a release",
       detail: "Agents are served published context only.",
       done: releases.data.total > 0,
-      to: "/changes",
+      to: "/releases",
       action: "Review changes",
     },
     {
@@ -270,7 +270,7 @@ function NeedsReview() {
             Agents keep reading the current release until you publish a preview.
           </p>
           <CardFooter>
-            <PillButton to="/changes">Preview &amp; publish</PillButton>
+            <PillButton to="/releases">Preview &amp; publish</PillButton>
           </CardFooter>
         </div>
       </div>
@@ -334,13 +334,13 @@ function AgentActivity() {
               tone="bad"
               value={s((d) => fmt(d.feedback.negative))}
               secondary={s2((d) => `${d.feedback.human_negative} human`)}
-              info="Negative feedback from people and agents. The secondary number is the human share. Positive feedback, tool calls and every signal kind are on Observability."
+              info="Negative feedback from people and agents. The secondary number is the human share. Positive feedback, tool calls and every signal kind are under Sessions, Usage."
             />
           </StatGrid>
         )}
         <CardFooter>
           <PillButton to="/sessions">View sessions</PillButton>
-          <PillButton to="/observability">Observability</PillButton>
+          <PillButton to="/sessions?tab=usage">Usage</PillButton>
         </CardFooter>
       </div>
     </section>

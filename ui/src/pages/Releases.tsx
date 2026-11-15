@@ -1,12 +1,37 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { ReleaseOut } from "@/api/types";
-import { Chevron, EmptyState, ErrorBox, ICONS, ItemKey, ItemLink, Loading, Modal, PageHeader, SectionHeading, StatusLine, StatusDot } from "@/components/ui";
+import { Chevron, EmptyState, ErrorBox, ICONS, ItemKey, ItemLink, Loading, Modal, PageHeader, SectionHeading, StatusLine, StatusDot, Tabs } from "@/components/ui";
 import { useToast } from "@/components/Toast";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
+import { ChangesTab } from "@/pages/Changes";
 
+type Tab = "changes" | "history";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "changes", label: "Changes" },
+  { id: "history", label: "History" },
+];
+
+/** Releases: what is waiting to ship (Changes, the default) and what has shipped (History). */
 export function Releases() {
+  const [sp, setSp] = useSearchParams();
+  const tab: Tab = sp.get("tab") === "history" ? "history" : "changes";
+  return (
+    <>
+      <PageHeader
+        title="Releases"
+        sub="Pick unpublished changes, preview and test them, then publish. Rolling back publishes a new release that restores an older one; history is never rewritten."
+      />
+      <Tabs tabs={TABS} value={tab} onChange={(t) => setSp(t === "changes" ? {} : { tab: t }, { replace: true })} />
+      <div className="mt-6">{tab === "changes" ? <ChangesTab /> : <ReleaseHistory />}</div>
+    </>
+  );
+}
+
+/** The History tab of Releases: every published release, with rollback. */
+function ReleaseHistory() {
   const q = useQuery({ queryKey: ["releases"], queryFn: () => endpoints.listReleases("published") });
   const me = useQuery({ queryKey: ["me"], queryFn: endpoints.me });
   const [target, setTarget] = useState<ReleaseOut | null>(null);
@@ -30,12 +55,11 @@ export function Releases() {
   const rels = q.data?.releases ?? [];
   return (
     <>
-      <PageHeader title="Releases" sub="Every published version of the context. Rolling back publishes a new release that restores an older one; history is never rewritten." />
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && rels.length === 0 && (
         <EmptyState title="Nothing published yet">
-          Run <code>satchel sync import &lt;folder&gt; --workspace &lt;slug&gt;</code> to import a context repo, or publish a preview from Changes. Either creates the first release.
+          Run <code>satchel sync import &lt;folder&gt; --workspace &lt;slug&gt;</code> to import a context repo, or publish a preview from the Changes tab. Either creates the first release.
         </EmptyState>
       )}
       {rels.length > 0 && (

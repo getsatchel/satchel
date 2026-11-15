@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DEV_AUTH, devAuth, setCsrf } from "./api/client";
 import { endpoints } from "./api/endpoints";
@@ -11,17 +11,23 @@ import { Inbox } from "./pages/Inbox";
 import { Library } from "./pages/Library";
 import { ItemDetailPage } from "./pages/ItemDetail";
 import { ItemNew } from "./pages/ItemNew";
-import { Changes } from "./pages/Changes";
 import { Releases } from "./pages/Releases";
 import { Sessions } from "./pages/Sessions";
 import { SessionInspector } from "./pages/SessionInspector";
-import { Observability } from "./pages/Observability";
 import { Catalog } from "./pages/Catalog";
 import { SourceDetail } from "./pages/SourceDetail";
 import { Sources } from "./pages/Sources";
 import { Settings } from "./pages/Settings";
 import { EvalComparePage, EvalRunPage, Evals } from "./pages/Evals";
-import { Jobs } from "./pages/Jobs";
+
+/** An old page's URL: send it to where the page lives now, keeping its query string. */
+function Moved({ to, add }: { to: string; add?: Record<string, string> }) {
+  const loc = useLocation();
+  const q = new URLSearchParams(loc.search);
+  for (const [k, v] of Object.entries(add ?? {})) q.set(k, v);
+  const s = q.toString();
+  return <Navigate to={`${to}${s ? `?${s}` : ""}${loc.hash}`} replace />;
+}
 
 function DevLogin({ onDone }: { onDone: () => void }) {
   const [ws, setWs] = useState(devAuth.workspace);
@@ -97,17 +103,18 @@ export function App() {
         <Route path="library" element={<Library />} />
         <Route path="library/new" element={<ItemNew />} />
         <Route path="library/item/*" element={<ItemDetailPage />} />
-        <Route path="changes" element={<Changes />} />
+        {/* Pages that became tabs: old links and bookmarks keep working. */}
+        <Route path="changes" element={<Moved to="/releases" />} />
+        <Route path="observability" element={<Moved to="/sessions" add={{ tab: "usage" }} />} />
+        <Route path="jobs" element={<Moved to="/settings" add={{ tab: "jobs" }} />} />
         <Route path="releases" element={<Releases />} />
         <Route path="sessions" element={<Sessions />} />
         <Route path="sessions/:id" element={<SessionInspector />} />
-        <Route path="observability" element={<Observability />} />
         <Route path="catalog" element={<Catalog />} />
         <Route path="sources" element={<Sources />} />
         <Route path="sources/:name" element={<SourceDetail />} />
         <Route path="settings" element={<Settings />} />
         <Route path="evals" element={<Evals />} />
-        <Route path="jobs" element={<Jobs />} />
         <Route path="evals/runs/:id" element={<EvalRunPage />} />
         <Route path="evals/compare" element={<EvalComparePage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

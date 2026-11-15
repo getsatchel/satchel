@@ -4,13 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { ChangeOut, EvalGate, PackOut, PreviewOut, SearchHit } from "@/api/types";
 import { CaseMoves, DeltaTable } from "@/components/EvalBits";
-import { Chevron, EmptyState, ErrorBox, ICONS, ItemKey, ItemLink, KeyLines, Loading, Modal, Notice, PageHeader, SectionHeading, StatusDot, StatusLine, TypeBadge, type Tone } from "@/components/ui";
+import { Chevron, EmptyState, ErrorBox, ICONS, ItemKey, ItemLink, KeyLines, Loading, Modal, Notice, SectionHeading, StatusDot, StatusLine, TypeBadge, type Tone } from "@/components/ui";
 import { DiffStat, UnifiedDiff } from "@/components/UnifiedDiff";
 import { Pre } from "@/components/Code";
 import { useToast } from "@/components/Toast";
 import { errMsg } from "@/lib/format";
 
-export function Changes() {
+/** The Changes tab of Releases: unpublished edits, then the preview being tested. */
+export function ChangesTab() {
   const [sp, setSp] = useSearchParams();
   const previewId = sp.get("preview");
   const q = useQuery({ queryKey: ["changes"], queryFn: endpoints.listChanges });
@@ -43,10 +44,6 @@ export function Changes() {
 
   return (
     <>
-      <PageHeader
-        title="Changes"
-        sub="Unpublished edits. Pick the ones to ship, create a preview, test it against real questions, then publish."
-      />
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && changes.length === 0 && !previewId && (
@@ -313,7 +310,7 @@ function PreviewPanel({ id, onClose }: { id: string; onClose: () => void }) {
       toast("ok", `Published release #${r.seq}`);
       setConfirm(false);
       void qc.invalidateQueries();
-      nav("/releases");
+      nav("/releases?tab=history");
     },
     onError: (e) => {
       setConfirm(false);

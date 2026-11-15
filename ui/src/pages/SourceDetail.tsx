@@ -107,7 +107,7 @@ function SourcePage({ s, admin }: { s: SourceOut; admin: boolean }) {
           {report && report.held.length > 0 && (
             <Notice tone="warn">
               {report.held.length} item{report.held.length === 1 ? " has" : "s have"} an unpublished overlay draft, so the sync kept the published version. Publish the draft from{" "}
-              <Link className="underline" to="/changes">
+              <Link className="underline" to="/releases">
                 Changes
               </Link>
               .
@@ -631,7 +631,7 @@ function RecentSyncs({ s }: { s: SourceOut }) {
         title="Recent syncs"
         count={q.data?.length}
         actions={
-          <Link className="text-xs text-muted hover:text-ink" to="/jobs">
+          <Link className="text-xs text-muted hover:text-ink" to="/settings?tab=jobs">
             All jobs
           </Link>
         }

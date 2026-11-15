@@ -127,7 +127,7 @@ function ItemView({ item }: { item: ItemDetail }) {
         <div className="mb-4">
           <Notice tone="warn">
             Version v{item.current_seq} is a draft change{item.published_seq != null ? ` over published v${item.published_seq}` : ""}.{" "}
-            <Link className="underline" to="/changes">
+            <Link className="underline" to="/releases">
               Review it in Changes
             </Link>
             .

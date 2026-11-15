@@ -12,7 +12,7 @@ Satchel sits between your agents (Claude, Cursor, ChatGPT, Codex) and your data.
 | **Release** | An immutable set of published context items. Agents read the published release. Changes go draft → preview release → publish, and can be rolled back. |
 | **Source** | An upstream tool (dbt, Cube, SQLMesh, a git repo) synced into context. Fields are owned by the source or by a hand-written overlay. |
 | **Connection** | A warehouse (Postgres, DuckDB today) used by the optional data plane to run governed, read-only SQL. |
-| **Session** | One analysis: the question, every tool call, the answer and any feedback. Inspect them under **Sessions**. |
+| **Session** | One analysis: the question, every tool call, the answer and any feedback. Inspect them under **Sessions**; the **Usage** tab charts them. |
 | **Signal** | Something that says context was lacking: a flagged gap, a user correction, a SQL error, metric divergence. |
 | **Suggestion** | A proposed change drafted from signals and hygiene checks. Reviewed in the **Inbox**. Two suggestions that propose exactly the same change are merged into the older one, which keeps the evidence of both. |
 | **Eval suite** | Questions with graders, run against a release to gate publishing. |
@@ -56,7 +56,7 @@ Agents often keep one session for a whole conversation. Satchel groups a session
 One stateless server process (`satchel serve api`) serves the UI, REST, MCP at `/mcp`, and OAuth/OIDC. A
 worker (`satchel worker`) queues curation, scheduled syncs and scheduled eval runs. Background work
 (syncs, crawls, curation passes, eval runs) runs as jobs from a queue in Postgres, on the worker's and
-the web servers' job threads; curators see it under **Jobs**. Postgres 17 with pgvector is the only
+the web servers' job threads; curators see it under **Settings > Jobs**. Postgres 17 with pgvector is the only
 required dependency. An object store (GCS or S3) is optional for the result cache and audit exports. See the
 [self-hosting overview](../self-hosting/index.md) and the [master diagram](../architecture/system.md).
 
