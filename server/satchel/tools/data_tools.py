@@ -74,10 +74,15 @@ _OP_ALIASES = {"=": "eq", "==": "eq", "!=": "neq", "<>": "neq", ">": "gt", ">=":
                "afterorondate": "gte", "beforeorondate": "lte"}
 
 
+_TITLE = ("Short title for the result card the user sees, saying what this result shows, "
+          "e.g. 'Signups by month, 2025'. Defaults to the question.")
+
+
 class RunSqlArgs(_Base):
     session_id: str = Field(description=_SID)
     question: str = Field(description=_Q)
     sql: str = Field(min_length=1, description="One read-only SELECT / WITH statement")
+    title: str | None = Field(default=None, max_length=120, description=_TITLE)
     connection: str | None = Field(default=None, description="Connection name (if several)")
 
 
@@ -123,6 +128,7 @@ class QueryMetricsArgs(_Base):
     session_id: str = Field(description=_SID)
     question: str = Field(description=_Q)
     metrics: list[str] = Field(min_length=1, description="Metric names from list_metrics")
+    title: str | None = Field(default=None, max_length=120, description=_TITLE)
     dimensions: list[str] = Field(
         default_factory=list, description="Dimensions; time dims as name:grain (order_date:month)"
     )
@@ -407,6 +413,7 @@ def _set_widget(
     metric: dict[str, Any] | None = None,
     formats: dict[str, dict[str, Any]] | None = None,
     dialect: str | None = None,
+    title: str | None = None,
 ) -> None:
     """Attach the MCP Apps payload the ui://satchel/result widget renders (design §6.4)."""
     if c.ctx.ui_supported is False or c.session is None:
@@ -421,6 +428,7 @@ def _set_widget(
         "tool_call_id": tool_call_id,
         "connection": connection,
         "question": _turn_question(c),
+        "title": (title or "").strip() or None,
         "sql": _pretty_sql(sql, dialect),
         "metric": metric,
         "formats": formats or {},
@@ -509,7 +517,7 @@ def run_sql(c: Call) -> str:
                 connection=conn.name, columns=row.columns, cols=cols, rows=rows,
                 row_count=row.row_count, truncated=gr.truncated,
                 formats=_asset_doc_formats(c, gr.tables, cols),
-                dialect=sqlglot_dialect(conn.kind) or conn.kind)
+                dialect=sqlglot_dialect(conn.kind) or conn.kind, title=a.title)
     return _format(row.id, conn.name, a.sql, gr) + _shown_note(c)
 
 
@@ -595,7 +603,7 @@ def query_metrics(c: Call) -> str:
                         "filters": q.get("filters", []), "order_by": q.get("orderBy", []),
                         "limit": q.get("limit")},
                 formats=_metric_formats(mdl, a.metrics),
-                dialect=sqlglot_dialect(conn.kind) or conn.kind)
+                dialect=sqlglot_dialect(conn.kind) or conn.kind, title=a.title)
     extra = f"cube_query: {q}\nsemantic_sql: {compiled.semantic_sql}\n"
     return _format(row.id, conn.name, compiled.sql, gr, extra) + _shown_note(c)
 

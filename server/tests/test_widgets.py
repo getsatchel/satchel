@@ -91,7 +91,8 @@ def test_structured_payload_and_complete_text(env: Env, ui_on: None) -> None:  #
         await c.initialize()
         sid = await start(c, "orders")
         await call(c, "search_context", session_id=sid, question="orders", query="orders")
-        res = await call(c, "run_sql", session_id=sid, question="orders", sql=SQL)
+        res = await call(c, "run_sql", session_id=sid, question="orders", sql=SQL,
+                         title="  Orders by day  ")
         rid = json.loads(json.dumps(res.structuredContent))["result_id"]
         page = await call(c, "get_result", session_id=sid, result_id=rid, offset=50, limit=20)
         return sid, res, page
@@ -99,6 +100,7 @@ def test_structured_payload_and_complete_text(env: Env, ui_on: None) -> None:  #
     sid, res, page = with_client(env, fn)
     sc = res.structuredContent
     assert sc["satchel"] == 1 and sc["session_id"] == sid and sc["tool"] == "run_sql"
+    assert sc["title"] == "Orders by day" and page.structuredContent["title"] is None
     assert sc["row_count"] == 80 and len(sc["rows"]) == 50 and sc["offset"] == 0
     assert [c["name"] for c in sc["columns"]] == ["order_date", "amount"]
     assert sc["columns"][0]["kind"] == "time"

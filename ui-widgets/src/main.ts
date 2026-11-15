@@ -221,7 +221,8 @@ function render(): void {
   $("empty").hidden = true;
   $("app").hidden = false;
   const m = data.metric;
-  const title = m?.metrics?.length ? `${m.metrics.join(", ")}${m.dimensions?.length ? ` by ${m.dimensions.join(", ")}` : ""}` : data.question ?? "Query result";
+  const metricLabel = m?.metrics?.length ? `${m.metrics.join(", ")}${m.dimensions?.length ? ` by ${m.dimensions.join(", ")}` : ""}` : null;
+  const title = data.title || metricLabel || data.question || "Query result";
   $("title").textContent = title;
   const kpi = isKpi(data.columns, rows, data.row_count);
   const showKpi = kpi && !asTable;
@@ -243,9 +244,14 @@ function render(): void {
   $("sql").textContent = data.sql;
   renderCtx();
   $("fb-label").textContent = `${kpi ? "Was this number right?" : "Was this result right?"} Your data team sees this.`;
+  const none = data.row_count === 0;
+  $("none").hidden = !none;
   $("kpi").hidden = !showKpi;
-  $("tablewrap").hidden = showKpi;
-  if (showKpi) {
+  $("tablewrap").hidden = showKpi || none;
+  if (none) {
+    renderChart(null);
+    $("more").hidden = true;
+  } else if (showKpi) {
     renderKpi();
     renderChart(null);
     $("more").hidden = true;
