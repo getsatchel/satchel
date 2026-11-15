@@ -436,7 +436,14 @@ function accept(res: ToolResultLike, append: boolean): void {
       useResult(p);
       resetFeedback();
     }
-  } else return;
+  } else {
+    // A Satchel payload this widget does not know: the host kept an older widget. Say so
+    // rather than "Waiting for the result" for ever.
+    if (typeof p === "object" && p !== null && (p as { satchel?: unknown }).satchel === 1 && !answer && !data) {
+      $("empty").textContent = "This Satchel card needs a newer widget. Start a new chat to load it.";
+    }
+    return;
+  }
   render();
 }
 

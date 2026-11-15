@@ -141,7 +141,7 @@ def build_server(
     async def _list_resources() -> list[types.Resource]:
         widget = [] if ui_supported() is False else [
             types.Resource(
-                uri=AnyUrl(apps.RESULT_URI),
+                uri=AnyUrl(apps.result_uri()),
                 name="result-widget",
                 description="Interactive result table, chart and feedback buttons.",
                 mimeType=apps.MIME_TYPE,
@@ -159,7 +159,7 @@ def build_server(
 
     @server.read_resource()
     async def _read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
-        if str(uri) == apps.RESULT_URI:
+        if apps.is_result_uri(str(uri)):
             html = await anyio.to_thread.run_sync(apps.result_widget_html)
             return [
                 ReadResourceContents(

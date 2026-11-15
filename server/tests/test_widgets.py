@@ -40,14 +40,18 @@ def test_ui_negotiation() -> None:
 
 
 def test_resource_is_served_with_the_mcp_app_mime_type(env: Env, ui_on: None) -> None:  # noqa: F811
-    async def fn(c: ClientSession) -> tuple[Any, Any]:
+    async def fn(c: ClientSession) -> tuple[Any, Any, Any]:
         await c.initialize()
         listed = await c.list_resources()
-        read = await c.read_resource(AnyUrl(apps.RESULT_URI))
-        return listed, read
+        read = await c.read_resource(AnyUrl(apps.result_uri()))
+        # the unversioned URI older tool lists named still gets the current widget
+        old = await c.read_resource(AnyUrl(apps.RESULT_BASE))
+        return listed, read, old
 
-    listed, read = with_client(env, fn)
-    res = next(r for r in listed.resources if str(r.uri) == apps.RESULT_URI)
+    listed, read, old = with_client(env, fn)
+    assert apps.result_uri().startswith("ui://satchel/result/")
+    res = next(r for r in listed.resources if str(r.uri) == apps.result_uri())
+    assert old.contents[0].text == read.contents[0].text
     assert res.mimeType == "text/html;profile=mcp-app"
     (item,) = read.contents
     assert item.mimeType == "text/html;profile=mcp-app"
@@ -64,7 +68,7 @@ def test_tool_meta_and_visibility(env: Env, ui_on: None) -> None:  # noqa: F811
 
     meta = with_client(env, fn)
     for name in ("run_sql", "query_metrics", "get_result", "report_answer"):
-        assert meta[name]["ui"]["resourceUri"] == "ui://satchel/result"
+        assert meta[name]["ui"]["resourceUri"] == apps.result_uri()
     assert meta["rate_result"]["ui"]["visibility"] == ["app"]
     assert meta["list_metrics"] is None
 

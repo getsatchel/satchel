@@ -60,9 +60,11 @@ agent instructions and the suggestion engine never drafts them.
 ### Cards in Claude and other MCP Apps hosts
 
 If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics`, `get_result` and
-`report_answer` also return `structuredContent` that the `ui://satchel/result` widget shows as a Satchel card,
+`report_answer` also return `structuredContent` that the result widget shows as a Satchel card,
 with Satchel's mark, colours and type so it looks like the web UI. Clients without the extension get the same
-answer as text.
+answer as text. The widget's URI is `ui://satchel/result/<hash>`, versioned by its content: hosts cache a
+widget by URI, so a new build gets a new URI and hosts load it. Start a new chat after an upgrade, because an
+open chat keeps the tool list it started with.
 
 <!-- site: AnswerCardShot -->
 ![A question in the Jaffle Shop demo: two collapsed query cards, then the answer card](../screenshots/answer-card-light.png)
