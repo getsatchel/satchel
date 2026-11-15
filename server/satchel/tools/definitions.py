@@ -95,6 +95,23 @@ class DescribeArgs(_Base):
 class ReportArgs(_Base):
     session_id: str = Field(description=_SID)
     answer_summary: str = Field(min_length=1)
+    headline: str | None = Field(
+        default=None, max_length=300,
+        description="One sentence that answers the question with the key number, e.g. "
+        "'Active buyers held between 16 and 24 a month in 2025, ending at 20 in December.' "
+        "Defaults to answer_summary.",
+    )
+    key_points: list[str] = Field(
+        default_factory=list, max_length=5,
+        description="2-4 short findings that support or qualify the headline. Use the facts "
+        "run_sql / query_metrics returned (changes, peaks, shares, partial periods) and say "
+        "what they mean; do not invent numbers.",
+    )
+    result_ids: list[str] = Field(
+        default_factory=list, max_length=6,
+        description="result_ids of the results that answer the question, most important "
+        "first. Leave out trial and empty queries. Defaults to this question's results.",
+    )
     metrics_used: list[str] = Field(default_factory=list)
     tables_used: list[str] = Field(default_factory=list)
     confidence: Literal["low", "medium", "high"]
@@ -102,7 +119,8 @@ class ReportArgs(_Base):
         default_factory=list, description="Assumptions, missing definitions, data limits"
     )
 
-    @field_validator("metrics_used", "tables_used", "caveats", mode="before")
+    @field_validator("metrics_used", "tables_used", "caveats", "key_points", "result_ids",
+                     mode="before")
     @classmethod
     def _lists(cls, v: Any) -> Any:
         return _str_list(v)
@@ -460,7 +478,19 @@ def report_answer(c: Call) -> dict[str, Any]:
                 {**payload, "mined_from": "report_answer.caveats"},
                 item_ids=items,
             )
-    return {"recorded": True, "signals": c.result_meta.get("signals", [])}
+    from satchel.tools.data_tools import answer_payload
+
+    card = answer_payload(
+        c, headline=(a.headline or a.answer_summary).strip(),
+        summary=a.answer_summary if a.headline else None,
+        points=[p.strip() for p in a.key_points if p.strip()], caveats=a.caveats,
+        confidence=a.confidence, result_ids=a.result_ids,
+    )
+    out: dict[str, Any] = {"recorded": True, "signals": c.result_meta.get("signals", [])}
+    if card is not None:
+        c.structured = card
+        out["note"] = text.ANSWER_SHOWN if c.ctx.ui_supported else text.ANSWER_MAYBE_SHOWN
+    return out
 
 
 def flag_context_gap(c: Call) -> dict[str, Any]:
@@ -602,7 +632,7 @@ def _context_tools() -> list[ToolDef]:
         ToolDef("list_tables", text.D_LIST, ListArgs, list_tables),
         ToolDef("describe_table", text.D_DESCRIBE, DescribeArgs, describe_table,
                 requires_question=True),
-        ToolDef("report_answer", text.D_REPORT, ReportArgs, report_answer),
+        ToolDef("report_answer", text.D_REPORT, ReportArgs, report_answer, widget=True),
         ToolDef("flag_context_gap", text.D_GAP, GapArgs, flag_context_gap),
         ToolDef("record_user_feedback", text.D_FEEDBACK, FeedbackArgs, record_user_feedback),
         ToolDef("propose_context_change", text.D_PROPOSE, ProposeArgs, propose_context_change,

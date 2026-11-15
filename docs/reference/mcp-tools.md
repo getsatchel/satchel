@@ -26,7 +26,7 @@ agent instructions and the suggestion engine never drafts them.
 | Tool | Purpose |
 |---|---|
 | `start_analysis` | Begin a session for a data question. Call first, with the question verbatim. Returns the workspace's agent instructions (`agent_instructions`, if published) and always-on rules. |
-| `report_answer` | Required final step: record the answer, metrics and tables used, confidence, caveats. |
+| `report_answer` | Required final step: record the answer, metrics and tables used, confidence, caveats. Optional `headline`, `key_points` and `result_ids` shape the [answer card](#cards-in-claude-and-other-mcp-apps-hosts). |
 
 ## Context
 
@@ -57,8 +57,39 @@ agent instructions and the suggestion engine never drafts them.
 | `propose_context_change` | Analyst role and above. Propose a new or changed item. Never publishes; goes to the Inbox with the question it came from. Agent instructions cannot be proposed. |
 | `rate_result` | App-only: the result widget's 👍/👎 (`source=human`). |
 
-If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics` and `get_result` also return
-`structuredContent` rendered by the `ui://satchel/result` widget. Their text then ends with a note telling
-the agent not to repeat the rows in its reply, because the user already sees the table.
+### Cards in Claude and other MCP Apps hosts
+
+If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics`, `get_result` and
+`report_answer` also return `structuredContent` that the `ui://satchel/result` widget shows as a Satchel card,
+with Satchel's mark, colours and type so it looks like the web UI. Clients without the extension get the same
+answer as text.
+
+<!-- site: AnswerCardShot -->
+![A question in the Jaffle Shop demo: two collapsed query cards, then the answer card](../screenshots/answer-card-light.png)
+
+- **Answer card** (`report_answer`). The question, the agent's `headline` (or `answer_summary`) and up to five
+  `key_points`, then the question's results as tabs: the ones listed in `result_ids`, most important first, or
+  by default the question's results that returned rows (up to four). Each tab has its chart, table, SQL and
+  facts. Below: the caveats, the confidence when it is not high, **How this was answered** (every tool call of the
+  question, empty and failed queries included; click one to open its tab), the context used and 👍/👎 for the
+  shown result. The tool's text then tells the agent the user sees the card, so its reply adds only what the
+  card does not say.
+- **Query cards** (`run_sql`, `query_metrics`, `get_result`). One line each: the `title` (up to 120 characters,
+  for example "Signups by month, 2025"; it defaults to the metric or the question), the row count and the first
+  fact. **Show result** opens the chart, table, SQL, context and feedback. A result with no rows says "No rows
+  matched this query" instead of an empty table. The text ends with a note telling the agent not to repeat the
+  rows, because the user already sees them.
+
+**Facts.** Satchel computes facts from a result's rows, never with a model: the change from the first to the
+last period and on the previous one, the peak, low and average, the trend, an outlier, a last period that is not
+over yet, the top value's share of the total, and columns that are mostly empty. `run_sql` and `query_metrics`
+list them in their text so the agent can cite them, and the cards show them under **What Satchel noticed**,
+with the average as a dashed line and the peak and low labelled on the chart. Facts quote values from the data,
+so they are not stored with the tool call that other members may see in **Sessions**; the answer card computes
+them again from the stored result.
+
+The tool descriptions ask agents to title each query, put related figures in one query, check columns with
+`describe_table` rather than with trial queries, and give the answer card a headline and key points drawn from
+the facts.
 
 <!-- site: McpToolsExplorer -->

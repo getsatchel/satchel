@@ -24,6 +24,8 @@ from satchel.data.connections import (
     sqlglot_dialect,
 )
 from satchel.data.connectors import SqlTimeout
+from satchel.data.facts import Facts
+from satchel.data.facts import compute as compute_facts
 from satchel.data.gateway import GatewayResult, GuardrailError, run_guarded
 from satchel.data.results import column_kind, json_cell, markdown_table, read_page, store_result
 from satchel.data.semantic import (
@@ -65,6 +67,7 @@ from satchel.tools.definitions import (
 from satchel.tools.registry import Call, Handler, ToolDef, ToolUserError
 
 PREVIEW_ROWS = 50
+FACT_ROWS = 20_000  # facts read at most this many rows of a result
 
 _OP_ALIASES = {"=": "eq", "==": "eq", "!=": "neq", "<>": "neq", ">": "gt", ">=": "gte",
                "<": "lt", "<=": "lte", "not in": "not_in", "like": "contains",
@@ -74,10 +77,15 @@ _OP_ALIASES = {"=": "eq", "==": "eq", "!=": "neq", "<>": "neq", ">": "gt", ">=":
                "afterorondate": "gte", "beforeorondate": "lte"}
 
 
+_TITLE = ("Short title for the result card the user sees, saying what this result shows, "
+          "e.g. 'Signups by month, 2025'. Defaults to the question.")
+
+
 class RunSqlArgs(_Base):
     session_id: str = Field(description=_SID)
     question: str = Field(description=_Q)
     sql: str = Field(min_length=1, description="One read-only SELECT / WITH statement")
+    title: str | None = Field(default=None, max_length=120, description=_TITLE)
     connection: str | None = Field(default=None, description="Connection name (if several)")
 
 
@@ -123,6 +131,7 @@ class QueryMetricsArgs(_Base):
     session_id: str = Field(description=_SID)
     question: str = Field(description=_Q)
     metrics: list[str] = Field(min_length=1, description="Metric names from list_metrics")
+    title: str | None = Field(default=None, max_length=120, description=_TITLE)
     dimensions: list[str] = Field(
         default_factory=list, description="Dimensions; time dims as name:grain (order_date:month)"
     )
@@ -222,7 +231,8 @@ def _rows(table: pa.Table, n: int) -> tuple[list[str], list[tuple[Any, ...]]]:
 
 
 def _format(
-    result_id: uuid.UUID, conn_name: str, sql: str, gr: GatewayResult, extra: str = ""
+    result_id: uuid.UUID, conn_name: str, sql: str, gr: GatewayResult, extra: str = "",
+    facts: list[str] | None = None,
 ) -> str:
     cols, rows = _rows(gr.table, PREVIEW_ROWS)
     n = gr.table.num_rows
@@ -233,6 +243,9 @@ def _format(
         f"columns: {', '.join(cols)}",
     ]
     head += gr.notes
+    if facts:
+        head.append("facts (computed from the rows; cite these rather than recomputing them):")
+        head += [f"- {f}" for f in facts]
     body = markdown_table(cols, rows)
     more = (f"\n(showing {len(rows)} of {n} rows; call get_result(result_id, offset, limit) "
             "for more)" if n > len(rows) else "")
@@ -390,7 +403,18 @@ def _turn_question(c: Call) -> str | None:
     return (turn.question if turn is not None else None) or c.session.question
 
 
-def _set_widget(
+def _set_widget(c: Call, **kw: Any) -> None:
+    """Attach the MCP Apps payload the ui://satchel/result widget renders (design §6.4)."""
+    if c.ctx.ui_supported is False or c.session is None:
+        return
+    facts: Facts | None = kw.pop("facts", None)
+    c.structured = _result_payload(
+        c, ctx_items=_ctx_items(c), facts=facts.facts if facts else [],
+        annotations=facts.annotations if facts else None, **kw,
+    )
+
+
+def _result_payload(
     c: Call,
     *,
     tool: str,
@@ -403,17 +427,19 @@ def _set_widget(
     rows: list[tuple[Any, ...]],
     row_count: int,
     truncated: bool,
+    ctx_items: list[dict[str, Any]],
     offset: int = 0,
     metric: dict[str, Any] | None = None,
     formats: dict[str, dict[str, Any]] | None = None,
     dialect: str | None = None,
-) -> None:
-    """Attach the MCP Apps payload the ui://satchel/result widget renders (design §6.4)."""
-    if c.ctx.ui_supported is False or c.session is None:
-        return
+    title: str | None = None,
+    facts: list[dict[str, str]] | None = None,
+    annotations: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """One result as the widget renders it: in its own card, or as a tab of the answer card."""
+    assert c.session is not None
     types_by_name = {x["name"]: x["type"] for x in columns}
-    ctx_items = _ctx_items(c)
-    c.structured = {
+    return {
         "satchel": 1,
         "tool": tool,
         "session_id": str(c.session.id),
@@ -421,6 +447,7 @@ def _set_widget(
         "tool_call_id": tool_call_id,
         "connection": connection,
         "question": _turn_question(c),
+        "title": (title or "").strip() or None,
         "sql": _pretty_sql(sql, dialect),
         "metric": metric,
         "formats": formats or {},
@@ -435,6 +462,8 @@ def _set_widget(
         "truncated": truncated,
         "ctx": [i["tag"] for i in ctx_items],
         "ctx_items": ctx_items,
+        "facts": facts or [],
+        "annotations": annotations,
     }
 
 
@@ -504,13 +533,29 @@ def run_sql(c: Call) -> str:
     )
     c.result_meta.update(rows=row.row_count, truncated=gr.truncated, result_id=str(row.id),
                          tables=gr.tables)
-    cols, rows = _rows(gr.table, PREVIEW_ROWS)
-    _set_widget(c, tool="run_sql", result_id=row.id, tool_call_id=tcid, sql=a.sql,
+    formats = _asset_doc_formats(c, gr.tables, gr.table.column_names)
+    return _finish(c, "run_sql", row, gr, conn, a.sql, a.title, formats)
+
+
+def _finish(
+    c: Call, tool: str, row: QueryResult, gr: GatewayResult, conn: Connection, sql: str,
+    title: str | None, formats: dict[str, dict[str, Any]],
+    metric: dict[str, Any] | None = None, extra: str = "",
+) -> str:
+    """Facts, the widget payload and the text for a fresh run_sql / query_metrics result. The
+    card's display fields are kept on the tool call, so report_answer can show it again."""
+    all_cols, all_rows = _rows(gr.table, FACT_ROWS)
+    facts = compute_facts(row.columns, all_cols, all_rows, formats)
+    # No facts here: result_meta is evidence other members may see, and facts quote values.
+    c.result_meta["card"] = {"title": (title or "").strip() or None, "metric": metric,
+                             "formats": formats}
+    cols, rows = all_cols, all_rows[:PREVIEW_ROWS]
+    _set_widget(c, tool=tool, result_id=row.id, tool_call_id=row.tool_call_id, sql=sql,
                 connection=conn.name, columns=row.columns, cols=cols, rows=rows,
-                row_count=row.row_count, truncated=gr.truncated,
-                formats=_asset_doc_formats(c, gr.tables, cols),
-                dialect=sqlglot_dialect(conn.kind) or conn.kind)
-    return _format(row.id, conn.name, a.sql, gr) + _shown_note(c)
+                row_count=row.row_count, truncated=gr.truncated, metric=metric,
+                formats=formats, dialect=sqlglot_dialect(conn.kind) or conn.kind,
+                title=title, facts=facts)
+    return _format(row.id, conn.name, sql, gr, extra, facts.lines()) + _shown_note(c)
 
 
 def _semantic(c: Call) -> tuple[dict[str, Any], list[Any]]:
@@ -587,17 +632,12 @@ def query_metrics(c: Call) -> str:
     )
     c.result_meta.update(rows=row.row_count, truncated=gr.truncated, result_id=str(row.id),
                          metrics=a.metrics, cube=q["cube"], connection=conn.name)
-    cols, rows = _rows(gr.table, PREVIEW_ROWS)
-    _set_widget(c, tool="query_metrics", result_id=row.id, tool_call_id=tcid, sql=compiled.sql,
-                connection=conn.name, columns=row.columns, cols=cols, rows=rows,
-                row_count=row.row_count, truncated=gr.truncated,
-                metric={"metrics": a.metrics, "dimensions": a.dimensions, "cube": q["cube"],
-                        "filters": q.get("filters", []), "order_by": q.get("orderBy", []),
-                        "limit": q.get("limit")},
-                formats=_metric_formats(mdl, a.metrics),
-                dialect=sqlglot_dialect(conn.kind) or conn.kind)
+    metric = {"metrics": a.metrics, "dimensions": a.dimensions, "cube": q["cube"],
+              "filters": q.get("filters", []), "order_by": q.get("orderBy", []),
+              "limit": q.get("limit")}
     extra = f"cube_query: {q}\nsemantic_sql: {compiled.semantic_sql}\n"
-    return _format(row.id, conn.name, compiled.sql, gr, extra) + _shown_note(c)
+    return _finish(c, "query_metrics", row, gr, conn, compiled.sql, a.title,
+                   _metric_formats(mdl, a.metrics), metric, extra)
 
 
 def get_result(c: Call) -> str:
@@ -694,6 +734,107 @@ def rate_result(c: Call) -> dict[str, Any]:
                          client=client)
     c.s.flush()
     return {"recorded": True, "sentiment": sentiment, "reasons": reasons}
+
+
+ANSWER_RESULTS = 4  # tabs on the answer card
+ANSWER_ROWS = 200  # rows of each result sent with the answer card
+_DATA_TOOLS = ("run_sql", "query_metrics")
+
+
+def _step(tc: ToolCall) -> dict[str, Any]:
+    """One line of "How this was answered" for a tool call of the question."""
+    a, m = tc.args or {}, tc.result_meta or {}
+    card = m.get("card") or {}
+    label = {
+        "start_analysis": "Started the analysis",
+        "get_context_pack": "Read the context pack",
+        "list_tables": "Listed the tables",
+        "list_metrics": "Listed the metrics",
+        "get_result": "Read more rows of a result",
+        "flag_context_gap": "Flagged a gap in the context for the data team",
+        "record_user_feedback": "Recorded your feedback for the data team",
+        "propose_context_change": "Proposed a context change to the data team",
+    }.get(tc.tool)
+    if tc.tool == "search_context":
+        label = f"Searched the context for \u201c{a.get('query', '')}\u201d"
+    elif tc.tool == "describe_table":
+        label = f"Read the docs for {a.get('table', 'a table')}"
+    elif tc.tool == "describe_metric":
+        label = f"Read the definition of {a.get('name', 'a metric')}"
+    elif tc.tool == "get_item":
+        label = f"Read {a.get('key', 'an item')}"
+    elif tc.tool == "run_sql":
+        label = f"Ran SQL: {card.get('title') or 'a query'}"
+    elif tc.tool == "query_metrics":
+        metrics = ", ".join(a.get("metrics") or []) or "a metric"
+        label = f"Queried {card.get('title') or metrics}"
+    detail = None
+    if tc.error:
+        detail = "failed: " + tc.error.split("\n", 1)[0][:160]
+    elif isinstance(m.get("rows"), int) and tc.tool in _DATA_TOOLS:
+        detail = f"{m['rows']:,} row{'' if m['rows'] == 1 else 's'}"
+    return {"tool": tc.tool, "label": label or tc.tool.replace("_", " "), "detail": detail,
+            "error": bool(tc.error), "result_id": m.get("result_id")}
+
+
+def answer_payload(
+    c: Call, *, headline: str, summary: str | None, points: list[str], caveats: list[str],
+    confidence: str, result_ids: list[str],
+) -> dict[str, Any] | None:
+    """The answer card report_answer shows: the agent's headline and points, the question's
+    results as tabs (with their facts), caveats, the steps taken and the context used."""
+    if c.ctx.ui_supported is False or c.session is None:
+        return None
+    sid = c.session.id
+    q = select(ToolCall).where(ToolCall.session_id == sid, ToolCall.tool != "report_answer")
+    if c.turn_id is not None:
+        q = q.where(ToolCall.turn_id == c.turn_id)
+    calls = list(c.s.scalars(q.order_by(ToolCall.id)))
+    by_result = {str(tc.result_meta["result_id"]): tc for tc in calls
+                 if tc.tool in _DATA_TOOLS and not tc.error
+                 and (tc.result_meta or {}).get("result_id")}
+    chosen: list[str] = [r for r in dict.fromkeys(result_ids) if r in by_result]
+    if not chosen:
+        with_rows = [r for r, tc in by_result.items() if (tc.result_meta.get("rows") or 0) > 0]
+        chosen = with_rows[-ANSWER_RESULTS:]
+    ctx_items = _ctx_items(c)
+    results: list[dict[str, Any]] = []
+    for rid in chosen[:ANSWER_RESULTS]:
+        tc = by_result[rid]
+        row = c.s.get(QueryResult, uuid.UUID(rid))
+        if row is None or row.expires_at <= datetime.now(UTC):
+            continue
+        try:
+            cols, rows = read_page(row, 0, FACT_ROWS)
+        except FileNotFoundError:
+            continue
+        card = tc.result_meta.get("card") or {}
+        facts = compute_facts(row.columns, cols, rows, card.get("formats"))
+        src = c.s.get(Connection, row.connection_id) if row.connection_id else None
+        results.append(_result_payload(
+            c, tool=tc.tool, result_id=row.id, tool_call_id=tc.id, sql=row.sql,
+            connection=src.name if src else None, columns=row.columns, cols=cols,
+            rows=rows[:ANSWER_ROWS],
+            row_count=row.row_count, truncated=row.truncated, ctx_items=ctx_items,
+            metric=card.get("metric"), formats=card.get("formats"),
+            dialect=(sqlglot_dialect(src.kind) or src.kind) if src else None,
+            title=card.get("title") or tc.args.get("title"), facts=facts.facts,
+            annotations=facts.annotations,
+        ))
+    return {
+        "satchel": 1,
+        "kind": "answer",
+        "session_id": str(sid),
+        "question": _turn_question(c),
+        "headline": headline,
+        "summary": summary,
+        "points": points,
+        "caveats": caveats,
+        "confidence": confidence,
+        "results": results,
+        "steps": [_step(tc) for tc in calls],
+        "ctx_items": ctx_items,
+    }
 
 
 def build_data_tools() -> list[ToolDef]:

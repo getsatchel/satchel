@@ -16,6 +16,7 @@ const payload = (r, offset, rowCount) => ({
   connection: "jaffle", question: "monthly revenue", sql: "select 1", metric: { metrics: ["revenue"], dimensions: ["order_date:month"], cube: "orders" },
   columns: [{ name: "month", type: "date32[day]", kind: "time" }, { name: "revenue", type: "double", kind: "number" }],
   rows: r, offset, row_count: rowCount, truncated: false, ctx: ["[ctx:metrics/revenue.md@v2]"],
+  facts: [{ kind: "change", text: "revenue went from 100 to 277, up 177%." }],
 });
 
 const hostPage = `<!doctype html><body><iframe id="f" sandbox="allow-scripts" style="width:700px;height:900px"></iframe>
@@ -50,8 +51,23 @@ async function open(first, more) {
   page.on("pageerror", (e) => console.error("pageerror:", e.message));
   return { page, frame: page.frameLocator("#f") };
 }
+/** A query's own card starts collapsed to one line; open it to see the result. */
+async function expand(frame) {
+  await frame.locator("#toggle").click();
+  await frame.locator("#rbody").waitFor();
+}
 const { page, frame } = await open(payload(rows.slice(0, 50), 0, 60), payload(rows.slice(50), 50, 60));
 
+// collapsed: the brand row, the title, a fact at a glance; no table, chart or feedback yet
+await frame.locator("#toggle").waitFor();
+assert.equal(await frame.locator(".brand .word").innerText(), "SATCHEL");
+assert.equal(await frame.locator("#kind").innerText(), "METRIC QUERY");
+assert.equal(await frame.locator("#toggle").getAttribute("aria-expanded"), "false");
+assert.equal(await frame.locator("#glance").innerText(), "revenue went from 100 to 277, up 177%.");
+for (const id of ["#rbody", "#fb", "#ctxbox"]) assert.equal(await frame.locator(id).isVisible(), false, `${id} hidden while collapsed`);
+await expand(frame);
+assert.equal(await frame.locator("#glance").isVisible(), false);
+assert.equal(await frame.locator("#factbox li").count(), 1);
 await frame.locator("#grid tbody tr").first().waitFor();
 assert.equal(await frame.locator("#grid tbody tr").count(), 50, "first 50 rows shown");
 assert.ok(await frame.locator("#chart svg polyline").count(), "time column -> line chart");
@@ -117,10 +133,11 @@ const kpi = {
 };
 const k = await open(kpi, kpi);
 const kf = k.frame;
+await expand(kf);
 await kf.locator("#kpi .tile").first().waitFor();
 assert.match(await kf.locator("#kpi .big").innerText(), /\$22,777\.05|A\$22,777\.05|AUD/, "currency formatted");
 assert.equal(await kf.locator("#tablewrap").isVisible(), false, "no table in KPI mode");
-assert.equal(await kf.locator("#kpi .lbl").innerText(), "revenue");
+assert.equal(await kf.locator("#kpi .lbl").textContent(), "revenue");
 const chipTexts = await kf.locator("#chips .chip").allInnerTexts();
 assert.deepEqual(chipTexts, ["order_date: 2025-01-01 \u2192 2025-12-31", "status \u2260 returned"]);
 assert.match(await kf.locator("#kpi .sub").innerText(), /order_date: 2025-01-01/);
@@ -153,12 +170,92 @@ await k.page.close();
 const plain = { ...kpi, result_id: "R3", metric: { metrics: ["order_count"], dimensions: [], cube: "sales" }, formats: {},
   columns: [{ name: "status", type: "varchar", kind: "text" }, { name: "order_count", type: "int64", kind: "number" }], rows: [["completed", 1234]], ctx_items: undefined, ctx: [] };
 const pl = await open(plain, plain);
+await expand(pl.frame);
 await pl.frame.locator("#kpi .big").waitFor();
 assert.equal(await pl.frame.locator("#kpi .big").innerText(), "1,234");
 assert.match(await pl.frame.locator("#kpi .sub").innerText(), /status: completed/);
 assert.equal(await pl.frame.locator("#chips .chip").count(), 0);
 assert.equal(await pl.frame.locator("#ctxbox").isVisible(), false);
 await pl.page.close();
+
+// ---- run_sql: the agent's title heads the card; zero rows says so instead of a bare header ----
+const empty = { ...plain, tool: "run_sql", result_id: "R4", metric: null, title: "Signups by month, 2025", question: "how about users?",
+  columns: [{ name: "m", type: "date", kind: "time" }, { name: "signups", type: "int64", kind: "number" }], rows: [], row_count: 0 };
+const em = await open(empty, empty);
+await expand(em.frame);
+await em.frame.locator("#none").waitFor();
+assert.equal(await em.frame.locator("#title").innerText(), "Signups by month, 2025");
+assert.equal(await em.frame.locator("#tablewrap").isVisible(), false);
+assert.equal(await em.frame.locator("#chart").isVisible(), false);
+await em.page.close();
+const untitled = { ...empty, result_id: "R5", title: null };
+const un = await open(untitled, untitled);
+await expand(un.frame);
+await un.frame.locator("#none").waitFor();
+assert.equal(await un.frame.locator("#title").innerText(), "how about users?");
+await un.page.close();
+
+// ---- answer card: headline, points, results as tabs with facts and marks, caveats, steps ----
+const monthly = Array.from({ length: 12 }, (_, i) => [`2025-${String(i + 1).padStart(2, "0")}-01T00:00:00`, [16, 19, 23, 24, 21, 18, 20, 21, 17, 18, 16, 20][i]]);
+const buyers = { ...plain, result_id: "RA", tool_call_id: 11, tool: "run_sql", metric: null, title: "Active buyers by month",
+  columns: [{ name: "m", type: "timestamp", kind: "time" }, { name: "active_buyers", type: "int64", kind: "number" }],
+  rows: monthly, row_count: 12, facts: [{ kind: "range", text: "Peak 24 in 2025-04; low 16 in 2025-01." }],
+  annotations: { column: "active_buyers", average: 19.42, marks: [{ x: "2025-04-01", label: "Peak 24" }, { x: "2025-01-01", label: "Low 16" }] } };
+const summary = { ...plain, result_id: "RB", tool_call_id: 12, tool: "run_sql", metric: null, title: "Buyer summary",
+  columns: [{ name: "buyers", type: "int64", kind: "number" }], rows: [[40]], row_count: 1, facts: [], annotations: null };
+const answerCard = {
+  satchel: 1, kind: "answer", session_id: "S9", question: "how about users?",
+  headline: "Active buyers held between 16 and 24 a month in 2025.", summary: null,
+  points: ["April was the peak.", "December is partial."], caveats: ["No signup date in the warehouse."],
+  confidence: "medium", results: [buyers, summary], ctx_items: [],
+  steps: [
+    { tool: "start_analysis", label: "Started the analysis", detail: null, error: false, result_id: null },
+    { tool: "run_sql", label: "Ran SQL: Signups", detail: "0 rows", error: false, result_id: "R0" },
+    { tool: "run_sql", label: "Ran SQL: Buyer summary", detail: "1 row", error: false, result_id: "RB" },
+  ],
+};
+const an = await open(answerCard, answerCard);
+const af = an.frame;
+await af.locator("#headline").waitFor();
+assert.equal(await af.locator("#kind").innerText(), "ANSWER");
+assert.equal(await af.locator("#headline").innerText(), answerCard.headline);
+assert.equal(await af.locator("#question").innerText(), "how about users?");
+assert.equal(await af.locator("#points li").count(), 2);
+assert.equal(await af.locator("#conf").innerText(), "MEDIUM CONFIDENCE");
+assert.equal(await af.locator("#toggle").isVisible(), false, "the answer card is never collapsed");
+assert.deepEqual(await af.locator("#tabs [role=tab]").allInnerTexts(), ["Active buyers by month", "Buyer summary"]);
+assert.equal(await af.locator("#tab-0").getAttribute("aria-selected"), "true");
+// the facts' average and marks are drawn on the chart
+assert.equal(await af.locator("#chart line.avg").count(), 1);
+assert.deepEqual(await af.locator("#chart text.hit-l").allTextContents(), ["Peak 24", "Low 16"]);
+assert.equal(await af.locator("#factbox li").innerText(), "Peak 24 in 2025-04; low 16 in 2025-01.");
+assert.equal(await af.locator("#caveat-list li").innerText(), "No signup date in the warehouse.");
+assert.match(await af.locator("#fb-label").innerText(), /Was this answer right\?/);
+// keyboard and the steps list both switch tabs; feedback rates the shown result
+await af.locator("#tab-0").focus();
+await an.page.keyboard.press("ArrowRight");
+await af.locator("#tab-1[aria-selected=true]").waitFor();
+await af.locator("#kpi .big").waitFor();
+assert.equal(await af.locator("#kpi .big").innerText(), "40");
+await af.locator("#fb-up").click();
+await an.page.waitForFunction(() => window.calls.some((c) => c.name === "rate_result"));
+const ar = await an.page.evaluate(() => window.calls.find((c) => c.name === "rate_result"));
+assert.equal(ar.arguments.tool_call_id, 12);
+await af.locator("#steps summary").click();
+assert.match(await af.locator("#steps-summary").innerText(), /3 steps/);
+assert.equal(await af.locator("#step-list li").nth(1).innerText(), "Ran SQL: Signups \u2014 0 rows");
+await af.locator("#step-list li").nth(2).locator("button").click();
+await af.locator("#tab-1[aria-selected=true]").waitFor();
+await an.page.close();
+
+// ---- an answer without data: just the answer, no result, no rating ----
+const plainAnswer = { ...answerCard, results: [], steps: [], caveats: [], confidence: "high", points: [] };
+const pa = await open(plainAnswer, plainAnswer);
+await pa.frame.locator("#headline").waitFor();
+for (const id of ["#result", "#tabs", "#fb", "#conf", "#points", "#caveats", "#steps"]) {
+  assert.equal(await pa.frame.locator(id).isVisible(), false, `${id} hidden`);
+}
+await pa.page.close();
 
 await browser.close();
 console.log("widget e2e ok");

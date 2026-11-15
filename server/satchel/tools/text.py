@@ -50,7 +50,10 @@ D_DESCRIBE = (
 D_REPORT = (
     "REQUIRED final step of every analysis: record the answer you are about to give the user "
     "(summary, metrics used, tables used, confidence, caveats). Call it before replying to the "
-    "user, once per answer. Put any assumptions or missing definitions in caveats."
+    "user, once per answer. Put any assumptions or missing definitions in caveats. Clients that "
+    "show Satchel cards present it as the answer card: a headline, key points, the results you "
+    "list in result_ids as tabs, caveats and the steps you took, so give a headline that "
+    "answers the question and key points drawn from the results' facts."
 )
 D_GAP = (
     "Call this whenever the user's question uses a term, metric or concept that search/pack "
@@ -86,13 +89,18 @@ D_DESCRIBE_METRIC = (
     "before query_metrics when unsure how a metric is defined. REQUIRED: session_id and "
     "question (the user's original question, verbatim)."
 )
+_CARD = (
+    "Each call shows the user a result card, so pass a short title saying what it shows, put "
+    "related figures in one query rather than several, and check columns with describe_table "
+    "instead of trial queries. "
+)
 D_QUERY_METRICS = (
     "Run a governed metric query: metrics (e.g. revenue) by optional dimensions, filters, "
     "ordering and limit. PREFER this over run_sql whenever list_metrics shows a metric that "
     "fits (check search_context / get_context_pack first). Time dimensions take a grain, "
     "e.g. dimensions=['order_date:month']; filter dates with gte/lt operators on the time "
     "dimension (end date exclusive). Returns a preview of the rows, the row count, "
-    "the generated SQL and a result_id for get_result. REQUIRED: session_id and question "
+    "the generated SQL and a result_id for get_result. " + _CARD + "REQUIRED: session_id and question "
     "(the user's original question, verbatim)."
 )
 D_RUN_SQL = (
@@ -101,7 +109,7 @@ D_RUN_SQL = (
     "first so the SQL uses the documented filters, units and endorsed tables; prefer "
     "query_metrics when a defined metric exists. DDL, DML and multiple statements are "
     "rejected; results are capped. Returns a preview of the rows, the row count, a truncated "
-    "flag and a result_id for get_result. REQUIRED: session_id and question (the user's "
+    "flag and a result_id for get_result. " + _CARD + "REQUIRED: session_id and question (the user's "
     "original question, verbatim)."
 )
 D_GET_RESULT = (
@@ -121,6 +129,17 @@ RESULT_MAYBE_SHOWN = (
     "If your client displays this result to the user as an interactive Satchel table, "
     + _NO_REPEAT
     + " Otherwise present the rows yourself."
+)
+
+_ANSWER_REPLY = (
+    "do NOT repeat its headline, points, numbers or caveats. Reply in two or three sentences "
+    "with what the card does not say: what it means for the user's decision, or a useful next "
+    "question."
+)
+ANSWER_SHOWN = "The user sees this answer as a Satchel answer card above your reply, so " + _ANSWER_REPLY
+ANSWER_MAYBE_SHOWN = (
+    "If your client shows this answer to the user as a Satchel answer card, "
+    + _ANSWER_REPLY + " Otherwise give the full answer yourself."
 )
 
 ERR_NO_SESSION = (
