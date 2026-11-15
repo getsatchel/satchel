@@ -79,10 +79,11 @@ export type LlmTestOut = S["LlmTestOut"];
 
 export type Member = Req<S["MemberOut"]>;
 export type SignInPolicy = Req<S["SignInPolicy"]>;
-export type MembersOut = { members: Member[]; sign_in: SignInPolicy; oidc_configured: boolean };
+export type MembersOut = { members: Member[]; sign_in: SignInPolicy; oidc_configured: boolean; provider?: string | null; creates_accounts?: boolean };
 export type MemberRole = Member["role"];
 export type InviteIn = S["InviteIn"];
-export type InviteOut = { invited: Member[]; existing: string[] };
+export type InviteAccount = S["AccountOut"];
+export type InviteOut = { invited: Member[]; existing: string[]; accounts?: InviteAccount[] };
 export type MemberPatch = S["MemberPatch"];
 
 export type ConnectionKind = Req<S["ConnectionKindOut"]>;

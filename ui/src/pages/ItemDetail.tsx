@@ -10,6 +10,7 @@ import { useToast } from "@/components/Toast";
 import { Crumb, DescList, DescribedBy, ErrorBox, Feedback, GitBadge, ICONS, Loading, Modal, Notice, PageHeader, PanelSection, SectionHeading, SourceBadge, StateBadge, StatusDot, Tabs, TypeBadge } from "@/components/ui";
 import { errMsg, fullTime, isYamlType, timeAgo } from "@/lib/format";
 import type { ItemDetail, VersionSummary } from "@/api/types";
+import { useRole } from "@/lib/role";
 
 export function ItemDetailPage() {
   const params = useParams();
@@ -32,7 +33,8 @@ function ItemView({ item }: { item: ItemDetail }) {
   const { source, overlay } = sourceBlocks(item);
   const orphaned = synced ? orphanedOverlayColumns(source, overlay) : [];
   const yaml = isYamlType(item.type);
-  const editable = !git && !synced && item.state !== "deprecated" && item.state !== "proposed";
+  const curator = useRole().can("curator");
+  const editable = curator && !git && !synced && item.state !== "deprecated" && item.state !== "proposed";
   const slash = item.key.lastIndexOf("/");
   const name = slash >= 0 ? item.key.slice(slash + 1) : item.key;
   const folder = slash >= 0 ? item.key.slice(0, slash + 1) : "";
@@ -66,7 +68,7 @@ function ItemView({ item }: { item: ItemDetail }) {
           </span>
         }
         actions={
-          synced && !editingOverlay && item.state !== "deprecated" ? (
+          curator && synced && !editingOverlay && item.state !== "deprecated" ? (
             <button className="btn btn-primary" onClick={() => setEditingOverlay(true)}>
               Edit overlay
             </button>
@@ -123,7 +125,7 @@ function ItemView({ item }: { item: ItemDetail }) {
           <DescribedBy refs={item.also_described_by} />
         </div>
       )}
-      {item.has_changes && !editing && (
+      {curator && item.has_changes && !editing && (
         <div className="mb-4">
           <Notice tone="warn">
             Version v{item.current_seq} is a draft change{item.published_seq != null ? ` over published v${item.published_seq}` : ""}.{" "}

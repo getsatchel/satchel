@@ -130,6 +130,10 @@ class Settings(BaseSettings):
     oidc_require_verified_email: bool = True
     # The name on the sign-in button ("Sign in with Okta"). Unset: guessed from the issuer.
     oidc_display_name: str | None = None
+    # Inviting a member also creates their account at the identity provider, which emails them
+    # how to sign in. Only Amazon Cognito (the issuer names the user pool); needs AWS credentials
+    # allowed cognito-idp:AdminCreateUser on the pool, and the ``aws`` extra.
+    oidc_create_users: bool = False
     # Dev-only header auth on the REST API (X-Satchel-Workspace / X-Satchel-User). Off by default.
     dev_auth: bool = False
     # Built curator UI (``npm run build`` in ui/). Unset = ../ui/dist next to the server package;

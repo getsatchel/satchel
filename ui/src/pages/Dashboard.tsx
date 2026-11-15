@@ -20,6 +20,8 @@ import {
   StatusLine,
 } from "@/components/ui";
 import { fullTime, timeAgo } from "@/lib/format";
+import { useRole } from "@/lib/role";
+import { Home } from "@/pages/Home";
 
 const DASH = "–";
 const PERIODS = [7, 30, 90] as const;
@@ -68,6 +70,10 @@ function signalCount(s: ObservabilitySummary, kind: string) {
 }
 
 export function Dashboard() {
+  const { can, loaded } = useRole();
+  if (!loaded) return null;
+  // Curator data is refused to everyone else: they get a home page made for them instead.
+  if (!can("curator")) return <Home />;
   return (
     <>
       <PageHeader title="Dashboard" sub="What needs a curator, and how agents are using your context." actions={<HeaderActions />} />

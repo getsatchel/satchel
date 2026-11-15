@@ -146,12 +146,21 @@ def test_role_enforcement(
             assert r.status_code != 401
 
 
-def test_session_list_scoped_for_low_roles(env: Env) -> None:
-    for role in ("analyst", "explorer"):
-        assert env.client.get("/v1/sessions", headers=env.h(role)).status_code == 200
-        other = str(env.users["admin"])
-        r = env.client.get("/v1/sessions", params={"user_id": other}, headers=env.h(role))
+def test_session_list_scoped_for_explorers(env: Env) -> None:
+    other = str(env.users["admin"])
+    seed_session(env, "admin", question="the admin's question")
+    for path in ("/v1/sessions", "/v1/turns"):
+        # explorers may not ask for anyone else's; analysts may
+        r = env.client.get(path, params={"user_id": other}, headers=env.h("explorer"))
         assert r.status_code == 403
+        r = env.client.get(path, params={"user_id": other}, headers=env.h("analyst"))
+        assert r.status_code == 200
+    # explorers see only their own; analysts see the team's and can narrow to one person
+    assert env.client.get("/v1/sessions", headers=env.h("explorer")).json()["total"] == 0
+    assert env.client.get("/v1/sessions", headers=env.h("analyst")).json()["total"] == 1
+    mine = {"user_id": str(env.users["analyst"])}
+    r = env.client.get("/v1/sessions", params=mine, headers=env.h("analyst"))
+    assert r.json()["total"] == 0
 
 
 def test_me_and_cookie_csrf(env: Env, app_engine: Engine) -> None:
@@ -593,9 +602,12 @@ def test_session_inspector_redaction_by_role(env: Env) -> None:
     # owner sees their own raw data
     o = env.client.get(url, headers=env.h("analyst")).json()
     assert o["redaction"] == "none" and o["question"] == LONG_Q
-    # other analysts / explorers: 403
-    for role in ("analyst2", "explorer"):
-        assert env.client.get(url, headers=env.h(role)).status_code == 403
+    # another analyst sees it redacted, like a curator; an explorer cannot open it
+    a2 = env.client.get(url, headers=env.h("analyst2")).json()
+    assert a2["redaction"] == "redacted" and a2["question"] != LONG_Q
+    run = next(t for t in a2["timeline"] if t["tool"] == "run_sql")
+    assert "Alice Smith" not in run["args"]["sql"]
+    assert env.client.get(url, headers=env.h("explorer")).status_code == 403
     assert env.client.get(f"/v1/sessions/{uuid.uuid4()}", headers=env.h("admin")).status_code == 404
 
 

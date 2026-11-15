@@ -84,6 +84,41 @@
         "title": "AcceptProposalRequest",
         "type": "object"
       },
+      "AccountOut": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "status": {
+            "description": "created: the provider emailed them; exists: they already had an account.",
+            "enum": [
+              "created",
+              "exists",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "status"
+        ],
+        "title": "AccountOut",
+        "type": "object"
+      },
       "AgentInstructionsInfo": {
         "properties": {
           "base": {
@@ -2300,6 +2335,14 @@
       },
       "InviteOut": {
         "properties": {
+          "accounts": {
+            "description": "Identity provider accounts created for the invited addresses (and for earlier invites nobody has used), when the server does that.",
+            "items": {
+              "$ref": "#/components/schemas/AccountOut"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
           "existing": {
             "description": "Addresses that are already members (unchanged).",
             "items": {
@@ -3683,6 +3726,12 @@
       },
       "MembersOut": {
         "properties": {
+          "creates_accounts": {
+            "default": false,
+            "description": "Inviting someone also creates their account at the identity provider, which emails them (SATCHEL_OIDC_CREATE_USERS).",
+            "title": "Creates Accounts",
+            "type": "boolean"
+          },
           "members": {
             "items": {
               "$ref": "#/components/schemas/MemberOut"
@@ -3694,6 +3743,18 @@
             "description": "Whether the server has an identity provider.",
             "title": "Oidc Configured",
             "type": "boolean"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The identity provider's name, if known.",
+            "title": "Provider"
           },
           "sign_in": {
             "$ref": "#/components/schemas/SignInPolicy"

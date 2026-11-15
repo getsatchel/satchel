@@ -24,6 +24,7 @@ import {
   StatusDot,
 } from "@/components/ui";
 import { fullTime, timeAgo } from "@/lib/format";
+import { useRole } from "@/lib/role";
 
 type Filter = "all" | "undocumented" | "endorsed" | "dropped";
 type Expand = "default" | "all" | "none";
@@ -93,6 +94,7 @@ function findNode(nodes: AssetNode[], id: string): AssetNode | null {
 }
 
 export function Catalog() {
+  const curator = useRole().can("curator");
   const [params] = useSearchParams();
   const [conn, setConn] = useState(params.get("connection") ?? "");
   const [text, setText] = useState("");
@@ -139,9 +141,11 @@ export function Catalog() {
           title="Connections"
           count={conns.data?.length}
           actions={
-            <Link className="btn btn-sm" to="/settings?tab=connections">
-              Manage
-            </Link>
+            curator && (
+              <Link className="btn btn-sm" to="/settings?tab=connections">
+                Manage
+              </Link>
+            )
           }
         />
         {conns.isPending && <Loading />}
@@ -150,9 +154,11 @@ export function Catalog() {
           <EmptyState
             title="No connections"
             action={
-              <Link className="btn btn-primary" to="/settings?tab=connections">
-                Add a connection
-              </Link>
+              curator && (
+                <Link className="btn btn-primary" to="/settings?tab=connections">
+                  Add a connection
+                </Link>
+              )
             }
           >
             Connect a warehouse in Settings, then crawl it to fill the catalog. The CLI works too: <code>satchel connection add</code>.
@@ -471,6 +477,7 @@ const relOrder = (r: string) => {
 };
 
 function AssetPanel({ id, node, onClose }: { id: string; node: AssetNode | null; onClose: () => void }) {
+  const curator = useRole().can("curator");
   const q = useQuery({ queryKey: ["asset", id], queryFn: () => endpoints.getAsset(id) });
   if (q.isPending) return <div className="card px-4"><Loading /></div>;
   if (q.isError) return <ErrorBox error={q.error} />;
@@ -524,9 +531,11 @@ function AssetPanel({ id, node, onClose }: { id: string; node: AssetNode | null;
           ) : (
             <div className="flex items-center justify-between gap-2">
               <span className="text-muted">Agents only see the raw schema.</span>
-              <Link to={`/library/new?type=asset_doc&asset=${encodeURIComponent(a.fqn)}`} className="btn btn-primary btn-sm">
-                Document
-              </Link>
+              {curator && (
+                <Link to={`/library/new?type=asset_doc&asset=${encodeURIComponent(a.fqn)}`} className="btn btn-primary btn-sm">
+                  Document
+                </Link>
+              )}
             </div>
           )}
         </PanelSection>

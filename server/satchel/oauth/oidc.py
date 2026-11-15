@@ -41,7 +41,8 @@ class Identity:
 
 class OidcProvider(Protocol):
     def authorize_url(
-        self, *, state: str, nonce: str, code_challenge: str, redirect_uri: str
+        self, *, state: str, nonce: str, code_challenge: str, redirect_uri: str,
+        login_hint: str | None = None,
     ) -> str: ...
 
     def exchange(
@@ -88,14 +89,19 @@ class HttpOidcProvider:
         return doc
 
     def authorize_url(
-        self, *, state: str, nonce: str, code_challenge: str, redirect_uri: str
+        self, *, state: str, nonce: str, code_challenge: str, redirect_uri: str,
+        login_hint: str | None = None,
     ) -> str:
         doc = self._discovery()
-        q = urlencode({
+        params = {
             "response_type": "code", "client_id": self.client_id, "redirect_uri": redirect_uri,
             "scope": self.scopes, "state": state, "nonce": nonce,
             "code_challenge": code_challenge, "code_challenge_method": "S256",
-        })
+        }
+        if login_hint:
+            # OIDC Core 3.1.2.1: pre-fills the account at providers that support it.
+            params["login_hint"] = login_hint
+        q = urlencode(params)
         sep = "&" if "?" in doc["authorization_endpoint"] else "?"
         return f"{doc['authorization_endpoint']}{sep}{q}"
 

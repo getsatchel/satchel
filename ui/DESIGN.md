@@ -85,6 +85,8 @@ Each tone has a `-soft` background for badges and error boxes.
 | DATA | Catalog, Sources |
 | ADMIN | Settings (Models, Connections, Members, Jobs, Limits, Deployment) |
 
+That is the sidebar for curators and admins. Explorers and analysts get **Home** (the same `/dashboard` route: how to connect an agent, their recent questions, what the agent knows) and one EXPLORE group: Library, Catalog, Sessions. `navFor(role)` in `src/components/nav.ts` builds both; give a page `min: "curator"` there and wrap its route in `RequireRole` (`src/App.tsx`), which shows a plain "This page is for curators" instead of a page of refused requests. Inside shared pages, hide actions a role can't take with `useRole().can("curator")` (`src/lib/role.ts`): never show a button the server will refuse, or an error banner for data the role may not read.
+
 Keep the sidebar short: a new view of something an existing page covers is a tab on that page (`Tabs`, `?tab=` in the URL), not a new entry. Add a page by adding it to `NAV_GROUPS` in `src/components/nav.ts`; the sidebar and the command palette both read it. A tab people look for by name goes in `SUB_PAGES` so the palette finds it, and a page that becomes a tab keeps its old URL as a redirect (`Moved` in `src/App.tsx`: `/changes`, `/observability`, `/jobs`). `⌘K` / `Ctrl+K` opens the palette anywhere, and every `PageHeader` shows the hint. The Dashboard adds the ink "New" menu (`HeaderActions`).
 
 ## Pages

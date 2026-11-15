@@ -1251,6 +1251,19 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** AccountOut */
+        AccountOut: {
+            /** Detail */
+            detail?: string | null;
+            /** Email */
+            email: string;
+            /**
+             * Status
+             * @description created: the provider emailed them; exists: they already had an account.
+             * @enum {string}
+             */
+            status: "created" | "exists" | "failed";
+        };
         /** AgentInstructionsInfo */
         AgentInstructionsInfo: {
             /**
@@ -2069,6 +2082,11 @@ export interface components {
         /** InviteOut */
         InviteOut: {
             /**
+             * Accounts
+             * @description Identity provider accounts created for the invited addresses (and for earlier invites nobody has used), when the server does that.
+             */
+            accounts?: components["schemas"]["AccountOut"][];
+            /**
              * Existing
              * @description Addresses that are already members (unchanged).
              */
@@ -2544,6 +2562,12 @@ export interface components {
         };
         /** MembersOut */
         MembersOut: {
+            /**
+             * Creates Accounts
+             * @description Inviting someone also creates their account at the identity provider, which emails them (SATCHEL_OIDC_CREATE_USERS).
+             * @default false
+             */
+            creates_accounts: boolean;
             /** Members */
             members: components["schemas"]["MemberOut"][];
             /**
@@ -2551,6 +2575,11 @@ export interface components {
              * @description Whether the server has an identity provider.
              */
             oidc_configured: boolean;
+            /**
+             * Provider
+             * @description The identity provider's name, if known.
+             */
+            provider?: string | null;
             sign_in: components["schemas"]["SignInPolicy"];
         };
         /** ObservabilitySummary */

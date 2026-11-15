@@ -47,10 +47,11 @@ class FakeOidc:
     def __init__(self) -> None:
         self.identity = Identity("sub-alice", ALICE, True, "Alice")
         self.last_state = ""
+        self.last_hint: str | None = None
 
     def authorize_url(self, *, state: str, nonce: str, code_challenge: str,
-                      redirect_uri: str) -> str:
-        self.last_state = state
+                      redirect_uri: str, login_hint: str | None = None) -> str:
+        self.last_state, self.last_hint = state, login_hint
         assert redirect_uri.endswith("/auth/callback")
         return "https://idp.test/authorize?" + urlencode({"state": state})
 
@@ -879,6 +880,20 @@ def _audit(env: Env, ws_id: uuid.UUID) -> list[Any]:
                               .order_by(AuditEvent.id)))
         s.expunge_all()
         return rows
+
+
+def test_invite_link_login_hint(c: TestClient, env: Env) -> None:
+    # An invite link pre-fills the account at the provider; anything else is dropped.
+    page = c.get("/auth/login", params={"workspace": env.wa, "login_hint": "new@x.test"})
+    assert "You were invited as <b>new@x.test</b>" in page.text
+    assert "name=login_hint value='new@x.test'" in page.text
+    c.get("/auth/login/start", params={"workspace": env.wa, "login_hint": "new@x.test"},
+          follow_redirects=False)
+    assert env.idp.last_hint == "new@x.test"
+    bad = c.get("/auth/login", params={"login_hint": "<script>"})
+    assert "login_hint" not in bad.text and "<script>" not in bad.text
+    c.get("/auth/login/start", params={"login_hint": "not an email"}, follow_redirects=False)
+    assert env.idp.last_hint is None
 
 
 def test_login_consent_and_provisioning_are_audited(c: TestClient, env: Env) -> None:

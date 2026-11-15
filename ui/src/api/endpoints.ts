@@ -187,9 +187,9 @@ export const endpoints = {
     api.post<PackOut>(`/v1/previews/${id}/context-pack`, { question }),
 
   summary: (days: number) => api.get<ObservabilitySummary>("/v1/observability/summary", { days }),
-  listSessions: (q: { client?: string; status?: string; limit?: number; offset?: number }) =>
+  listSessions: (q: { client?: string; status?: string; user_id?: string; limit?: number; offset?: number }) =>
     api.get<SessionPage>("/v1/sessions", { limit: 50, ...q }),
-  listTurns: (q: { client?: string; status?: string; limit?: number; offset?: number }) =>
+  listTurns: (q: { client?: string; status?: string; user_id?: string; limit?: number; offset?: number }) =>
     api.get<TurnPage>("/v1/turns", { limit: 50, ...q }),
   getSession: (id: string) => api.get<SessionDetail>(`/v1/sessions/${id}`),
   setSensitive: (id: string, sensitive: boolean) =>

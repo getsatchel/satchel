@@ -5,11 +5,13 @@ import { endpoints } from "@/api/endpoints";
 import type { ItemSummary } from "@/api/types";
 import { EmptyState, ErrorBox, FilterSelect, GitBadge, ICONS, KeyLines, Loading, PageHeader, SearchInput, SectionHeading, SourceBadge, StateBadge, TableCard, TypeBadge } from "@/components/ui";
 import { ITEM_TYPE_LABEL, timeAgo } from "@/lib/format";
+import { useRole } from "@/lib/role";
 
 const STATES = ["draft", "published", "proposed", "deprecated"];
 const SCOPES = ["workspace", "domain", "connection", "asset"];
 
 export function Library() {
+  const curator = useRole().can("curator");
   const [sp, setSp] = useSearchParams();
   const f = {
     type: sp.get("type") ?? "",
@@ -50,9 +52,11 @@ export function Library() {
         title="Library"
         sub="Everything agents can be served: guides, glossary, golden queries, asset docs and more."
         actions={
-          <Link to="/library/new" className="btn btn-primary">
-            New item
-          </Link>
+          curator && (
+            <Link to="/library/new" className="btn btn-primary">
+              New item
+            </Link>
+          )
         }
       />
       <div className="mb-3 flex flex-wrap items-center gap-2" role="search">
@@ -88,7 +92,7 @@ export function Library() {
         <EmptyState
           title={filtered ? "No items match these filters" : "The library is empty"}
           action={
-            !filtered && (
+            !filtered && curator && (
               <Link to="/library/new" className="btn btn-primary">
                 Create the first item
               </Link>

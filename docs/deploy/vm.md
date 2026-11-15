@@ -59,6 +59,17 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 The issuer is `https://cognito-idp.<region>.amazonaws.com/<user-pool-id>`.
 
+**Inviting people.** An invite under **Settings > Members** lets someone into the workspace, but
+they also need a Cognito user. Either:
+
+- set `SATCHEL_OIDC_CREATE_USERS=true` in `.env` and give the instance an IAM role allowed
+  `cognito-idp:AdminCreateUser` on the pool. Inviting someone then creates their Cognito user and
+  Cognito emails them a temporary password. Edit the pool's invitation message to include your
+  Satchel URL; or
+- turn on self sign-up in the pool and send people the invite link from the Members tab. Anyone
+  can create a Cognito user, but only people you invited get into Satchel (unless the Sign-in
+  setting lets others join as explorers).
+
 ## 4. Configure and start
 
 ```bash

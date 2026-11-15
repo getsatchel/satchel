@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DEV_AUTH, devAuth, setCsrf } from "./api/client";
 import { endpoints } from "./api/endpoints";
 import { Shell } from "./components/Shell";
 import { Logo } from "./components/Logo";
-import { ErrorBox, Loading } from "./components/ui";
+import { EmptyState, ErrorBox, Loading, PillButton } from "./components/ui";
+import { useRole, type Role } from "./lib/role";
 import { Dashboard } from "./pages/Dashboard";
 import { Inbox } from "./pages/Inbox";
 import { Library } from "./pages/Library";
@@ -28,6 +29,21 @@ function Moved({ to, add }: { to: string; add?: Record<string, string> }) {
   for (const [k, v] of Object.entries(add ?? {})) q.set(k, v);
   const s = q.toString();
   return <Navigate to={`${to}${s ? `?${s}` : ""}${loc.hash}`} replace />;
+}
+
+/** Pages for curators and admins. Anyone else gets a plain explanation, not a page of refusals. */
+function RequireRole({ min }: { min: Role }) {
+  const { can, role } = useRole();
+  if (can(min)) return <Outlet />;
+  return (
+    <EmptyState
+      title={`This page is for ${min === "admin" ? "admins" : "curators"}.`}
+      muted={role ? `You're ${/^[aeiou]/.test(role) ? "an" : "a"} ${role} in this workspace.` : undefined}
+      action={<PillButton to="/dashboard">Go home</PillButton>}
+    >
+      Ask a workspace admin if you need a different role.
+    </EmptyState>
+  );
 }
 
 function DevLogin({ onDone }: { onDone: () => void }) {
@@ -100,25 +116,27 @@ export function App() {
       <Route element={<Gate />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="inbox" element={<Inbox />} />
         <Route path="library" element={<Library />} />
-        <Route path="agent" element={<AgentInstructions />} />
-        <Route path="library/new" element={<ItemNew />} />
         <Route path="library/item/*" element={<ItemDetailPage />} />
+        <Route path="sessions" element={<Sessions />} />
+        <Route path="sessions/:id" element={<SessionInspector />} />
+        <Route path="catalog" element={<Catalog />} />
         {/* Pages that became tabs: old links and bookmarks keep working. */}
         <Route path="changes" element={<Moved to="/releases" />} />
         <Route path="observability" element={<Moved to="/sessions" add={{ tab: "usage" }} />} />
         <Route path="jobs" element={<Moved to="/settings" add={{ tab: "jobs" }} />} />
-        <Route path="releases" element={<Releases />} />
-        <Route path="sessions" element={<Sessions />} />
-        <Route path="sessions/:id" element={<SessionInspector />} />
-        <Route path="catalog" element={<Catalog />} />
-        <Route path="sources" element={<Sources />} />
-        <Route path="sources/:name" element={<SourceDetail />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="evals" element={<Evals />} />
-        <Route path="evals/runs/:id" element={<EvalRunPage />} />
-        <Route path="evals/compare" element={<EvalComparePage />} />
+        <Route element={<RequireRole min="curator" />}>
+          <Route path="inbox" element={<Inbox />} />
+          <Route path="agent" element={<AgentInstructions />} />
+          <Route path="library/new" element={<ItemNew />} />
+          <Route path="releases" element={<Releases />} />
+          <Route path="sources" element={<Sources />} />
+          <Route path="sources/:name" element={<SourceDetail />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="evals" element={<Evals />} />
+          <Route path="evals/runs/:id" element={<EvalRunPage />} />
+          <Route path="evals/compare" element={<EvalComparePage />} />
+        </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

@@ -12,6 +12,7 @@ A per-flow cookie (hash stored on the row) binds every step to the browser that 
 from __future__ import annotations
 
 import hmac
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -43,6 +44,12 @@ from satchel.store.models import AppUser, AuthFlow, Workspace
 
 PURGE_AFTER = timedelta(days=1)
 
+
+
+def clean_login_hint(raw: str | None) -> str | None:
+    """An email to pre-fill at the identity provider (from an invite link), or None."""
+    e = (raw or "").strip()
+    return e if 3 <= len(e) <= 254 and re.fullmatch(r"[^@\s]+@[^@\s]+", e) else None
 
 class PageError(Exception):
     """Shown to the user as an error page; never redirected (unsafe redirect target or no
@@ -123,7 +130,9 @@ class FlowService:
 
     # ---- starting a flow ------------------------------------------------------------------
 
-    def _new_flow(self, s: OrmSession, kind: str, **fields: Any) -> tuple[AuthFlow, str, str]:
+    def _new_flow(
+        self, s: OrmSession, kind: str, login_hint: str | None = None, **fields: Any
+    ) -> tuple[AuthFlow, str, str]:
         """Insert a flow in state ``idp``; returns (row, idp_authorize_url, browser secret)."""
         if self.oidc is None:
             raise PageError("Login is not configured on this server (SATCHEL_OIDC_* unset).", 503,
@@ -142,7 +151,7 @@ class FlowService:
         try:
             url = self.oidc.authorize_url(
                 state=state, nonce=nonce, code_challenge=pkce_s256(verifier),
-                redirect_uri=self.callback_url,
+                redirect_uri=self.callback_url, login_hint=login_hint,
             )
         except OidcError as e:
             raise PageError(f"The identity provider is unavailable: {e}", 502,
@@ -186,10 +195,13 @@ class FlowService:
             )
             return self._outcome(flow, url, browser)
 
-    def start_web_login(self, next_url: str | None, workspace: str | None) -> Outcome:
+    def start_web_login(
+        self, next_url: str | None, workspace: str | None, login_hint: str | None = None
+    ) -> Outcome:
         with admin_session(engine=self.engine) as s:
             flow, url, browser = self._new_flow(
-                s, "web", next_url=safe_next(next_url), requested_workspace=workspace or None
+                s, "web", login_hint=clean_login_hint(login_hint),
+                next_url=safe_next(next_url), requested_workspace=workspace or None,
             )
             return self._outcome(flow, url, browser)
 
