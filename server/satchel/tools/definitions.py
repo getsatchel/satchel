@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session as OrmSession
 
@@ -122,6 +122,17 @@ class ReportArgs(_Base):
     caveats: list[str] = Field(
         default_factory=list, description="Assumptions, missing definitions, data limits"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _aliases(cls, v: Any) -> Any:
+        # Agents often guess "answer" or "summary" for answer_summary; accept them rather than
+        # fail the call (the wrong guess shows as an error step in the chat).
+        if isinstance(v, dict) and not v.get("answer_summary"):
+            for name in ("answer", "summary"):
+                if isinstance(v.get(name), str) and v[name].strip():
+                    return {**v, "answer_summary": v[name]}
+        return v
 
     @field_validator("metrics_used", "tables_used", "caveats", "key_points", "result_ids",
                      mode="before")
