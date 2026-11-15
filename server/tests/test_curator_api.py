@@ -30,6 +30,7 @@ from satchel.store.models import (
     Feedback,
     Release,
     ServedContext,
+    SessionTurn,
     Signal,
     ToolCall,
 )
@@ -453,6 +454,33 @@ def propose(env: Env, **args: Any) -> str:
     out = invoke_tool(ctx, "propose_context_change",
                       {"session_id": started["session_id"], "rationale": "seen twice", **args})
     return str(json.loads(out)["proposal_key"])
+
+
+def test_proposal_and_feedback_follow_the_question(env: Env) -> None:
+    """A session reused for a follow-up: the proposal shows the follow-up, and feedback rates
+    the follow-up's context, not the first question's."""
+    ctx = InvokeContext(env.engine, EMB,
+                        Principal(env.ws_id, env.users["analyst"], "analyst"), client_name="t")
+    sid = json.loads(invoke_tool(ctx, "start_analysis", {"question": "how do we price x?"}))[
+        "session_id"]
+    invoke_tool(ctx, "get_context_pack", {"session_id": sid, "question": "how do we price x?"})
+    invoke_tool(ctx, "report_answer", {"session_id": sid, "answer_summary": "list price",
+                                       "confidence": "high"})
+    follow = "and how do we discount it?"
+    invoke_tool(ctx, "get_context_pack", {"session_id": sid, "question": follow})
+    key = json.loads(invoke_tool(ctx, "propose_context_change", {
+        "session_id": sid, "question": follow, "rationale": "r", "op": "create_item",
+        "type": "guide", "body": GUIDE["body"], "meta": GUIDE["meta"]}))["proposal_key"]
+    invoke_tool(ctx, "record_user_feedback",
+                {"session_id": sid, "question": follow, "sentiment": "doubt", "comment": "hm"})
+    props = env.client.get("/v1/proposals", headers=env.h("curator")).json()["proposals"]
+    assert next(p for p in props if p["key"] == key)["session_question"] == follow
+    with admin_session(engine=env.engine) as s:
+        fb = s.scalars(select(Feedback).where(Feedback.session_id == uuid.UUID(sid))).one()
+        call = s.get(ToolCall, fb.tool_call_id)
+        assert call is not None and call.turn_id is not None
+        turn = s.get(SessionTurn, call.turn_id)
+        assert turn is not None and turn.question == follow
 
 
 def test_proposals_accept_and_reject(env: Env) -> None:

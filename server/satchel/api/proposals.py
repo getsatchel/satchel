@@ -25,7 +25,7 @@ from satchel.api.schemas import (
 from satchel.curation.drafts import ItemValidationError, add_version, ensure_chunks, validate_item
 from satchel.curation.redact import truncate
 from satchel.store.db import workspace_session
-from satchel.store.models import AppUser, ContextItem, ContextVersion
+from satchel.store.models import AppUser, ContextItem, ContextVersion, SessionTurn
 from satchel.store.models import Session as SessionRow
 
 
@@ -55,9 +55,13 @@ def _proposal(s: Session, who: Caller, item: ContextItem) -> ProposalOut:
             )
     sid = _uuid(prov.get("ref"))
     sess = s.get(SessionRow, sid) if sid else None
+    # The question the agent was answering; older proposals only know the session.
+    turn = s.get(SessionTurn, prov["turn"]) if isinstance(prov.get("turn"), int) else None
+    asked = (turn.question if turn is not None and turn.session_id == sid else None) or (
+        sess.question if sess is not None else None)
     question: str | None = None
-    if sess is not None and sess.question and (who.has_role("admin") or not sess.sensitive):
-        question = sess.question if who.has_role("admin") else truncate(sess.question)
+    if sess is not None and asked and (who.has_role("admin") or not sess.sensitive):
+        question = asked if who.has_role("admin") else truncate(asked)
     user = s.get(AppUser, item.owner_user_id) if item.owner_user_id else None
     return ProposalOut(
         key=item.key, type=item.type, op=str(prov.get("op") or "create_item"),

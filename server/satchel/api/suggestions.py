@@ -46,6 +46,7 @@ from satchel.store.models import (
     Asset,
     ContextItem,
     ContextVersion,
+    SessionTurn,
     Signal,
     Suggestion,
     SuggestionChange,
@@ -136,33 +137,46 @@ def _evidence(
             select(AppUser.id, AppUser.display_name, AppUser.email).where(AppUser.id.in_(uids))
         ):
             labels[uid] = name or email or str(uid)[:8]
-    groups: dict[uuid.UUID | None, list[Signal]] = {}
+    # One entry per question: a follow-up question is evidence on its own, with its own text.
+    turn_ids = {sg.turn_id for sg in sigs if sg.turn_id is not None}
+    turns = {t.id: t for t in s.scalars(select(SessionTurn).where(SessionTurn.id.in_(turn_ids)))} \
+        if turn_ids else {}
+    groups: dict[tuple[uuid.UUID | None, int | None], list[Signal]] = {}
     for sg in sigs:
-        groups.setdefault(sg.session_id, []).append(sg)
-    ordered = sorted(
-        groups,
-        key=lambda sid: sessions[sid].started_at if sid in sessions else datetime.min.replace(
-            tzinfo=UTC),
-        reverse=True,
-    )
+        tid = sg.turn_id if sg.turn_id in turns else None
+        groups.setdefault((sg.session_id, tid), []).append(sg)
+    floor = datetime.min.replace(tzinfo=UTC)
+
+    def started(key: tuple[uuid.UUID | None, int | None]) -> datetime:
+        sid, tid = key
+        if tid is not None:
+            return turns[tid].started_at
+        return sessions[sid].started_at if sid in sessions else floor
+
+    ordered = sorted(groups, key=started, reverse=True)
     out: list[EvidenceSession] = []
-    for sid in ordered[:MAX_EVIDENCE_SESSIONS]:
+    for key in ordered[:MAX_EVIDENCE_SESSIONS]:
+        sid, tid = key
+        turn = turns.get(tid) if tid is not None else None
         sess = sessions.get(sid) if sid else None
         level = evidence_level(who, sess.user_id if sess else None,
                                sess.sensitive if sess else False)
         signals = []
-        for sg in groups[sid]:
+        for sg in groups[key]:
             payload = view_obj(level, sg.payload)
             signals.append(EvidenceSignal(
                 id=sg.id, kind=sg.kind, source=sg.source, created_at=sg.created_at,
                 message=signal_text(sg.kind, payload) if payload is not None else None,
             ))
+        question = (turn.question if turn and turn.question else sess.question) if sess else None
         out.append(EvidenceSession(
-            session_id=sid, user_label=labels.get(sess.user_id) if sess and sess.user_id else None,
+            session_id=sid, turn_seq=turn.seq if turn else None,
+            user_label=labels.get(sess.user_id) if sess and sess.user_id else None,
             client=sess.client if sess else None,
-            question=view_text(level, sess.question) if sess else None,
+            question=view_text(level, question),
             sensitive=sess.sensitive if sess else False, redaction=level,
-            started_at=sess.started_at if sess else None, signals=signals,
+            started_at=turn.started_at if turn else sess.started_at if sess else None,
+            signals=signals,
         ))
     return out, stats, len(ordered) > MAX_EVIDENCE_SESSIONS
 

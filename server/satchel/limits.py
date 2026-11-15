@@ -170,6 +170,9 @@ def _purge_workspace(s: Session, ws: Workspace, days: int, now: datetime,
         select(AgentSession.id).where(
             AgentSession.workspace_id == ws.id,
             AgentSession.started_at < cutoff,
+            # A conversation is as old as its latest question, not its first.
+            ~exists().where(SessionTurn.session_id == AgentSession.id,
+                            SessionTurn.started_at >= cutoff),
             ~exists().where(Feedback.session_id == AgentSession.id),
         ).order_by(AgentSession.started_at).limit(batch)
     ))

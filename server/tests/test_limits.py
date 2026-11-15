@@ -26,6 +26,7 @@ from satchel.store.models import (
     AppUser,
     AuditEvent,
     Feedback,
+    SessionTurn,
     Signal,
     ToolCall,
     Workspace,
@@ -212,6 +213,34 @@ def test_session_retention_purges_old_sessions(app_engine: Engine) -> None:
     # Nothing left to do on the next pass.
     again = limits.purge_old_sessions(st(), engine=app_engine, workspace_id=e.ws_id)
     assert (again.sessions, again.workspaces) == (0, 0)
+
+
+def test_session_retention_with_questions(app_engine: Engine) -> None:
+    """A session's questions go with it, and a conversation with a recent question stays."""
+    e = Env(app_engine, st())
+    e.put({"session_retention_days": 30})
+    now = datetime.now(UTC)
+    with admin_session(engine=app_engine) as s:
+        old, live = _session(s, e.ws_id, 40), _session(s, e.ws_id, 40)
+        turns = {}
+        for sid, ages in ((old, (40, 39)), (live, (40, 2))):
+            for seq, age in enumerate(ages, start=1):
+                t = SessionTurn(session_id=sid, seq=seq, question=f"q{seq}",
+                                started_at=now - timedelta(days=age))
+                s.add(t)
+                s.flush()
+                turns[(sid, seq)] = t.id
+                s.add(ToolCall(session_id=sid, turn_id=t.id, tool="run_sql"))
+        s.add(Signal(workspace_id=e.ws_id, session_id=old, turn_id=turns[(old, 2)],
+                     kind="no_results", source="agent"))
+    rep = limits.purge_old_sessions(st(), engine=app_engine, workspace_id=e.ws_id)
+    assert (rep.sessions, rep.tool_calls) == (1, 3)
+    with admin_session(engine=app_engine) as s:
+        assert s.get(AgentSession, old) is None and s.get(AgentSession, live) is not None
+        assert not list(s.scalars(select(SessionTurn).where(SessionTurn.session_id == old)))
+        assert len(list(s.scalars(select(SessionTurn).where(SessionTurn.session_id == live)))) == 2
+        sig = s.scalars(select(Signal).where(Signal.workspace_id == e.ws_id)).one()
+        assert (sig.session_id, sig.turn_id) == (None, None)  # kept, detached
 
 
 def test_deployment_default_retention_applies_to_workspaces_without_override(

@@ -48,6 +48,7 @@ from satchel.store.models import (
     ContextVersion,
     Feedback,
     ServedContext,
+    SessionTurn,
     Signal,
     Suggestion,
     SuggestionChange,
@@ -202,17 +203,27 @@ def _pick_sessions(
     return out
 
 
-def _session_view(s: Session, sess: SessionRow, users: _Users) -> dict[str, Any]:
-    calls = list(s.scalars(
-        select(ToolCall).where(ToolCall.session_id == sess.id).order_by(ToolCall.id)
-    ))
+def _session_view(
+    s: Session, sess: SessionRow, users: _Users, turn_ids: set[int] | None = None
+) -> dict[str, Any]:
+    """What happened in a session, limited to the questions the signals came from when known.
+    Earlier questions are listed by text only, since a follow-up ("and by region?") needs them
+    to make sense."""
+    turns = list(s.scalars(
+        select(SessionTurn).where(SessionTurn.session_id == sess.id).order_by(SessionTurn.seq)))
+    picked = [t for t in turns if turn_ids and t.id in turn_ids]
+    q = select(ToolCall).where(ToolCall.session_id == sess.id)
+    if picked:
+        q = q.where(ToolCall.turn_id.in_([t.id for t in picked]))
+    calls = list(s.scalars(q.order_by(ToolCall.id)))
+    call_ids = [c.id for c in calls]
     served = [
         k for (k,) in s.execute(
             select(ContextItem.key).distinct()
             .join(ContextVersion, ContextVersion.item_id == ContextItem.id)
             .join(ServedContext, ServedContext.version_id == ContextVersion.id)
             .join(ToolCall, ToolCall.id == ServedContext.tool_call_id)
-            .where(ToolCall.session_id == sess.id, ContextItem.scope_kind != "user")
+            .where(ToolCall.id.in_(call_ids), ContextItem.scope_kind != "user")
             .limit(8)
         )
     ]
@@ -223,7 +234,14 @@ def _session_view(s: Session, sess: SessionRow, users: _Users) -> dict[str, Any]
     if sess.sensitive:
         view["note"] = "sensitive session: details withheld"
         return view
-    view["question"] = truncate(sess.question or "", TEXT_LIMIT)
+    if picked:
+        view["question"] = truncate(
+            " / ".join(t.question or "" for t in picked) or sess.question or "", TEXT_LIMIT)
+        earlier = [t.question for t in turns if t.seq < picked[0].seq and t.question]
+        if earlier:
+            view["earlier_questions"] = [truncate(x, TEXT_LIMIT) for x in earlier[-3:]]
+    else:
+        view["question"] = truncate(sess.question or "", TEXT_LIMIT)
     view["tool_calls"] = [
         {"tool": c.tool, "args": _clean({k: v for k, v in c.args.items() if k != "session_id"}),
          **({"error": truncate(c.error, TEXT_LIMIT)} if c.error else {})}
@@ -231,7 +249,9 @@ def _session_view(s: Session, sess: SessionRow, users: _Users) -> dict[str, Any]
     ]
     view["feedback"] = [
         {"rating": f.rating, "comment": truncate(f.comment or "", TEXT_LIMIT), "source": f.source}
-        for f in s.scalars(select(Feedback).where(Feedback.session_id == sess.id))
+        for f in s.scalars(select(Feedback).where(
+            Feedback.session_id == sess.id,
+            *([Feedback.tool_call_id.in_(call_ids)] if picked else [])))
     ]
     return view
 
@@ -361,6 +381,10 @@ def build_prompt(
     sessions = list(s.scalars(select(SessionRow).where(SessionRow.id.in_(sess_ids)))) \
         if sess_ids else []
     sensitive = {x.id for x in sessions if x.sensitive}
+    turns_of: dict[uuid.UUID, set[int]] = {}
+    for sg in sigs:
+        if sg.session_id and sg.turn_id is not None:
+            turns_of.setdefault(sg.session_id, set()).add(sg.turn_id)
     sig_view = []
     for sg in sigs[:MAX_SIGNALS]:
         row: dict[str, Any] = {"kind": sg.kind, "source": sg.source, "by": users.label(sg.user_id)}
@@ -381,7 +405,8 @@ def build_prompt(
         f"Placeholder title: {sug.title}",
         "# Signals\n" + json.dumps(sig_view, indent=1, default=str),
         "# Sample sessions\n" + json.dumps(
-            [_session_view(s, x, users) for x in _pick_sessions(sessions, MAX_SESSIONS)],
+            [_session_view(s, x, users, turns_of.get(x.id))
+             for x in _pick_sessions(sessions, MAX_SESSIONS)],
             indent=1, default=str),
         "# Related current context items\n" + json.dumps(
             _related_items(s, sigs, cluster_text or sug.title, embedder), indent=1, default=str),

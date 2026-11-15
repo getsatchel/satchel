@@ -49,7 +49,12 @@ and publish.
 3. `query_metrics` (preferred) or `run_sql` fetches data through the guarded SQL gateway.
 4. `report_answer` closes the session. `flag_context_gap` and `record_user_feedback` feed the loop.
 
-Agents often keep one session for a whole conversation. Satchel groups a session's tool calls into **turns**, one per question: a new turn starts when a call carries a different question from the one being worked on. A follow-up after `report_answer` always starts one; before the answer, a reworded version of the same question stays in its turn. **Sessions** lists one row per question (switch to **Conversations** for one row per session), and a session with several questions shows them as a list to step through. Each signal records the turn it came from, so it is clustered with the question that was being asked, not the first one of the session.
+Agents often keep one session for a whole conversation. Satchel groups a session's tool calls into **turns**, one per question: a new turn starts when a call carries a different question from the one being worked on. A follow-up after `report_answer` always starts one; before the answer, a reworded version of the same question stays in its turn. **Sessions** lists one row per question (switch to **Conversations** for one row per session), and a session with several questions shows them as a list to step through. Each signal records the turn it came from, so it is clustered with the question that was being asked, not the first one of the session. Curation works per question too:
+
+- **Golden queries.** A question qualifies on its own calls: positive feedback and no negative feedback on that question, and a high-confidence `report_answer`. The candidate carries that question's text, so a 👎 on a later question does not hold back an earlier one.
+- **Evidence.** In the Inbox, each piece of evidence is one question with its own text, linked to that question in the session inspector. The LLM drafting a fix sees only the calls of the questions its signals came from, plus the earlier questions' text for context.
+- **Proposals** and **feedback** record the question being answered when the agent called `propose_context_change` or `record_user_feedback`.
+- **Retention** counts a conversation's age from its latest question, so a long-running conversation is not deleted while it is still in use.
 
 ## Architecture in one paragraph
 

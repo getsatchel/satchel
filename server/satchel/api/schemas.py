@@ -534,7 +534,12 @@ class EvidenceSignal(BaseModel):
 
 
 class EvidenceSession(BaseModel):
+    """One question the signals came from (or a whole session, for signals recorded before
+    sessions were split into questions)."""
+
     session_id: uuid.UUID | None  # None = signals with no session (hygiene findings)
+    turn_seq: int | None = Field(
+        None, description="Which question in the session (1-based); None for the whole session.")
     user_label: str | None
     client: str | None
     question: str | None

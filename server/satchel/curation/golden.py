@@ -1,13 +1,18 @@
-"""Golden-query candidates (design §7.2): a session that ended well becomes a suggestion.
+"""Golden-query candidates (design §7.2): a question that was answered well becomes a suggestion.
 
-A session qualifies when it has positive feedback (and no negative feedback), a
-``report_answer`` with ``confidence = high``, is not flagged sensitive, and its last
-successful ``run_sql`` / ``query_metrics`` call is not already covered by a golden query. Each
-qualifying session yields one ``golden_candidate`` signal (``source='human'``, because a person
-rated it; a 👍 from the result widget, ``feedback.source = 'human'``, pins the query to the call
-it rated and sets ``rated_by = 'human'``); the gap detector turns it into a suggestion that
-bypasses the thresholds, and the
-drafter builds the ``promote_golden_query`` change without needing an LLM.
+Agents often keep one session for a whole conversation, so this works per question (a
+``session_turn``): a question qualifies when its own calls have positive feedback (and no
+negative feedback), a ``report_answer`` with ``confidence = high``, the session is not flagged
+sensitive, and its last successful ``run_sql`` / ``query_metrics`` call is not already covered
+by a golden query. A 👎 on a later question does not hold back an earlier one. Each qualifying
+question yields one ``golden_candidate`` signal carrying that question (``source='human'``,
+because a person rated it; a 👍 from the result widget, ``feedback.source = 'human'``, pins the
+query to the call it rated and sets ``rated_by = 'human'``); the gap detector turns it into a
+suggestion that bypasses the thresholds, and the drafter builds the ``promote_golden_query``
+change without needing an LLM.
+
+Sessions without questions (none should remain after migration 0017) are judged whole, as
+before; a session that already produced a candidate before this worked per question is skipped.
 """
 
 from __future__ import annotations
@@ -24,7 +29,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from satchel.curation.config import CurationConfig
-from satchel.store.models import ContextItem, ContextVersion, Feedback, Signal, ToolCall
+from satchel.store.models import (
+    ContextItem,
+    ContextVersion,
+    Feedback,
+    SessionTurn,
+    Signal,
+    ToolCall,
+)
 from satchel.store.models import Session as SessionRow
 from satchel.store.scopes import session_not_eval
 
@@ -68,61 +80,96 @@ def query_of(call: ToolCall) -> tuple[str, Any] | None:
     return None
 
 
+def _units(
+    s: Session, sess: SessionRow, calls: list[ToolCall], fbs: list[Feedback]
+) -> list[tuple[SessionTurn | None, str | None, list[ToolCall], list[Feedback]]]:
+    """(question, its text, its calls, its feedback) for each question of a session."""
+    turns = list(s.scalars(
+        select(SessionTurn).where(SessionTurn.session_id == sess.id).order_by(SessionTurn.seq)))
+    if not turns:
+        return [(None, sess.question, calls, fbs)]
+    turn_of = {c.id: c.turn_id for c in calls}
+    by_turn: dict[int, tuple[list[ToolCall], list[Feedback]]] = {t.id: ([], []) for t in turns}
+    for c in calls:
+        if c.turn_id in by_turn:
+            by_turn[c.turn_id][0].append(c)
+    for f in fbs:
+        tid = turn_of.get(f.tool_call_id) if f.tool_call_id is not None else None
+        if tid is None:
+            # Feedback on no particular call: the question being asked when it was given.
+            tid = next((t.id for t in reversed(turns) if t.started_at <= f.created_at),
+                       turns[0].id)
+        if tid in by_turn:
+            by_turn[tid][1].append(f)
+    return [(t, t.question or (sess.question if t.seq == 1 else None), *by_turn[t.id])
+            for t in turns]
+
+
 def detect_golden_candidates(
     s: Session, workspace_id: uuid.UUID, cfg: CurationConfig, *, now: datetime | None = None
 ) -> int:
-    """Emit ``golden_candidate`` signals for qualifying sessions. Returns the number emitted."""
+    """Emit ``golden_candidate`` signals for qualifying questions. Returns the number emitted."""
     since = (now or datetime.now(UTC)) - timedelta(days=cfg.window_days)
     sessions = list(s.scalars(
         select(SessionRow).where(
-            SessionRow.workspace_id == workspace_id, SessionRow.started_at >= since,
-            SessionRow.sensitive.is_(False), SessionRow.question.is_not(None),
+            SessionRow.workspace_id == workspace_id, SessionRow.sensitive.is_(False),
             SessionRow.user_id.is_not(None), session_not_eval(),
+            # A conversation that started earlier can still have a recent question.
+            (SessionRow.started_at >= since) | SessionRow.id.in_(
+                select(SessionTurn.session_id).where(SessionTurn.started_at >= since)),
         ).order_by(SessionRow.started_at)
     ))
     if not sessions:
         return 0
     known = _existing_queries(s, workspace_id)
+    done = {str(d) for (d,) in s.execute(
+        select(Signal.payload["dedupe"].astext).where(
+            Signal.workspace_id == workspace_id, Signal.kind == "golden_candidate"))}
     emitted = 0
     for sess in sessions:
-        dedupe = f"session:{sess.id}"
-        if s.scalar(select(Signal.id).where(
-            Signal.workspace_id == workspace_id, Signal.kind == "golden_candidate",
-            Signal.payload["dedupe"].astext == dedupe).limit(1)) is not None:
+        if f"session:{sess.id}" in done:  # judged whole before questions existed
             continue
-        fbs = list(s.scalars(select(Feedback).where(Feedback.session_id == sess.id)
-                             .order_by(Feedback.id)))
-        if (not fbs or any(f.rating < 0 for f in fbs) or not any(f.rating > 0 for f in fbs)):
-            continue
-        human_up = [f for f in fbs if f.rating > 0 and f.source == "human"]
         calls = list(s.scalars(
             select(ToolCall).where(ToolCall.session_id == sess.id).order_by(ToolCall.id)))
-        if not any(c.tool == "report_answer" and c.error is None
-                   and c.args.get("confidence") == "high" for c in calls):
-            continue
-        ok = [c for c in calls if c.error is None and c.tool in ("run_sql", "query_metrics")
-              and query_of(c) is not None]
-        # A 👍 on a specific result (result widget) pins the golden query to that very call.
-        rated = {f.tool_call_id for f in human_up if f.tool_call_id is not None}
-        last = next((c for c in reversed(ok) if c.id in rated), None) or (
-            ok[-1] if ok else None)
-        if last is None:
-            continue
-        kind, value = query_of(last)  # type: ignore[misc]
-        fingerprint = _norm_sql(value) if kind == "sql" else json.dumps(value, sort_keys=True,
-                                                                         default=str)
-        if fingerprint in known:
-            continue
-        known.add(fingerprint)
-        connection = last.result_meta.get("connection") or last.args.get("connection")
-        s.add(Signal(
-            workspace_id=workspace_id, session_id=sess.id, user_id=sess.user_id,
-            kind="golden_candidate", source="human",
-            payload={"text": f"Promote to a golden query: {sess.question}",
-                     "question": sess.question, kind: value, "connection": connection,
-                     "tool_call_id": last.id, "dedupe": dedupe,
-                     "rated_by": "human" if human_up else "agent"},
-        ))
-        emitted += 1
+        fbs = list(s.scalars(select(Feedback).where(Feedback.session_id == sess.id)
+                             .order_by(Feedback.id)))
+        for turn, question, tcalls, tfbs in _units(s, sess, calls, fbs):
+            dedupe = f"turn:{turn.id}" if turn is not None else f"session:{sess.id}"
+            if dedupe in done or not question:
+                continue
+            if turn is not None and turn.started_at < since:
+                continue
+            if not tfbs or any(f.rating < 0 for f in tfbs) or not any(f.rating > 0 for f in tfbs):
+                continue
+            human_up = [f for f in tfbs if f.rating > 0 and f.source == "human"]
+            if not any(c.tool == "report_answer" and c.error is None
+                       and c.args.get("confidence") == "high" for c in tcalls):
+                continue
+            ok = [c for c in tcalls if c.error is None and c.tool in ("run_sql", "query_metrics")
+                  and query_of(c) is not None]
+            # A 👍 on a specific result (result widget) pins the golden query to that very call.
+            rated = {f.tool_call_id for f in human_up if f.tool_call_id is not None}
+            last = next((c for c in reversed(ok) if c.id in rated), None) or (
+                ok[-1] if ok else None)
+            if last is None:
+                continue
+            kind, value = query_of(last)  # type: ignore[misc]
+            fingerprint = _norm_sql(value) if kind == "sql" else json.dumps(
+                value, sort_keys=True, default=str)
+            if fingerprint in known:
+                continue
+            known.add(fingerprint)
+            done.add(dedupe)
+            connection = last.result_meta.get("connection") or last.args.get("connection")
+            s.add(Signal(
+                workspace_id=workspace_id, session_id=sess.id, user_id=sess.user_id,
+                turn_id=turn.id if turn is not None else None,
+                kind="golden_candidate", source="human",
+                payload={"text": f"Promote to a golden query: {question}",
+                         "question": question, kind: value, "connection": connection,
+                         "tool_call_id": last.id, "dedupe": dedupe,
+                         "rated_by": "human" if human_up else "agent"},
+            ))
+            emitted += 1
     s.flush()
     return emitted

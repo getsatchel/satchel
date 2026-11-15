@@ -42,6 +42,7 @@ from satchel.store.models import (
     ContextItem,
     Feedback,
     Job,
+    SessionTurn,
     Signal,
     Suggestion,
     SuggestionChange,
@@ -701,6 +702,84 @@ def test_golden_candidate_skipped_when_query_already_exists(ws: Ws) -> None:
     _good_session(ws)
     rep = run_curation(ws.id, engine=ws.engine, embedder=EMB, use_llm=False)
     assert rep is not None and rep.golden_candidates == 0
+
+
+def _turn(ws: Ws, sid: uuid.UUID, seq: int, question: str, *, sql: str | None = None,
+          confidence: str | None = None, rating: int | None = None) -> int:
+    """One question in a session, with an optional query, answer and rating of that query."""
+    with admin_session(engine=ws.engine) as s:
+        t = SessionTurn(session_id=sid, seq=seq, question=question,
+                        started_at=datetime.now(UTC) - timedelta(minutes=10 - seq))
+        s.add(t)
+        s.flush()
+        sess = s.get(SessionRow, sid)
+        assert sess is not None
+        if sql:
+            call = ToolCall(session_id=sid, turn_id=t.id, tool="run_sql",
+                            args={"sql": sql, "question": question},
+                            result_meta={"connection": "warehouse"})
+            s.add(call)
+            s.flush()
+            if rating is not None:
+                s.add(Feedback(session_id=sid, tool_call_id=call.id, user_id=sess.user_id,
+                               rating=rating, source="human"))
+        if confidence:
+            s.add(ToolCall(session_id=sid, turn_id=t.id, tool="report_answer",
+                           args={"confidence": confidence}))
+        return t.id
+
+
+def test_golden_candidate_per_question(ws: Ws) -> None:
+    """The follow-up that was answered well is promoted with its own question, and a 👎 on
+    the first question does not hold it back."""
+    sid = ws.session("analyst", "What was revenue by month?")
+    _turn(ws, sid, 1, "What was revenue by month?", sql="select 1 from analytics.orders",
+          confidence="high", rating=-1)
+    t2 = _turn(ws, sid, 2, "And by region?", sql=GOOD_SQL, confidence="high", rating=1)
+    _turn(ws, sid, 3, "Thanks, which region grew most?")
+    # A session judged whole before this worked per question is not judged again.
+    legacy = _good_session(ws, "u2")
+    ws.signal("u2", legacy, "golden_candidate", {"dedupe": f"session:{legacy}"}, source="human")
+
+    rep = run_curation(ws.id, engine=ws.engine, embedder=EMB, use_llm=False)
+    assert rep is not None and rep.golden_candidates == 1 and rep.errors == []
+    with admin_session(engine=ws.engine) as s:
+        sig = s.scalars(select(Signal).where(Signal.workspace_id == ws.id,
+                                             Signal.session_id == sid)).one()
+        assert sig.turn_id == t2 and sig.payload["question"] == "And by region?"
+        assert sig.payload["dedupe"] == f"turn:{t2}"
+    (c,) = [c for c in _changes(ws) if c.op == "promote_golden_query"]
+    assert c.proposed_key == "queries/and-by-region.yaml" and "date_trunc" in c.proposed_body
+
+    # The Inbox evidence is that question, with its position in the conversation.
+    sug = next(x for x in ws.suggestions() if x.source == "golden" and "region" in x.title)
+    d = ws.client().get(f"/v1/suggestions/{sug.id}", headers=ws.h("curator")).json()
+    (ev,) = d["evidence"]
+    assert (ev["session_id"], ev["turn_seq"]) == (str(sid), 2)
+    assert ev["question"] == "And by region?"
+
+    rep = run_curation(ws.id, engine=ws.engine, embedder=EMB, use_llm=False)
+    assert rep is not None and rep.golden_candidates == 0  # idempotent
+
+
+def test_prompt_shows_the_signals_question_and_earlier_ones(ws: Ws) -> None:
+    for u in ("analyst", "u2", "u3"):
+        sid = ws.session(u, "How many orders last week?")
+        _turn(ws, sid, 1, "How many orders last week?", sql="select count(*) from first_table")
+        t2 = _turn(ws, sid, 2, "What is our churn rate?", sql="select * from churn_table")
+        with admin_session(engine=ws.engine) as s:
+            sg = Signal(workspace_id=ws.id, session_id=sid, turn_id=t2,
+                        user_id=ws.users[u], kind="gap_flagged", source="agent",
+                        payload={"what_was_missing": CHURN})
+            s.add(sg)
+            s.flush()
+            sg.embedding = EMB.embed([json.dumps({"what_was_missing": CHURN})])[0]
+    chat = FakeChatProvider([{"title": "T", "summary": "S", "changes": []}])
+    run_curation(ws.id, engine=ws.engine, embedder=EMB, chat=chat)
+    msg = chat.calls[0]["messages"][0]["content"]
+    assert '"question": "What is our churn rate?"' in msg
+    assert '"earlier_questions"' in msg and "How many orders last week?" in msg
+    assert "churn_table" in msg and "first_table" not in msg  # only that question's calls
 
 
 # ---- running without an LLM --------------------------------------------------------------------

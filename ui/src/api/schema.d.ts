@@ -1872,7 +1872,11 @@ export interface components {
             /** Source */
             source: string;
         };
-        /** EvidenceSession */
+        /**
+         * EvidenceSession
+         * @description One question the signals came from (or a whole session, for signals recorded before
+         *     sessions were split into questions).
+         */
         EvidenceSession: {
             /** Client */
             client: string | null;
@@ -1891,6 +1895,11 @@ export interface components {
             signals: components["schemas"]["EvidenceSignal"][];
             /** Started At */
             started_at: string | null;
+            /**
+             * Turn Seq
+             * @description Which question in the session (1-based); None for the whole session.
+             */
+            turn_seq?: number | null;
             /** User Label */
             user_label: string | null;
         };
