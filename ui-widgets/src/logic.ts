@@ -18,6 +18,7 @@ export interface Payload {
   tool_call_id: number | null;
   connection: string | null;
   question: string | null;
+  title?: string | null;
   sql: string;
   metric: MetricQuery | null;
   formats?: Record<string, Format>;

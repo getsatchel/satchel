@@ -19,6 +19,7 @@ body {
 }
 .wrap { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
 .empty { padding: 16px; color: rgb(var(--muted)); }
+.none { margin: 0; padding: 12px 14px; border: 1px dashed rgb(var(--line)); border-radius: 6px; color: rgb(var(--muted)); font-size: 13px; }
 [hidden] { display: none !important; }
 .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
 .title { font-weight: 600; font-size: 14px; }

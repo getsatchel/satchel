@@ -86,13 +86,18 @@ D_DESCRIBE_METRIC = (
     "before query_metrics when unsure how a metric is defined. REQUIRED: session_id and "
     "question (the user's original question, verbatim)."
 )
+_CARD = (
+    "Each call shows the user a result card, so pass a short title saying what it shows, put "
+    "related figures in one query rather than several, and check columns with describe_table "
+    "instead of trial queries. "
+)
 D_QUERY_METRICS = (
     "Run a governed metric query: metrics (e.g. revenue) by optional dimensions, filters, "
     "ordering and limit. PREFER this over run_sql whenever list_metrics shows a metric that "
     "fits (check search_context / get_context_pack first). Time dimensions take a grain, "
     "e.g. dimensions=['order_date:month']; filter dates with gte/lt operators on the time "
     "dimension (end date exclusive). Returns a preview of the rows, the row count, "
-    "the generated SQL and a result_id for get_result. REQUIRED: session_id and question "
+    "the generated SQL and a result_id for get_result. " + _CARD + "REQUIRED: session_id and question "
     "(the user's original question, verbatim)."
 )
 D_RUN_SQL = (
@@ -101,7 +106,7 @@ D_RUN_SQL = (
     "first so the SQL uses the documented filters, units and endorsed tables; prefer "
     "query_metrics when a defined metric exists. DDL, DML and multiple statements are "
     "rejected; results are capped. Returns a preview of the rows, the row count, a truncated "
-    "flag and a result_id for get_result. REQUIRED: session_id and question (the user's "
+    "flag and a result_id for get_result. " + _CARD + "REQUIRED: session_id and question (the user's "
     "original question, verbatim)."
 )
 D_GET_RESULT = (

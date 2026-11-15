@@ -61,4 +61,9 @@ If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics
 `structuredContent` rendered by the `ui://satchel/result` widget. Their text then ends with a note telling
 the agent not to repeat the rows in its reply, because the user already sees the table.
 
+Every call shows the user its own result card, so `run_sql` and `query_metrics` take an optional `title`
+(up to 120 characters, for example "Signups by month, 2025") that heads the card instead of the user's question.
+Their descriptions ask agents to put related figures in one query and to check columns with `describe_table`
+rather than with trial queries. A result with no rows says "No rows matched this query" instead of an empty table.
+
 <!-- site: McpToolsExplorer -->

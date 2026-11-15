@@ -160,5 +160,20 @@ assert.equal(await pl.frame.locator("#chips .chip").count(), 0);
 assert.equal(await pl.frame.locator("#ctxbox").isVisible(), false);
 await pl.page.close();
 
+// ---- run_sql: the agent's title heads the card; zero rows says so instead of a bare header ----
+const empty = { ...plain, tool: "run_sql", result_id: "R4", metric: null, title: "Signups by month, 2025", question: "how about users?",
+  columns: [{ name: "m", type: "date", kind: "time" }, { name: "signups", type: "int64", kind: "number" }], rows: [], row_count: 0 };
+const em = await open(empty, empty);
+await em.frame.locator("#none").waitFor();
+assert.equal(await em.frame.locator("#title").innerText(), "Signups by month, 2025");
+assert.equal(await em.frame.locator("#tablewrap").isVisible(), false);
+assert.equal(await em.frame.locator("#chart").isVisible(), false);
+await em.page.close();
+const untitled = { ...empty, result_id: "R5", title: null };
+const un = await open(untitled, untitled);
+await un.frame.locator("#none").waitFor();
+assert.equal(await un.frame.locator("#title").innerText(), "how about users?");
+await un.page.close();
+
 await browser.close();
 console.log("widget e2e ok");
