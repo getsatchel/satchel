@@ -77,6 +77,7 @@ that is already gone does not block deleting the row. The command exits 1 if any
 | `token.create`, `token.revoke` | PAT creation / revocation (CLI, `satchel init`) |
 | `user.create`, `user.role_change`, `user.provision` | token / workspace bootstrap, OIDC auto-provisioning; Settings → Members (`role_change` has `from` and `to`) |
 | `user.invite`, `user.uninvite`, `user.disable`, `user.enable` | Settings → Members: invite by email, remove an unused invite, deactivate, reactivate |
+| `user.idp_account` | An invite created (or found) the person's account at the identity provider, or failed to (`SATCHEL_OIDC_CREATE_USERS`) |
 | `workspace.create`, `workspace.auth.update` | workspace bootstrap, `satchel workspace auth`, Settings → Members → Sign-in (`via: ui`) |
 | `source.add`, `source.update`, `source.remove` | `satchel source add/remove`, Sources page (changed field names, never secret values) |
 | `connection.add`, `connection.update`, `connection.remove` | `satchel connection add`, Settings → Connections (`secret_ref` for env references or `"stored"`, never a secret) |

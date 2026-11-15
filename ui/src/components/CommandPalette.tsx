@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import { useToast } from "@/components/Toast";
 import { Dropdown, Icon, ICONS, Kbd, type MenuItem } from "@/components/ui";
-import { ALL_PAGES, SUB_PAGES } from "@/components/nav";
+import { pagesFor } from "@/components/nav";
 import { errMsg } from "@/lib/format";
+import { atLeast } from "@/lib/role";
 import { toggleTheme, useTheme } from "@/lib/theme";
 
 import { PaletteCtx, useCommandPalette, MOD_KEY } from "@/components/paletteContext";
@@ -33,7 +34,7 @@ function useRunCuration() {
     },
     onError: (e) => toast("err", errMsg(e)),
   });
-  return { allowed: me.data?.role === "admin", run };
+  return { allowed: me.data?.role === "admin", role: me.data?.role, run };
 }
 
 interface Command {
@@ -90,15 +91,17 @@ function Palette({ onClose }: { onClose: () => void }) {
 
   const commands = useMemo<Command[]>(() => {
     const go = (to: string) => () => nav(to);
-    const cmds: Command[] = [...ALL_PAGES, ...SUB_PAGES].map((p) => ({ id: `${p.to} ${p.label}`, group: "Pages", label: p.label, icon: p.icon, keywords: p.keywords, run: go(p.to) }));
-    cmds.push({ id: "new-item", group: "Actions", label: "New context item", icon: ICONS.plus, keywords: "create add guide glossary", run: go("/library/new") });
-    cmds.push({ id: "publish", group: "Actions", label: "Preview and publish changes", icon: ICONS.play, keywords: "release ship", run: go("/releases") });
+    const cmds: Command[] = pagesFor(curation.role).map((p) => ({ id: `${p.to} ${p.label}`, group: "Pages", label: p.label, icon: p.icon, keywords: p.keywords, run: go(p.to) }));
+    if (atLeast(curation.role, "curator")) {
+      cmds.push({ id: "new-item", group: "Actions", label: "New context item", icon: ICONS.plus, keywords: "create add guide glossary", run: go("/library/new") });
+      cmds.push({ id: "publish", group: "Actions", label: "Preview and publish changes", icon: ICONS.play, keywords: "release ship", run: go("/releases") });
+    }
     if (curation.allowed) {
       cmds.push({ id: "curate", group: "Actions", label: "Run curation now", icon: ICONS.pulse, keywords: "suggestions signals", run: () => curation.run.mutate() });
     }
     cmds.push({ id: "theme", group: "Actions", label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme", icon: theme === "dark" ? ICONS.sun : ICONS.moon, keywords: "theme dark light mode", run: toggleTheme });
     return cmds;
-  }, [nav, theme, curation.allowed, curation.run]);
+  }, [nav, theme, curation.allowed, curation.role, curation.run]);
 
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -206,6 +209,7 @@ function Palette({ onClose }: { onClose: () => void }) {
 /** The ink "New" menu. The ⌘K hint button is rendered by `PageHeader` itself. */
 export function HeaderActions() {
   const curation = useRunCuration();
+  if (!atLeast(curation.role, "curator")) return null;
   const items: MenuItem[] = [
     { label: "Context item", icon: ICONS.plus, to: "/library/new" },
     { label: "Release preview", icon: ICONS.play, to: "/releases" },

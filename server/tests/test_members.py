@@ -7,8 +7,11 @@ from typing import Any
 
 from sqlalchemy import Engine, select
 
+from satchel.api import members as members_api
 from satchel.mcp.auth import create_token, verify_token
 from satchel.oauth import sessions
+from satchel.oauth.directory import AccountResult, cognito_pool, directory_for
+from satchel.settings import Settings
 from satchel.store.db import admin_session
 from satchel.store.models import AppUser, Workspace
 from tests.test_settings_admin import Env, make_env, st
@@ -108,3 +111,53 @@ def test_sign_in_policy(app_engine: Engine, tmp_path: Path) -> None:
     assert env.client.put("/v1/members/sign-in", headers=env.h(), json=bad).status_code == 422
     assert env.client.put("/v1/members/sign-in", headers=env.h("curator"),
                           json=bad).status_code == 403
+
+
+def test_cognito_pool_from_issuer() -> None:
+    iss = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_JR8x2sMV8"
+    assert cognito_pool(iss) == ("ap-southeast-2", "ap-southeast-2_JR8x2sMV8")
+    assert cognito_pool("https://accounts.google.com") is None
+    assert cognito_pool(None) is None
+    on = Settings(oidc_issuer=iss, oidc_create_users=True)
+    assert directory_for(on) is not None
+    assert directory_for(Settings(oidc_issuer=iss)) is None  # off unless asked for
+    assert directory_for(Settings(oidc_issuer="https://x.okta.com", oidc_create_users=True)) is None
+
+
+class FakeDirectory:
+    name = "Fake"
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def create_user(self, email: str) -> AccountResult:
+        self.calls.append(email)
+        if email.startswith("broken"):
+            return AccountResult(email, "failed", "AccessDenied")
+        return AccountResult(email, "exists" if email.startswith("old") else "created")
+
+
+def test_invite_creates_provider_accounts(app_engine: Engine, tmp_path: Path,
+                                          monkeypatch: Any) -> None:
+    env = make_env(app_engine, tmp_path)
+    fake = FakeDirectory()
+    monkeypatch.setattr(members_api, "directory_for", lambda _s: fake)
+    assert env.client.get("/v1/members", headers=env.h()).json()["creates_accounts"] is True
+    admin = f"admin@{env.slug}.test"
+    r = env.post("/v1/members", {"emails": ["a@example.com", "old@example.com",
+                                            "broken@example.com"]})
+    assert r.status_code == 201, r.text
+    acc = {a["email"]: a for a in r.json()["accounts"]}
+    assert acc["a@example.com"]["status"] == "created"
+    assert acc["old@example.com"]["status"] == "exists"
+    assert acc["broken@example.com"] == {"email": "broken@example.com", "status": "failed",
+                                         "detail": "AccessDenied"}
+    # a failure never undoes the invite, and re-inviting retries it; active members are skipped
+    assert "broken@example.com" in members(env)
+    create_token(env.slug, admin, "t", engine=app_engine)
+    raw, _ = create_token(env.slug, f"curator@{env.slug}.test", "t", engine=app_engine)
+    verify_token(raw, engine=app_engine)
+    fake.calls.clear()
+    r = env.post("/v1/members", {"emails": ["broken@example.com", f"curator@{env.slug}.test"]})
+    assert r.json()["invited"] == [] and fake.calls == ["broken@example.com"]
+    assert len(env.actions("user.idp_account")) == 4

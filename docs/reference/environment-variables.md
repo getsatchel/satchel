@@ -50,6 +50,7 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_OIDC_SCOPES` | `openid email profile` | OIDC scopes requested. |
 | `SATCHEL_OIDC_REQUIRE_VERIFIED_EMAIL` | `True` | Reject logins without a verified email. |
 | `SATCHEL_OIDC_DISPLAY_NAME` | — | The provider name on the sign-in button ("Sign in with Okta"). Unset: guessed from the issuer (Google, Microsoft, Okta, Auth0, Cognito, Keycloak), else "Sign in". |
+| `SATCHEL_OIDC_CREATE_USERS` | `False` | Inviting a member under Settings > Members also creates their account at the identity provider, which emails them a temporary password. Amazon Cognito only (the issuer names the user pool); needs AWS credentials allowed `cognito-idp:AdminCreateUser` on the pool. |
 | `SATCHEL_DEV_AUTH` | `False` | Header-based dev auth. Localhost only. |
 | `SATCHEL_UI_DIR` | — | Built UI directory (default `ui/dist`). |
 | `SATCHEL_OAUTH_CODE_TTL_S` | `60` | OAuth authorization code lifetime (s). |

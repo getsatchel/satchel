@@ -28,7 +28,7 @@ from satchel.oauth.common import (
     mcp_resource,
     safe_next,
 )
-from satchel.oauth.flows import FlowService, Outcome, PageError, RedirectError
+from satchel.oauth.flows import FlowService, Outcome, PageError, RedirectError, clean_login_hint
 from satchel.oauth.oidc import OidcProvider, make_provider
 from satchel.settings import Settings, get_settings
 from satchel.store.db import admin_session, get_engine
@@ -264,18 +264,26 @@ class OAuthApp:
         hidden = f"<input type=hidden name=next value='{e(nxt, quote=True)}'>"
         if q.get("workspace"):
             hidden += f"<input type=hidden name=workspace value='{e(q['workspace'], quote=True)}'>"
+        hint = clean_login_hint(q.get("login_hint"))
+        if hint:
+            # From an invite link: the provider pre-fills this account where it supports it.
+            hidden += f"<input type=hidden name=login_hint value='{e(hint, quote=True)}'>"
         host = urlsplit(self.settings.oidc_issuer or "").hostname or "your identity provider"
         return page("Sign in", (
             ("<p class=notice role=status>You're signed out.</p>" if signed_out else "")
             + f"<form class=wide method=get action=/auth/login/start>{hidden}"
             f"<button class=primary>{'Sign in with ' + e(name) if name else 'Sign in'}</button>"
-            f"</form><p class=note>Signs in through <b>{e(host)}</b>. Only workspace members "
-            f"can sign in; a workspace admin can invite you.</p>"))
+            f"</form><p class=note>"
+            + (f"You were invited as <b>{e(hint)}</b>. Sign in with that email through "
+               f"<b>{e(host)}</b>.</p>" if hint else
+               f"Signs in through <b>{e(host)}</b>. Only workspace members can sign in; a "
+               f"workspace admin can invite you.</p>")))
 
     async def login_start(self, request: Request) -> Response:
         q = request.query_params
         return await self._flow_step(
-            lambda: self.flows.start_web_login(q.get("next"), q.get("workspace")))
+            lambda: self.flows.start_web_login(
+                q.get("next"), q.get("workspace"), q.get("login_hint")))
 
     async def workspace_get(self, request: Request) -> Response:
         try:

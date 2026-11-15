@@ -2,10 +2,18 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
-import type { Member, MemberRole, SignInPolicy } from "@/api/types";
+import type { InviteOut, Member, MemberRole, SignInPolicy } from "@/api/types";
+import { CopyField } from "@/components/CopyField";
 import { useToast } from "@/components/Toast";
 import { EmptyState, ErrorBox, ICONS, Icon, Loading, Modal, Notice, SearchInput, SectionHeading, Segmented, StatusDot, TableCard } from "@/components/ui";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
+import { useRole } from "@/lib/role";
+
+/** The sign-in page with the workspace chosen and the email pre-filled at the identity provider. */
+function useInviteLink() {
+  const slug = useRole().me.data?.workspace_slug;
+  return (email: string) => `${window.location.origin}/auth/login?${new URLSearchParams({ ...(slug ? { workspace: slug } : {}), login_hint: email })}`;
+}
 
 /** Lowest to highest, as the server ranks them. */
 const ROLES: { id: MemberRole; label: string; does: string }[] = [
@@ -116,7 +124,7 @@ export function MembersSection() {
         </div>
       </section>
       <SignInSection policy={q.data.sign_in} />
-      {inviting && <InviteDialog onClose={() => setInviting(false)} />}
+      {inviting && <InviteDialog provider={q.data.provider ?? null} createsAccounts={q.data.creates_accounts ?? false} onClose={() => setInviting(false)} />}
       <Modal
         open={confirm !== null}
         onClose={() => setConfirm(null)}
@@ -222,6 +230,8 @@ function MembersTable(props: {
 type Actions = { busy: string | undefined; onReactivate: (m: Member) => void; onDeactivate: (m: Member) => void; onUninvite: (m: Member) => void };
 
 function RowAction({ m, ...p }: Actions & { m: Member }) {
+  const link = useInviteLink();
+  const toast = useToast();
   if (m.is_you) return null;
   if (m.status === "deactivated")
     return (
@@ -231,9 +241,26 @@ function RowAction({ m, ...p }: Actions & { m: Member }) {
     );
   if (m.status === "invited")
     return (
-      <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => p.onUninvite(m)} aria-label={`Remove the invite for ${who(m)}`}>
-        Remove
-      </button>
+      <span className="inline-flex gap-1">
+        {m.email && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            aria-label={`Copy the invite link for ${who(m)}`}
+            onClick={() =>
+              void navigator.clipboard.writeText(link(m.email!)).then(
+                () => toast("ok", `Copied the invite link for ${who(m)}`),
+                () => toast("err", "Copy failed"),
+              )
+            }
+          >
+            Copy link
+          </button>
+        )}
+        <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => p.onUninvite(m)} aria-label={`Remove the invite for ${who(m)}`}>
+          Remove
+        </button>
+      </span>
     );
   return (
     <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => p.onDeactivate(m)} aria-label={`Deactivate ${who(m)}`}>
@@ -242,7 +269,8 @@ function RowAction({ m, ...p }: Actions & { m: Member }) {
   );
 }
 
-function InviteDialog({ onClose }: { onClose: () => void }) {
+function InviteDialog({ onClose, provider, createsAccounts }: { onClose: () => void; provider: string | null; createsAccounts: boolean }) {
+  const [done, setDone] = useState<InviteOut | null>(null);
   const [text, setText] = useState("");
   const [role, setRole] = useState<MemberRole>("analyst");
   const [error, setError] = useState<string | null>(null);
@@ -261,10 +289,14 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
       ];
       toast(n ? "ok" : "err", parts.filter(Boolean).join(". "));
       void qc.invalidateQueries({ queryKey: ["members"] });
-      onClose();
+      // Show the links to send (and what the provider did); nothing to show when nobody new was invited.
+      if (n || r.accounts?.length) setDone(r);
+      else onClose();
     },
     onError: (e) => setError(errMsg(e)),
   });
+  if (done) return <InviteDone r={done} provider={provider} onClose={onClose} />;
+  const idp = provider ?? "your identity provider";
   return (
     <Modal
       open
@@ -306,8 +338,59 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
           <Segmented label="Role" options={ROLES.map((r) => ({ id: r.id, label: r.label }))} value={role} onChange={setRole} />
           <span className="mt-1 block text-xs text-muted">{ROLES.find((r) => r.id === role)?.does}</span>
         </div>
+        <p className="text-xs text-muted">
+          {createsAccounts
+            ? `${idp} emails each person a temporary password. Then they sign in here with that email.`
+            : `They sign in with ${idp} using this email, so they need an account there. You get a link to send them.`}
+        </p>
         {error && <ErrorBox error={error} />}
       </form>
+    </Modal>
+  );
+}
+
+const ACCOUNT_NOTE = {
+  created: (p: string) => `${p} emailed them a temporary password.`,
+  exists: (p: string) => `They already have a ${p} account.`,
+  failed: (p: string) => `Couldn't create their ${p} account.`,
+} as const;
+
+/** After inviting: the link to send each person, and whether the provider made them an account. */
+function InviteDone({ r, provider, onClose }: { r: InviteOut; provider: string | null; onClose: () => void }) {
+  const link = useInviteLink();
+  const p = provider ?? "The identity provider";
+  const accounts = new Map((r.accounts ?? []).map((a) => [a.email, a]));
+  const emails = [...new Set([...r.invited.map((m) => m.email ?? ""), ...accounts.keys()])].filter(Boolean);
+  const failed = (r.accounts ?? []).some((a) => a.status === "failed");
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={r.invited.length === 1 ? "Invited" : `Invited ${r.invited.length}`}
+      footer={
+        <button type="button" className="btn btn-primary" onClick={onClose}>
+          Done
+        </button>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-muted">Send each person their link. It opens the sign-in page with their email filled in where {provider ?? "the provider"} supports it.</p>
+        {emails.map((e) => {
+          const a = accounts.get(e);
+          return (
+            <div key={e} className="space-y-1">
+              <CopyField label={e} value={link(e)} />
+              {a && (
+                <p className={`text-xs ${a.status === "failed" ? "text-bad" : "text-muted"} [overflow-wrap:anywhere]`}>
+                  {ACCOUNT_NOTE[a.status](a.status === "created" ? p : provider ?? "provider")}
+                  {a.detail ? ` ${a.detail}` : ""}
+                </p>
+              )}
+            </div>
+          );
+        })}
+        {failed && <Notice tone="warn">Create the account yourself, or invite the same email again to retry.</Notice>}
+      </div>
     </Modal>
   );
 }

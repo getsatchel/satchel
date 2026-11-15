@@ -6,7 +6,7 @@ import { DEV_AUTH, devAuth, logout } from "@/api/client";
 import { useTheme } from "@/lib/theme";
 import { Dropdown, Icon, ICONS, Kbd, type MenuItem } from "@/components/ui";
 import { Logo } from "@/components/Logo";
-import { ALL_PAGES, DASHBOARD, DOCS_URL, NAV_GROUPS, type NavItem } from "@/components/nav";
+import { DOCS_URL, navFor, pagesFor, type NavItem } from "@/components/nav";
 import { CommandPaletteProvider, MOD_KEY, useCommandPalette } from "@/components/CommandPalette";
 
 function NavRow({ n }: { n: NavItem }) {
@@ -59,7 +59,8 @@ function ShellBody() {
   const [menu, setMenu] = useState(false);
   const loc = useLocation();
   const m = me.data;
-  const here = ALL_PAGES.find((n) => loc.pathname.startsWith(n.to));
+  const nav = navFor(m?.role);
+  const here = pagesFor(m?.role).find((n) => !n.to.includes("?") && loc.pathname.startsWith(n.to));
 
   useEffect(() => setMenu(false), [loc.pathname]);
   useEffect(() => {
@@ -131,8 +132,8 @@ function ShellBody() {
           </div>
 
           <nav aria-label="Main" className="flex flex-1 flex-col overflow-y-auto px-3 pb-1 pt-1">
-            <NavRow n={DASHBOARD} />
-            {NAV_GROUPS.map((g) => (
+            <NavRow n={nav.home} />
+            {nav.groups.map((g) => (
               <div key={g.label} className="mt-4" role="group" aria-labelledby={`nav-${g.label}`}>
                 <div className="mb-1 flex items-center gap-2.5 px-2.5">
                   <span className={`h-0.5 w-3.5 rounded-full ${g.dash}`} aria-hidden />

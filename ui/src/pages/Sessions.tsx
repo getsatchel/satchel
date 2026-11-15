@@ -2,10 +2,11 @@ import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
-import { EmptyState, ErrorBox, Feedback, FilterSelect, ICONS, Loading, PageHeader, SectionHeading, Segmented, StatusDot, TableCard, Tabs, type Tone } from "@/components/ui";
+import { EmptyState, ErrorBox, Feedback, FilterSelect, ICONS, Loading, PageHeader, PillButton, SectionHeading, Segmented, StatusDot, TableCard, Tabs, type Tone } from "@/components/ui";
 import { UsageSection } from "@/pages/Usage";
 import { pageIcon } from "@/components/nav";
 import { fullTime, timeAgo } from "@/lib/format";
+import { useRole } from "@/lib/role";
 
 type View = "questions" | "conversations";
 const LIMIT = 50;
@@ -39,16 +40,23 @@ const TABS: { id: Tab; label: string }[] = [
 /** Sessions: every question agents were asked (the default tab), and Usage across them. */
 export function Sessions() {
   const [sp, setSp] = useSearchParams();
-  const tab: Tab = sp.get("tab") === "usage" ? "usage" : "sessions";
+  const { can } = useRole();
+  // Usage is for curators; everyone else gets the list without tabs.
+  const curator = can("curator");
+  const tab: Tab = curator && sp.get("tab") === "usage" ? "usage" : "sessions";
+  const sub = curator
+    ? "Every question an agent was asked through Satchel, and how agents use the context. Open a session to replay its tool calls and the context it was served."
+    : can("analyst")
+      ? "Questions people in this workspace asked their agents, and the answers. Open one to see the queries it ran and the context it used."
+      : "Questions you asked your agent, and the answers. Open one to see the queries it ran and the context it used.";
   return (
     <>
-      <PageHeader
-        title="Sessions"
-        sub="Every question an agent was asked through Satchel, and how agents use the context. Open a session to replay its tool calls and the context it was served."
-      />
-      {/* Each tab keeps its own filters, so switching starts clean. */}
-      <Tabs tabs={TABS} value={tab} onChange={(t) => setSp(t === "sessions" ? {} : { tab: t }, { replace: true })} />
-      <div className="mt-6">{tab === "usage" ? <UsageSection /> : <SessionList />}</div>
+      <PageHeader title="Sessions" sub={sub} />
+      {curator && (
+        /* Each tab keeps its own filters, so switching starts clean. */
+        <Tabs tabs={TABS} value={tab} onChange={(t) => setSp(t === "sessions" ? {} : { tab: t }, { replace: true })} />
+      )}
+      <div className={curator ? "mt-6" : ""}>{tab === "usage" ? <UsageSection /> : <SessionList />}</div>
     </>
   );
 }
@@ -58,16 +66,21 @@ function SessionList() {
   const client = sp.get("client") ?? "";
   const status = sp.get("status") ?? "";
   const view: View = sp.get("view") === "conversations" ? "conversations" : "questions";
+  const { me, can } = useRole();
+  // Explorers only ever see their own; analysts and up choose between everyone and themselves.
+  const team = can("analyst");
+  const mine = !team || sp.get("who") === "me";
+  const user_id = team && mine ? (me.data?.user_id ?? undefined) : undefined;
   const [page, setPage] = useState(0);
-  const paging = { client, status, limit: LIMIT, offset: page * LIMIT };
+  const paging = { client, status, user_id, limit: LIMIT, offset: page * LIMIT };
   const turns = useQuery({
-    queryKey: ["turns", client, status, page],
+    queryKey: ["turns", client, status, user_id, page],
     queryFn: () => endpoints.listTurns(paging),
     placeholderData: (p) => p,
     enabled: view === "questions",
   });
   const sessions = useQuery({
-    queryKey: ["sessions", client, status, page],
+    queryKey: ["sessions", client, status, user_id, page],
     queryFn: () => endpoints.listSessions(paging),
     placeholderData: (p) => p,
     enabled: view === "conversations",
@@ -141,6 +154,17 @@ function SessionList() {
             { id: "conversations", label: "Conversations" },
           ]}
         />
+        {team && me.data?.user_id && (
+          <Segmented
+            label="Whose questions"
+            value={mine ? "me" : "all"}
+            onChange={(v) => set("who", v === "me" ? "me" : "")}
+            options={[
+              { id: "all", label: "Everyone" },
+              { id: "me", label: "Mine" },
+            ]}
+          />
+        )}
         <div className="grid min-w-0 flex-1 grid-cols-2 items-center gap-2 sm:flex sm:flex-none sm:flex-wrap">
           <FilterSelect label="Client" value={client} onChange={(v) => set("client", v)} options={clients} />
           <FilterSelect label="Status" value={status} onChange={(v) => set("status", v)} options={statuses} />
@@ -149,8 +173,13 @@ function SessionList() {
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {rows && rows.length === 0 && (
-        <EmptyState title="No sessions yet." muted="Connect an agent and ask it a data question." icon={pageIcon("/sessions")}>
-          Each analysis from Claude or any other MCP client shows up here. Setup steps are in docs/integrations/claude.md.
+        <EmptyState
+          title={mine ? "You haven't asked anything yet." : "No sessions yet."}
+          muted="Connect an agent and ask it a data question."
+          icon={pageIcon("/sessions")}
+          action={<PillButton to="/dashboard">How to connect</PillButton>}
+        >
+          Each question asked from Claude or any other MCP client shows up here.
         </EmptyState>
       )}
       {rows && rows.length > 0 && (

@@ -1,9 +1,10 @@
 """Observability: usage summary, session list and the session inspector (design §9).
 
-Evidence visibility: admins see raw ``tool_call.args``; curators see them redacted (SQL string
-literals -> ``'?'``, free text truncated to 120 characters); analysts and explorers only see
-their own sessions (403 on others'); a session flagged ``sensitive`` is metadata only for
-everyone but admins.
+Evidence visibility: admins see raw ``tool_call.args``, and everyone sees their own sessions in
+full. Analysts and curators see everyone else's sessions redacted (SQL string literals ->
+``'?'``, free text truncated to 120 characters); explorers only see their own (403 on
+others'). A session flagged ``sensitive`` is metadata only for everyone but admins. The usage
+summary is for curators.
 """
 
 import uuid
@@ -269,7 +270,7 @@ def make_router(auth: Auth) -> APIRouter:
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> SessionPage:
         conds: list[ColumnElement[bool]] = [] if include_evals else [session_not_eval()]
-        if not who.has_role("curator"):
+        if not who.has_role("analyst"):
             if who.user_id is None or (user_id is not None and user_id != who.user_id):
                 raise HTTPException(403, "you can only list your own sessions")
             user_id = who.user_id
@@ -299,7 +300,7 @@ def make_router(auth: Auth) -> APIRouter:
         """Every question agents were asked, newest first: one row per turn, so a session
         that was reused for follow-up questions has one row for each."""
         conds: list[ColumnElement[bool]] = [] if include_evals else [session_not_eval()]
-        if not who.has_role("curator"):
+        if not who.has_role("analyst"):
             if who.user_id is None or (user_id is not None and user_id != who.user_id):
                 raise HTTPException(403, "you can only list your own sessions")
             user_id = who.user_id
@@ -360,7 +361,7 @@ def make_router(auth: Auth) -> APIRouter:
             sess = s.get(SessionRow, session_id)
             if sess is None:
                 raise HTTPException(404, "no such session")
-            if not who.has_role("curator") and (
+            if not who.has_role("analyst") and (
                 who.user_id is None or sess.user_id != who.user_id
             ):
                 raise HTTPException(403, "you can only inspect your own sessions")

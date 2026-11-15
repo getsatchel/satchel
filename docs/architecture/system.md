@@ -19,7 +19,7 @@ flowchart LR
     Marimo["marimo notebooks<br/>(satchel_ctx helper)"]:::planned
     CLI["satchel CLI<br/>onboarding: init · up/down/status · doctor · connect/disconnect (Claude Desktop/Code/Cursor) · upgrade<br/>config: ~/.config/satchel/config.toml profiles (env &gt; file &gt; defaults); bundled compose + Jaffle example; startup schema guard<br/>sources: source add|list|kinds|info|sync|remove · source validate (adapter inner loop, no database)"]:::built
     CI["GitHub Action (action/, getsatchel/satchel/action@vX.Y.Z)<br/>pull request: upload folder → preview → eval gate → PR comment, fails the check on a regression · push to default branch: import and publish"]:::built
-    UI["Curator UI (ui/, built, served by satchel api at /)<br/>Inbox (suggestions + agent proposals) · Library · Releases (Changes: workbench, preview, publish · History: rollback) · Sessions (Sessions · Usage) · Catalog · Sources (sync, status, warnings; source badge, read-only source block and overlay editor on items) · Evals (suites with schedule and next run, run history with trigger, run detail, compare with the previous scheduled run; Run evals + gate in Releases > Changes) · Settings (Models: LLM connections, test, default; deployment values read-only · Connections: add, test, crawl, default, remove · Members: invite, roles, deactivate, sign-in policy · Jobs: queued, running, failed, done; attempts, errors; retry failed syncs, crawls and curation · Limits: row cap, timeout, result cache, session retention · Deployment: effective server config, read-only) · Sources add/edit/remove + upload and sync, files from a git repository (test, commit shown) · Sync automatically (every N hours) · Push webhook panel (set up / rotate / remove, secret shown once)"]:::built
+    UI["Curator UI (ui/, built, served by satchel api at /)<br/>Explorers and analysts: Home (connect an agent, their questions, what the agent knows) · Library · Catalog · Sessions; curator pages are hidden and guarded<br/>Curators and admins: Inbox (suggestions + agent proposals) · Library · Releases (Changes: workbench, preview, publish · History: rollback) · Sessions (Sessions · Usage; analysts see everyone's questions redacted, explorers only their own) · Catalog · Sources (sync, status, warnings; source badge, read-only source block and overlay editor on items) · Evals (suites with schedule and next run, run history with trigger, run detail, compare with the previous scheduled run; Run evals + gate in Releases > Changes) · Settings (Models: LLM connections, test, default; deployment values read-only · Connections: add, test, crawl, default, remove · Members: invite (invite links; optional IdP account creation), roles, deactivate, sign-in policy · Jobs: queued, running, failed, done; attempts, errors; retry failed syncs, crawls and curation · Limits: row cap, timeout, result cache, session retention · Deployment: effective server config, read-only) · Sources add/edit/remove + upload and sync, files from a git repository (test, commit shown) · Sync automatically (every N hours) · Push webhook panel (set up / rotate / remove, secret shown once)"]:::built
   end
 
   subgraph Edge["Interfaces"]
@@ -61,7 +61,7 @@ flowchart LR
   subgraph External["External systems"]
     WH[("Warehouses<br/>BigQuery · Snowflake · Postgres · Databricks · DuckDB")]:::ext
     Repo[("Context git repo<br/>md + YAML")]:::ext
-    IdP["OIDC IdP<br/>Okta · Google · Entra · Dex"]:::ext
+    IdP["OIDC IdP<br/>Okta · Google · Entra · Cognito · Dex"]:::ext
     Models["LLM / embedding APIs<br/>or local (fastembed / TEI / Ollama)"]:::ext
   end
 
@@ -112,7 +112,8 @@ flowchart LR
   Signals -->|implicit: sql_error · retry_storm · undocumented · unendorsed · divergence| PG
   Claude -->|"401 → discovery → DCR/CIMD → authorize (browser) → token"| AS
   UI -->|"/auth/login → session cookie"| AS
-  AS <-->|"OIDC code + PKCE; ID token validated; user mapped by sub, then email"| IdP
+  AS <-->|"OIDC code + PKCE (login_hint from invite links); ID token validated; user mapped by sub, then email"| IdP
+  API -->|"invite with SATCHEL_OIDC_CREATE_USERS: Cognito AdminCreateUser (boto3)"| IdP
   AS --> PG
   MCP & API -->|"verify bearer / session"| PG
 ```

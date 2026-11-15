@@ -28,6 +28,8 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from satchel.api.auth import Auth, Caller
 from satchel.api.common import audit
+from satchel.oauth.directory import directory_for
+from satchel.oauth.routes import provider_name
 from satchel.store.db import workspace_session
 from satchel.store.models import ApiToken, AppUser, WebSession, Workspace
 
@@ -61,6 +63,10 @@ class MembersOut(BaseModel):
     members: list[MemberOut]
     sign_in: SignInPolicy
     oidc_configured: bool = Field(description="Whether the server has an identity provider.")
+    provider: str | None = Field(None, description="The identity provider's name, if known.")
+    creates_accounts: bool = Field(
+        False, description="Inviting someone also creates their account at the identity "
+        "provider, which emails them (SATCHEL_OIDC_CREATE_USERS).")
 
 
 class InviteIn(BaseModel):
@@ -68,9 +74,19 @@ class InviteIn(BaseModel):
     role: Role = "analyst"
 
 
+class AccountOut(BaseModel):
+    email: str
+    status: Literal["created", "exists", "failed"] = Field(
+        description="created: the provider emailed them; exists: they already had an account.")
+    detail: str | None = None
+
+
 class InviteOut(BaseModel):
     invited: list[MemberOut]
     existing: list[str] = Field(description="Addresses that are already members (unchanged).")
+    accounts: list[AccountOut] = Field(
+        default_factory=list, description="Identity provider accounts created for the invited "
+        "addresses (and for earlier invites nobody has used), when the server does that.")
 
 
 class MemberPatch(BaseModel):
@@ -147,14 +163,20 @@ def make_router(auth: Auth) -> APIRouter:
                 members=[_out(u, last.get(u.id), who) for u in users],
                 sign_in=_policy(ws),
                 oidc_configured=bool(auth.ctx.settings.oidc_issuer),
+                provider=provider_name(auth.ctx.settings),
+                creates_accounts=directory_for(auth.ctx.settings) is not None,
             )
 
     @r.post("/v1/members", response_model=InviteOut, status_code=201)
     def invite(req: InviteIn, who: Adm) -> InviteOut:
         emails = list(dict.fromkeys(_norm_email(e) for e in req.emails))
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
-            taken = set(s.scalars(select(func.lower(AppUser.email)).where(
-                func.lower(AppUser.email).in_(emails))))
+            found = s.scalars(select(AppUser).where(func.lower(AppUser.email).in_(emails))).all()
+            taken = {(u.email or "").lower() for u in found}
+            last = _last_active(s)
+            # Re-inviting someone who never signed in retries their provider account.
+            pending = [(u.email or "").lower() for u in found
+                       if _out(u, last.get(u.id), who).status == "invited"]
             new = [e for e in emails if e not in taken]
             users = [AppUser(workspace_id=who.workspace_id, email=e, display_name=e,
                              role=req.role) for e in new]
@@ -162,8 +184,20 @@ def make_router(auth: Auth) -> APIRouter:
             s.flush()
             for u in users:
                 audit(s, who, "user.invite", {"user": u.id, "email": u.email, "role": u.role})
-            return InviteOut(invited=[_out(u, None, who) for u in users],
-                             existing=[e for e in emails if e in taken])
+            out = InviteOut(invited=[_out(u, None, who) for u in users],
+                            existing=[e for e in emails if e in taken])
+        # After the commit: a provider failure never undoes the invite.
+        directory = directory_for(auth.ctx.settings)
+        if directory is not None:
+            for e in [*new, *pending]:
+                res = directory.create_user(e)
+                out.accounts.append(
+                    AccountOut(email=res.email, status=res.status, detail=res.detail))
+            with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
+                for acc in out.accounts:
+                    audit(s, who, "user.idp_account", {"email": acc.email, "status": acc.status,
+                                                       "provider": directory.name})
+        return out
 
     @r.patch("/v1/members/{member_id}", response_model=MemberOut)
     def update_member(member_id: uuid.UUID, req: MemberPatch, who: Adm) -> MemberOut:
