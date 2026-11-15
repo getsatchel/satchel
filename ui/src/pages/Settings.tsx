@@ -8,6 +8,7 @@ import { useToast } from "@/components/Toast";
 import { DescList, EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, PageHeader, SectionHeading, Segmented, StatusDot, TableCard, Tabs } from "@/components/ui";
 import { ConnectionsSection } from "@/pages/SettingsConnections";
 import { MembersSection } from "@/pages/SettingsMembers";
+import { JobsSection } from "@/pages/Jobs";
 import { DeploymentSection, LimitsSection } from "@/pages/SettingsLimits";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
 
@@ -489,11 +490,12 @@ function ModelsSection({ admin }: { admin: boolean }) {
   );
 }
 
-type Tab = "models" | "connections" | "members" | "limits" | "deployment";
-const TABS: { id: Tab; label: string; admin?: boolean }[] = [
+type Tab = "models" | "connections" | "members" | "jobs" | "limits" | "deployment";
+const TABS: { id: Tab; label: string; admin?: boolean; curator?: boolean }[] = [
   { id: "models", label: "Models" },
   { id: "connections", label: "Connections" },
   { id: "members", label: "Members", admin: true },
+  { id: "jobs", label: "Jobs", curator: true },
   { id: "limits", label: "Limits" },
   { id: "deployment", label: "Deployment", admin: true },
 ];
@@ -504,7 +506,8 @@ export function Settings() {
   const llm = useQuery({ queryKey: ["llm-connections"], queryFn: endpoints.listLlmConnections, retry: false });
   const [params, setParams] = useSearchParams();
   const admin = me.data?.role === "admin";
-  const tabs = TABS.filter((t) => !t.admin || admin);
+  const curator = admin || me.data?.role === "curator";
+  const tabs = TABS.filter((t) => (!t.admin || admin) && (!t.curator || curator));
   const tab: Tab = tabs.find((t) => t.id === params.get("tab"))?.id ?? "models";
   return (
     <>
@@ -522,6 +525,7 @@ export function Settings() {
         {tab === "models" && <ModelsSection admin={admin} />}
         {tab === "connections" && <ConnectionsSection admin={admin} encryption={llm.data?.encryption_configured ?? true} />}
         {tab === "members" && <MembersSection />}
+        {tab === "jobs" && <JobsSection />}
         {tab === "limits" && <LimitsSection admin={admin} />}
         {tab === "deployment" && <DeploymentSection />}
       </div>

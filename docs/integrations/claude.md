@@ -139,7 +139,7 @@ uv run satchel serve api --port 8080 &
 
 ### Human login for the UI
 
-`GET /auth/login?workspace=<slug>&next=/path` signs the user in through the IdP and sets the `satchel_session` cookie (`next` must be a relative path). `GET /auth/me` returns the user and a `csrf_token`; send it as `X-CSRF-Token` on `POST` requests; `POST /auth/logout` ends the session. The REST API (`/v1/*`) accepts that cookie or `Authorization: Bearer <PAT or OAuth access token>`. The unverified `X-Satchel-Workspace` header only works with `SATCHEL_DEV_AUTH=1`.
+`GET /auth/login?workspace=<slug>&next=/path` is the sign-in page (already signed in, it goes straight to `next`; without an IdP it says how to configure one). Its button, `GET /auth/login/start` with the same parameters, signs the user in through the IdP and sets the `satchel_session` cookie (`next` must be a relative path). The button names the provider: set `SATCHEL_OIDC_DISPLAY_NAME`, or it is guessed from the issuer. `GET /auth/me` returns the user and a `csrf_token`; send it as `X-CSRF-Token` on `POST` requests; `POST /auth/logout` ends the session. The REST API (`/v1/*`) accepts that cookie or `Authorization: Bearer <PAT or OAuth access token>`. The unverified `X-Satchel-Workspace` header only works with `SATCHEL_DEV_AUTH=1`.
 
 ## 6. Result widgets (MCP Apps)
 

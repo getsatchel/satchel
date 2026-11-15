@@ -43,7 +43,7 @@ Each tone has a `-soft` background for badges and error boxes.
 - **Never fill a card, header or row with a tone.** The exceptions are the selected list row (`bg-accent-soft/70`) and error boxes.
 - **Neutrals stay neutral.** The greys sit a hair warm of pure grey so they never read cold; no cream, sand or brown tint.
 - Text contrast on `bg` and `surface` is at least 4.5:1 for `ink`, `muted`, `accent`, `good`, `bad` and `info` in both themes. Light `warn` is the exception (see [Known gaps](#known-gaps)).
-- Charts use `PALETTE` in `src/pages/Observability.tsx`: cobalt first, then teal, amber, violet, slate and rose, with lighter variants for dark.
+- Charts use `PALETTE` in `src/pages/Usage.tsx`: cobalt first, then teal, amber, violet, slate and rose, with lighter variants for dark.
 
 ### Type
 
@@ -80,12 +80,12 @@ Each tone has a `-soft` background for badges and error boxes.
 | Group | Pages |
 | --- | --- |
 | (top) | Dashboard (`/dashboard`, the default route) |
-| CURATE | Inbox, Library, Agent instructions, Changes, Releases |
-| OBSERVE | Sessions, Observability, Evals, Jobs |
+| CURATE | Inbox, Library, Agent instructions, Releases (Changes, History) |
+| OBSERVE | Sessions (Sessions, Usage), Evals |
 | DATA | Catalog, Sources |
-| ADMIN | Settings (Models, Connections, Members, Limits, Deployment) |
+| ADMIN | Settings (Models, Connections, Members, Jobs, Limits, Deployment) |
 
-Add a page by adding it to `NAV_GROUPS` in `src/components/nav.ts`; the sidebar and the command palette both read it. `⌘K` / `Ctrl+K` opens the palette anywhere, and every `PageHeader` shows the hint. The Dashboard adds the ink "New" menu (`HeaderActions`).
+Keep the sidebar short: a new view of something an existing page covers is a tab on that page (`Tabs`, `?tab=` in the URL), not a new entry. Add a page by adding it to `NAV_GROUPS` in `src/components/nav.ts`; the sidebar and the command palette both read it. A tab people look for by name goes in `SUB_PAGES` so the palette finds it, and a page that becomes a tab keeps its old URL as a redirect (`Moved` in `src/App.tsx`: `/changes`, `/observability`, `/jobs`). `⌘K` / `Ctrl+K` opens the palette anywhere, and every `PageHeader` shows the hint. The Dashboard adds the ink "New" menu (`HeaderActions`).
 
 ## Pages
 
@@ -93,11 +93,11 @@ Every page is a `PageHeader` (title, one-line description, actions on the right)
 
 | Kind | Built from | Examples |
 | --- | --- | --- |
-| Overview | `StatGrid` in a card, cards in a `CardGrid`, a `PillButton` in a `CardFooter` to go deeper | Dashboard, Observability |
-| List | filters, `TableCard`, paging in its footer | Sessions, Releases, Jobs |
+| Overview | `StatGrid` in a card, cards in a `CardGrid`, a `PillButton` in a `CardFooter` to go deeper | Dashboard, Sessions → Usage |
+| List | filters, `TableCard`, paging in its footer | Sessions, Releases → History, Settings → Jobs |
 | List and detail | `ListDetail`: side by side from `lg` or `xl`, one pane with Back below | Inbox, Catalog |
 | Detail | `Crumb`, `PageHeader`, sections; a narrow sticky column on the right for secondary lists | a session, a source, an item |
-| Settings | `Tabs`, one section per tab | Settings |
+| Tabbed | `Tabs` under the `PageHeader`, one view per tab, the default tab first with no `?tab=` | Settings, Releases, Sessions |
 
 Put the layers from PRODUCT.md where they belong: state and the next action in the default view, setup and history in an expanded row or panel, raw payloads and IDs behind a `<details>` or an Expand control.
 

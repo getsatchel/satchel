@@ -2,7 +2,8 @@ import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
-import { EmptyState, ErrorBox, Feedback, FilterSelect, ICONS, Loading, PageHeader, PillButton, SectionHeading, Segmented, StatusDot, TableCard, type Tone } from "@/components/ui";
+import { EmptyState, ErrorBox, Feedback, FilterSelect, ICONS, Loading, PageHeader, SectionHeading, Segmented, StatusDot, TableCard, Tabs, type Tone } from "@/components/ui";
+import { UsageSection } from "@/pages/Usage";
 import { pageIcon } from "@/components/nav";
 import { fullTime, timeAgo } from "@/lib/format";
 
@@ -29,7 +30,30 @@ interface Row {
   startedAt: string;
 }
 
+type Tab = "sessions" | "usage";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "sessions", label: "Sessions" },
+  { id: "usage", label: "Usage" },
+];
+
+/** Sessions: every question agents were asked (the default tab), and Usage across them. */
 export function Sessions() {
+  const [sp, setSp] = useSearchParams();
+  const tab: Tab = sp.get("tab") === "usage" ? "usage" : "sessions";
+  return (
+    <>
+      <PageHeader
+        title="Sessions"
+        sub="Every question an agent was asked through Satchel, and how agents use the context. Open a session to replay its tool calls and the context it was served."
+      />
+      {/* Each tab keeps its own filters, so switching starts clean. */}
+      <Tabs tabs={TABS} value={tab} onChange={(t) => setSp(t === "sessions" ? {} : { tab: t }, { replace: true })} />
+      <div className="mt-6">{tab === "usage" ? <UsageSection /> : <SessionList />}</div>
+    </>
+  );
+}
+
+function SessionList() {
   const [sp, setSp] = useSearchParams();
   const client = sp.get("client") ?? "";
   const status = sp.get("status") ?? "";
@@ -101,15 +125,10 @@ export function Sessions() {
 
   return (
     <>
-      <PageHeader
-        title="Sessions"
-        sub="Every question an agent was asked through Satchel. Open one to replay its tool calls and the context it was served."
-      />
       <SectionHeading
         icon={ICONS.pulse}
         title={view === "questions" ? "Questions" : "Conversations"}
         count={total}
-        actions={<PillButton to="/observability">Observability</PillButton>}
       />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Segmented

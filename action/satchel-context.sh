@@ -86,7 +86,7 @@ body="$WORK/comment.md"
   if [ -z "$pid" ]; then
     echo "This pull request changes no context: \`${CONTEXT_PATH}\` matches the published release."
   else
-    jq -r --arg url "$URL" '"[Preview #\(.preview_seq)](\($url)/changes?preview=\(.preview_id)) of release #\(.base_release_seq // "none"): \(.created | length) new, \(.updated | length) changed, \(.removed | length) removed."' <<<"$rep"
+    jq -r --arg url "$URL" '"[Preview #\(.preview_seq)](\($url)/releases?preview=\(.preview_id)) of release #\(.base_release_seq // "none"): \(.created | length) new, \(.updated | length) changed, \(.removed | length) removed."' <<<"$rep"
     echo
     jq -r '
       def list(name; xs): if (xs | length) > 0 then

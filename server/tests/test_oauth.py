@@ -31,6 +31,7 @@ from satchel.mcp.auth import create_token, verify_token
 from satchel.oauth.clients import ClientMetadataError, ssrf_guarded_fetch
 from satchel.oauth.common import pkce_s256, random_token, safe_next, sha256_hex
 from satchel.oauth.oidc import HttpOidcProvider, Identity, OidcError
+from satchel.oauth.routes import provider_name
 from satchel.settings import Settings
 from satchel.store.db import admin_session
 from satchel.store.models import ApiToken, AppUser, AuthFlow, ContextItem, Workspace
@@ -456,7 +457,7 @@ def test_tokens_do_not_cross_workspaces(c: TestClient, env: Env) -> None:
         "code_challenge": pkce_s256(verifier), "code_challenge_method": "S256",
         "workspace": env.wp}, follow_redirects=False)
     r = c.get("/auth/callback", params={"code": "x", "state": env.idp.last_state})
-    assert r.status_code == 403 and "does not have access" in r.text
+    assert r.status_code == 403 and "a member of this workspace" in r.text
 
 
 def test_pat_still_works_and_dev_headers_are_off(c: TestClient, env: Env) -> None:
@@ -651,7 +652,11 @@ def test_cimd_fetch_is_ssrf_guarded() -> None:
 
 def test_web_login_session_cookie_and_csrf(c: TestClient, env: Env) -> None:
     env.idp.identity = Identity("sub-alice", ALICE, True, "Alice")
-    r = c.get("/auth/login", params={"workspace": env.wa, "next": "/v1/items"},
+    # The sign-in page carries next and workspace to the start of the flow; it never redirects.
+    page = c.get("/auth/login", params={"workspace": env.wa, "next": "/v1/items"})
+    assert page.status_code == 200 and "action=/auth/login/start" in page.text
+    assert "value='/v1/items'" in page.text and f"value='{env.wa}'" in page.text
+    r = c.get("/auth/login/start", params={"workspace": env.wa, "next": "/v1/items"},
               follow_redirects=False)
     assert r.status_code == 302 and r.headers["location"].startswith("https://idp.test/")
     assert c.get("/auth/me").status_code == 401
@@ -670,8 +675,13 @@ def test_web_login_session_cookie_and_csrf(c: TestClient, env: Env) -> None:
     assert c.post("/v1/search", json=body,
                   headers={"X-CSRF-Token": me["csrf_token"]}).status_code == 200
     assert c.post("/auth/logout").status_code == 403
+    # Signed in, the sign-in page goes straight on to next.
+    r = c.get("/auth/login", params={"next": "/sessions"}, follow_redirects=False)
+    assert r.status_code == 302 and r.headers["location"] == "/sessions"
     assert c.post("/auth/logout", headers={"X-CSRF-Token": me["csrf_token"]}).status_code == 200
     assert c.get("/auth/me").status_code == 401
+    out = c.get("/auth/login", params={"signed_out": "1"})
+    assert out.status_code == 200 and "signed out" in out.text
 
 
 def test_session_cookie_secure_when_https_and_next_is_not_an_open_redirect(env: Env) -> None:
@@ -683,7 +693,7 @@ def test_session_cookie_secure_when_https_and_next_is_not_an_open_redirect(env: 
     app = create_app(env.engine, HashEmbedder(), settings=st, oidc=env.idp)
     with TestClient(app, base_url="https://satchel.example.com") as c2:
         env.idp.identity = Identity("sub-alice", ALICE, True, "Alice")
-        r = c2.get("/auth/login", params={"workspace": env.wa, "next": "//evil.test"},
+        r = c2.get("/auth/login/start", params={"workspace": env.wa, "next": "//evil.test"},
                    follow_redirects=False)
         assert "secure" in r.headers["set-cookie"].lower()
         iss = c2.get("/.well-known/oauth-authorization-server").json()["issuer"]
@@ -693,6 +703,34 @@ def test_session_cookie_secure_when_https_and_next_is_not_an_open_redirect(env: 
                     follow_redirects=False)
         assert cb.headers["location"] == "/"
         assert "secure" in "; ".join(cb.headers.get_list("set-cookie")).lower()
+
+
+def test_sign_in_pages(env: Env) -> None:
+    # No identity provider: say so instead of starting a flow that cannot work.
+    bare = TestClient(create_app(env.engine, HashEmbedder(), settings=Settings(dev_auth=False)))
+    r = bare.get("/auth/login")
+    assert r.status_code == 503 and "SATCHEL_OIDC_ISSUER" in r.text
+    assert "satchel token create" in r.text
+    # The button names the provider: configured, or guessed from the issuer.
+    assert provider_name(Settings(oidc_issuer="https://accounts.google.com")) == "Google"
+    assert provider_name(Settings(oidc_issuer="https://dev-1.okta.com/oauth2/default")) == "Okta"
+    assert provider_name(Settings(
+        oidc_issuer="https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_x")) == "Cognito"
+    assert provider_name(Settings(oidc_issuer="https://sso.example.com/realms/acme")) == "Keycloak"
+    assert provider_name(Settings(oidc_issuer="https://sso.example.com")) is None
+    assert provider_name(Settings(oidc_issuer="https://sso.example.com",
+                                  oidc_display_name="Acme SSO")) == "Acme SSO"
+
+
+def test_web_sign_in_denied_names_the_account(c: TestClient, env: Env) -> None:
+    env.idp.identity = Identity("sub-stranger", f"stranger-{SFX}@x.test", True, "S")
+    c.get("/auth/login/start", params={"workspace": env.wa}, follow_redirects=False)
+    r = c.get("/auth/callback", params={"code": "x", "state": env.idp.last_state},
+              follow_redirects=False)
+    assert r.status_code == 403
+    assert f"stranger-{SFX}@x.test" in r.text and "No access" in r.text
+    assert "Sign in with another account" in r.text
+    env.idp.identity = Identity("sub-alice", ALICE, True, "Alice")
 
 
 # ---- the real OIDC client against an in-process IdP ----------------------------------------

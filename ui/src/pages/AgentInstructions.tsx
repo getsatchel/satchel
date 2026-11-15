@@ -160,8 +160,8 @@ function Editor({ info, item }: { info: { key: string; max_chars: number }; item
       {unpublished && !dirty && (
         <p className="text-xs text-muted">
           Agents get this draft once it is previewed and published in{" "}
-          <Link to="/changes" className="text-accent hover:underline">
-            Changes
+          <Link to="/releases" className="text-accent hover:underline">
+            Releases
           </Link>
           .
         </p>

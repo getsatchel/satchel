@@ -28,18 +28,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/inbox", label: "Inbox", icon: ICONS.inbox, keywords: "suggestions proposals review" },
       { to: "/library", label: "Library", icon: "M4 4h6v16H4zM12 4h3v16h-3zM17 6l3-1 2 15-3 1z", keywords: "items context docs glossary" },
       { to: "/agent", label: "Agent instructions", icon: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5", keywords: "behaviour behavior prompt skill tone format answer style" },
-      { to: "/changes", label: "Changes", icon: "M6 3v12m0 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm12-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 0c0 5-6 3-6 9", keywords: "preview publish unpublished drafts" },
-      { to: "/releases", label: "Releases", icon: "M12 3l9 5v8l-9 5-9-5V8zM12 12l9-4M12 12v9M12 12L3 8", keywords: "rollback versions" },
+      { to: "/releases", label: "Releases", icon: "M12 3l9 5v8l-9 5-9-5V8zM12 12l9-4M12 12v9M12 12L3 8", keywords: "rollback versions changes preview publish unpublished drafts history" },
     ],
   },
   {
     label: "Observe",
     dash: "bg-info/55",
     items: [
-      { to: "/sessions", label: "Sessions", icon: "M4 6h16M4 12h10M4 18h13", keywords: "agents runs replay" },
-      { to: "/observability", label: "Observability", icon: "M4 20V10m6 10V4m6 16v-7m4 7H2", keywords: "usage charts feedback" },
+      { to: "/sessions", label: "Sessions", icon: "M4 6h16M4 12h10M4 18h13", keywords: "agents runs replay questions conversations usage observability" },
       { to: "/evals", label: "Evals", icon: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9", keywords: "suites runs tests" },
-      { to: "/jobs", label: "Jobs", icon: ICONS.clock, keywords: "queue background sync crawl curation retry worker" },
     ],
   },
   {
@@ -60,6 +57,14 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 export const ALL_PAGES: NavItem[] = [DASHBOARD, ...NAV_GROUPS.flatMap((g) => g.items)];
+
+/** Tabs worth finding by name in the command palette (each was its own page before). */
+export const SUB_PAGES: NavItem[] = [
+  { to: "/releases", label: "Changes", icon: "M6 3v12m0 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm12-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 0c0 5-6 3-6 9", keywords: "releases preview publish unpublished drafts" },
+  { to: "/releases?tab=history", label: "Release history", icon: ICONS.tag, keywords: "releases rollback versions published" },
+  { to: "/sessions?tab=usage", label: "Usage", icon: "M4 20V10m6 10V4m6 16v-7m4 7H2", keywords: "observability sessions charts feedback tools served" },
+  { to: "/settings?tab=jobs", label: "Jobs", icon: ICONS.clock, keywords: "settings queue background sync crawl curation retry worker" },
+];
 
 /** A page's sidebar icon, for its empty state. */
 export function pageIcon(to: string): string | undefined {

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { endpoints } from "@/api/endpoints";
 import type { ObservabilitySummary } from "@/api/types";
-import { EmptyState, ErrorBox, Feedback, ICONS, ItemLink, Loading, Meter, PageHeader, SectionHeading, Segmented, StatCell, StatGrid, useWide } from "@/components/ui";
+import { EmptyState, ErrorBox, Feedback, ICONS, ItemLink, Loading, Meter, SectionHeading, Segmented, StatCell, StatGrid, useWide } from "@/components/ui";
 import { ms } from "@/lib/format";
 import { useTheme } from "@/lib/theme";
 
@@ -13,27 +13,35 @@ const PALETTE = {
   dark: ["#8796ff", "#5cc4c4", "#e0a84e", "#b394f2", "#9aa3b0", "#f07aa8"],
 };
 
-export function Observability() {
-  const [days, setDays] = useState(30);
+/** Sessions → Usage: how agents use the context, over a time range. */
+export function UsageSection() {
+  const [sp, setSp] = useSearchParams();
+  const days = [7, 90].find((d) => String(d) === sp.get("days")) ?? 30;
+  const setDays = (d: number) =>
+    setSp(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (d === 30) n.delete("days");
+        else n.set("days", String(d));
+        return n;
+      },
+      { replace: true },
+    );
   const q = useQuery({ queryKey: ["summary", days], queryFn: () => endpoints.summary(days), placeholderData: (p) => p });
   return (
     <>
-      <PageHeader
-        title="Observability"
-        sub="How agents are using the context you maintain."
-        actions={
-          <Segmented
-            label="Time range"
-            value={days}
-            onChange={setDays}
-            options={[
-              { id: 7, label: "7 days" },
-              { id: 30, label: "30 days" },
-              { id: 90, label: "90 days" },
-            ]}
-          />
-        }
-      />
+      <div className="mb-6">
+        <Segmented
+          label="Time range"
+          value={days}
+          onChange={setDays}
+          options={[
+            { id: 7, label: "7 days" },
+            { id: 30, label: "30 days" },
+            { id: 90, label: "90 days" },
+          ]}
+        />
+      </div>
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && q.data.total_sessions === 0 && (

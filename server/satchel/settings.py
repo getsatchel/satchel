@@ -120,7 +120,7 @@ class Settings(BaseSettings):
     # Auth (design §9). `public_url` is the externally visible base URL of this server: it is the
     # OAuth issuer and the base of the audience (resource) URIs tokens are bound to.
     public_url: str = "http://localhost:8080"
-    # Workspace IdP (OIDC). Unset = OAuth login and /auth/login return 503; PATs still work.
+    # Workspace IdP (OIDC). Unset = OAuth login and the sign-in page return 503; PATs still work.
     # The client secret is read from the environment only (never stored in the database).
     oidc_issuer: str | None = None
     oidc_client_id: str | None = None
@@ -128,6 +128,8 @@ class Settings(BaseSettings):
     oidc_scopes: str = "openid email profile"
     # Entra does not emit email_verified; set false there (tenant-controlled addresses).
     oidc_require_verified_email: bool = True
+    # The name on the sign-in button ("Sign in with Okta"). Unset: guessed from the issuer.
+    oidc_display_name: str | None = None
     # Dev-only header auth on the REST API (X-Satchel-Workspace / X-Satchel-User). Off by default.
     dev_auth: bool = False
     # Built curator UI (``npm run build`` in ui/). Unset = ../ui/dist next to the server package;

@@ -48,9 +48,14 @@ class PageError(Exception):
     """Shown to the user as an error page; never redirected (unsafe redirect target or no
     trustworthy client to send the user back to)."""
 
-    def __init__(self, message: str, status: int = 400) -> None:
+    def __init__(self, message: str, status: int = 400, *, title: str | None = None,
+                 retry: bool = False) -> None:
         super().__init__(message)
         self.message, self.status = message, status
+        self.title = title
+        # Offer "Sign in with another account" (UI sign-in only; an agent's flow restarts from
+        # the agent).
+        self.retry = retry
 
 
 class RedirectError(Exception):
@@ -121,7 +126,8 @@ class FlowService:
     def _new_flow(self, s: OrmSession, kind: str, **fields: Any) -> tuple[AuthFlow, str, str]:
         """Insert a flow in state ``idp``; returns (row, idp_authorize_url, browser secret)."""
         if self.oidc is None:
-            raise PageError("Login is not configured on this server (SATCHEL_OIDC_* unset).", 503)
+            raise PageError("Login is not configured on this server (SATCHEL_OIDC_* unset).", 503,
+                            title="Sign-in isn't set up")
         now = datetime.now(UTC)
         s.execute(delete(AuthFlow).where(AuthFlow.expires_at < now - PURGE_AFTER))
         state, nonce = random_token(24), random_token(24)
@@ -139,7 +145,8 @@ class FlowService:
                 redirect_uri=self.callback_url,
             )
         except OidcError as e:
-            raise PageError(f"The identity provider is unavailable: {e}", 502) from e
+            raise PageError(f"The identity provider is unavailable: {e}", 502,
+                            title="Identity provider unavailable") from e
         return flow, url, browser
 
     def _outcome(self, flow: AuthFlow, url: str, browser: str) -> Outcome:
@@ -191,7 +198,8 @@ class FlowService:
     def _verify_browser(self, flow: AuthFlow, cookies: dict[str, str]) -> None:
         got = cookies.get(flow_cookie_name(flow.id), "")
         if not got or not hmac.compare_digest(sha256_hex(got), flow.browser_hash):
-            raise PageError("This login was not started in this browser. Please start again.", 403)
+            raise PageError("This sign-in was started in another browser or has expired. "
+                            "Start again.", 403, retry=True)
 
     def handle_callback(self, q: dict[str, str], cookies: dict[str, str]) -> Outcome:
         state = q.get("state")
@@ -203,7 +211,8 @@ class FlowService:
                 select(AuthFlow).where(AuthFlow.state_hash == sha256_hex(state)).with_for_update()
             ).first()
             if flow is None or flow.status != "idp" or flow.expires_at <= now:
-                raise PageError("This login link has expired or was already used.")
+                raise PageError("This sign-in link has expired or was already used.",
+                                retry=True)
             self._verify_browser(flow, cookies)
             flow_id, kind = flow.id, flow.kind
             nonce, verifier = flow.nonce, flow.code_verifier
@@ -221,14 +230,14 @@ class FlowService:
                 url = RedirectError(redirect_uri, "access_denied", "login was not completed",
                                     client_state, issuer(self.settings)).url
                 return Outcome(url, clear_cookies=clear)
-            raise PageError("The identity provider did not complete the login.")
+            raise PageError("The identity provider did not complete the sign-in.", retry=True)
         assert self.oidc is not None
         try:
             ident = self.oidc.exchange(
                 code=q["code"], code_verifier=verifier, nonce=nonce, redirect_uri=self.callback_url
             )
         except OidcError as e:
-            raise PageError(f"Login failed: {e}", 502) from e
+            raise PageError(f"Sign-in failed: {e}", 502, retry=True) from e
         return self._after_identity(flow_id, ident)
 
     def _after_identity(self, flow_id: uuid.UUID, ident: Identity) -> Outcome:
@@ -238,6 +247,7 @@ class FlowService:
             flow.idp_subject, flow.idp_email = ident.subject, ident.email
             flow.idp_email_verified, flow.idp_name = ident.email_verified, ident.name
             cands = self._candidates(s, flow, ident)
+            web = flow.kind == "web"
             if not cands:
                 flow.status = "denied"
                 raise_denied = True
@@ -246,9 +256,11 @@ class FlowService:
                 if len(cands) == 1:
                     return self._select(s, flow, cands[0], ident)
         if raise_denied:
+            who = f"You signed in as {ident.email}, which" if ident.email else "Your account"
             raise PageError(
-                "Your account does not have access to this satchel workspace. "
-                "Ask a workspace admin to add you.", 403)
+                f"{who} isn't a member of this workspace. Ask a workspace admin to invite you"
+                + (", or sign in with another account." if web else "."),
+                403, title="No access", retry=web)
         return Outcome(f"/auth/workspace?flow={flow_id}")
 
     # ---- user mapping & provisioning ------------------------------------------------------
