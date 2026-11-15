@@ -36,7 +36,7 @@ agent instructions and the suggestion engine never drafts them.
 | `get_context_pack` | Packed context for a question: agent instructions, rules, caveats, glossary, golden queries, table docs, guides. |
 | `get_item` | Read one item in full by key (from a `[ctx:key@vN]` tag). |
 | `list_tables` | List documented tables. |
-| `describe_table` | Columns, enums, units, grain, caveats, endorsement. |
+| `describe_table` | Columns, enums, units, grain, caveats, endorsement, and the table's connection. A doc synced without a connection (a dbt or Cube source with none, or context imported before the connection was added) describes the connected table of the same name. Pass `connection` only when the table is on several connections; the error names them. |
 
 ## Governed metrics and SQL (data plane)
 

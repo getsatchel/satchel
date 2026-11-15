@@ -669,3 +669,92 @@ def test_preview_keeps_cents() -> None:
 
     t = markdown_table(["a", "b", "c"], [(22777.05, 1716.15, 3.0), (None, 0.1 + 0.2, 1e-7)])
     assert "| 22777.05 | 1716.15 | 3 |" in t and "| 0.3 | 0 |" in t.replace("|  |", "|")
+
+
+def test_describe_table_ignores_a_same_named_asset_without_a_connection(
+    app_engine: Engine, warehouse: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """A dbt or Cube source with no connection makes its own analytics.orders asset next to the
+    crawled one (the screenshot demo did). They are one table: describe_table must not call it
+    ambiguous, and list_tables shows it once."""
+    slug = unique_slug("loose")
+    r = import_context(copy_example(tmp_path_factory.mktemp("loose")), slug, embedder=EMB,
+                       engine=app_engine)
+    add_connection(slug, "warehouse", "duckdb", {"path": str(warehouse)}, engine=app_engine)
+    crawl_connection(slug, "warehouse", engine=app_engine)
+    with admin_session(engine=app_engine) as s:
+        s.add(Asset(workspace_id=r.workspace_id, connection_id=None, kind="table",
+                    fqn="analytics.orders"))
+    raw, _ = create_token(slug, f"{slug}@example.com", "t", engine=app_engine)
+    p = verify_token(raw, engine=app_engine)
+    assert p is not None
+    loose = Env(app_engine, slug, r.workspace_id, f"{slug}@example.com", p)
+
+    async def fn(c: ClientSession) -> tuple[Any, Any]:
+        sid = await start(c, "orders")
+        desc = await call(c, "describe_table", session_id=sid, question="orders",
+                          table="analytics.orders")
+        return desc, await call(c, "list_tables", session_id=sid)
+
+    desc, lst = with_client(loose, fn)
+    assert not desc.isError, text_of(desc)
+    d = json.loads(text_of(desc))
+    assert d["table"] == "analytics.orders" and d["connection"] == "warehouse"
+    assert d["doc"]["endorsed"] is True and d["tag"].startswith("[ctx:")
+    assert {c["name"] for c in d["columns_live"]} >= {"order_id", "amount"}
+    orders = [t for t in json.loads(text_of(lst))["tables"] if t["table"] == "analytics.orders"]
+    assert len(orders) == 1 and orders[0]["connection"] == "warehouse" and orders[0]["documented"]
+
+
+def test_tables_carry_a_doc_without_a_connection_to_the_connected_table(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from satchel.tools import definitions as d
+
+    a = uuid.uuid4()
+    loose = SimpleNamespace(id=uuid.uuid4(), connection_id=None, fqn="analytics.orders")
+    bound = SimpleNamespace(id=uuid.uuid4(), connection_id=a, fqn="Analytics.Orders")
+    other = SimpleNamespace(id=uuid.uuid4(), connection_id=uuid.uuid4(), fqn="analytics.orders")
+    solo = SimpleNamespace(id=uuid.uuid4(), connection_id=None, fqn="analytics.customers")
+    doc, own = ("item", "ver"), ("item2", "ver2")
+    monkeypatch.setattr(d, "_table_docs", lambda *_a: [
+        (loose, *doc), (bound, None, None), (other, *own), (solo, None, None)])
+    got = {(t.asset.id, t.ver, t.doc_asset.id if t.doc_asset else None)
+           for t in d._tables(None, uuid.uuid4())}  # type: ignore[arg-type]
+    assert got == {
+        (bound.id, "ver", loose.id),  # no doc of its own: the unconnected one's
+        (other.id, "ver2", other.id),  # its own doc wins
+        (solo.id, None, None),  # no connected twin: kept as is
+    }
+
+
+def test_describe_table_on_two_connections_asks_which(
+    app_engine: Engine, warehouse: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    slug = unique_slug("twin")
+    r = import_context(copy_example(tmp_path_factory.mktemp("twin")), slug, embedder=EMB,
+                       engine=app_engine)
+    for name in ("warehouse", "replica"):
+        add_connection(slug, name, "duckdb", {"path": str(warehouse)}, engine=app_engine)
+        crawl_connection(slug, name, engine=app_engine)
+    email = f"{slug}@example.com"
+    raw, _ = create_token(slug, email, "t", engine=app_engine)
+    p = verify_token(raw, engine=app_engine)
+    assert p is not None
+    twin = Env(app_engine, slug, r.workspace_id, email, p)
+
+    async def fn(c: ClientSession) -> tuple[Any, Any]:
+        sid = await start(c, "orders")
+        args = {"session_id": sid, "question": "orders", "table": "analytics.orders"}
+        return (await call(c, "describe_table", **args),
+                await call(c, "describe_table", **args, connection="replica"))
+
+    which, picked = with_client(twin, fn)
+    assert which.isError
+    msg = text_of(which)
+    assert "warehouse" in msg and "replica" in msg and "connection" in msg
+    # the example's docs name the warehouse connection, so the replica has columns but no doc
+    d = json.loads(text_of(picked))
+    assert d["connection"] == "replica" and d["columns_live"] and d["documented"] is False
