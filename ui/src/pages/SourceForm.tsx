@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { GitTestOut, SourceKindOut, SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
+import { DOCS_URL } from "@/components/nav";
 import { ErrorBox, InfoTip, Modal, Notice, Segmented, StatusDot } from "@/components/ui";
 import { errMsg } from "@/lib/format";
 
@@ -48,6 +50,7 @@ const human = (k: string) =>
     .replace(/\burl\b/g, "URL")
     .replace(/^./, (c) => c.toUpperCase());
 type Where = "git" | "bucket";
+const DOC_PAGES = new Set(["dbt", "cube", "sqlmesh"]);
 
 /** Adapter help for a file input, reworded for where the files come from. */
 function fileHelp(desc: string, required: boolean, where: Where): string {
@@ -147,9 +150,19 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
   const unstored = fields.filter((f) => requiredFiles.has(f.name) && !(building && BUILT_INPUTS.has(f.name)) && !values[f.name]?.trim() && f.prop.default == null).map((f) => f.name);
   const intervals = e?.sync_interval_hours && !INTERVALS.some(([h]) => h === e.sync_interval_hours) ? [...INTERVALS, [e.sync_interval_hours, `Every ${e.sync_interval_hours} hours`] as [number, string]] : INTERVALS;
   const [error, setError] = useState<string | null>(null);
+  // Adding splits the form in three (source, files, options). Editing shows it all.
+  const wizard = !e;
+  const [step, setStep] = useState(0);
+  const show = (n: number) => !wizard || step === n;
+  const nav = useNavigate();
   const conns = useQuery({ queryKey: ["connections"], queryFn: endpoints.listConnections });
   const qc = useQueryClient();
   const toast = useToast();
+  const pickKind = (next: string) => {
+    setKind(next);
+    setValues(Object.fromEntries(adapterFields(props.kinds.find((k) => k.kind === next)).map((f) => [f.name, ""])));
+    if (!gitUrl) setWhere(next === "dbt" ? "bucket" : "git");
+  };
 
   const config = () => {
     const out: Record<string, unknown> = { publish, priority: Number(priority) || 0 };
@@ -189,6 +202,8 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
       toast("ok", e ? `Saved ${s.name}` : `Added ${s.name}. Sync it to import its context.`);
       void qc.invalidateQueries({ queryKey: ["sources"] });
       props.onClose();
+      // A new source has nothing in it yet: its page is where it is synced.
+      if (wizard) nav(`/sources/${encodeURIComponent(s.name)}`);
     },
     onError: (err) => setError(errMsg(err)),
   });
@@ -202,13 +217,21 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
       wide
       onClose={props.onClose}
       title={e ? `Edit ${e.name}` : "Add source"}
+      step={wizard ? { current: step, total: 3 } : undefined}
       footer={
         <>
-          <button type="button" className="btn" onClick={props.onClose}>
-            Cancel
-          </button>
+          {wizard && step > 0 && (
+            <button type="button" className="btn mr-auto" onClick={() => setStep(step - 1)}>
+              Back
+            </button>
+          )}
+          {(!wizard || step === 0) && (
+            <button type="button" className="btn" onClick={props.onClose}>
+              Cancel
+            </button>
+          )}
           <button type="submit" form="source-form" className="btn btn-primary" disabled={save.isPending || blocked || !spec?.available}>
-            {save.isPending ? "Saving..." : "Save"}
+            {wizard && step < 2 ? "Next" : save.isPending ? "Saving..." : "Save"}
           </button>
         </>
       }
@@ -219,39 +242,43 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
         onSubmit={(ev) => {
           ev.preventDefault();
           setError(null);
-          save.mutate();
+          if (wizard && step < 2) setStep(step + 1);
+          else save.mutate();
         }}
       >
+        {show(0) && (
         <fieldset className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
           <legend className="label-caps mb-3">Source</legend>
-          <label className="block">
+          <div className="sm:col-span-2">
             <span className="label">Kind</span>
             {e ? (
               <span className="flex h-9 items-center text-sm sm:h-8">{spec?.display_name ?? kind}</span>
             ) : (
-              <select
-                className="input w-full"
+              <Segmented
+                label="Kind"
                 value={kind}
-                onChange={(ev) => {
-                  const next = props.kinds.find((k) => k.kind === ev.target.value);
-                  setKind(ev.target.value);
-                  setValues(Object.fromEntries(adapterFields(next).map((f) => [f.name, ""])));
-                  if (!gitUrl) setWhere(ev.target.value === "dbt" ? "bucket" : "git");
-                }}
-              >
-                {kinds.map((k) => (
-                  <option key={k.kind} value={k.kind} disabled={!k.available}>
-                    {k.display_name ?? k.kind}
-                    {k.available ? "" : " (not installed)"}
-                  </option>
-                ))}
-              </select>
+                onChange={pickKind}
+                options={kinds.map((k) => ({ id: k.kind, label: k.display_name ?? k.kind, disabled: k.available ? null : (k.install_hint ?? "Not installed on this server") }))}
+              />
             )}
-          </label>
+            {wizard && DOC_PAGES.has(kind) && (
+              <p className="mt-1 text-xs text-muted">
+                <a className="text-accent hover:underline" href={`${DOCS_URL}/integrations/${kind}.md`} target="_blank" rel="noreferrer">
+                  Setup guide
+                </a>
+              </p>
+            )}
+          </div>
           <label className="block">
             <span className="label">Name</span>
-            <input className="input mono w-full" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="jaffle" required disabled={Boolean(e)} autoFocus={!e} />
+            <input className="input mono w-full" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="jaffle" required disabled={Boolean(e)} />
+            {wizard && <span className="mt-1 block text-xs text-muted">Cannot be changed later.</span>}
           </label>
+        </fieldset>
+        )}
+        {show(2) && (
+        <fieldset className={`grid gap-x-4 gap-y-4 sm:grid-cols-2 ${wizard ? "" : "border-t border-line pt-5"}`}>
+          <legend className="label-caps mb-3">Catalog and publishing</legend>
           <label className="block sm:col-span-2">
             <span className="label">Warehouse connection</span>
             <select className="input w-full" value={connection} onChange={(ev) => setConnection(ev.target.value)}>
@@ -287,9 +314,11 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
             <input className="input w-24 tabular-nums" inputMode="numeric" value={priority} onChange={(ev) => setPriority(ev.target.value)} />
           </label>
         </fieldset>
+        )}
 
-        {fileFields.length > 0 && (
-          <section aria-label="Files" className="space-y-4 border-t border-line pt-5">
+        {wizard && step === 1 && fileFields.length === 0 && <p className="text-sm text-muted">This source reads no files. Continue to its options.</p>}
+        {show(1) && fileFields.length > 0 && (
+          <section aria-label="Files" className={`space-y-4 ${wizard ? "" : "border-t border-line pt-5"}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="label-caps">Files</h3>
               <Segmented
@@ -448,6 +477,7 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
           </section>
         )}
 
+        {show(2) && (
         <section aria-label="Sync automatically" className="space-y-2 border-t border-line pt-5">
           <h3 className="label-caps">Sync automatically</h3>
           <label className="block">
@@ -470,8 +500,9 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
               : "Runs in satchel worker, which checks every few minutes (SATCHEL_SOURCE_TICK_MIN)."}
           </span>
         </section>
+        )}
 
-        {otherFields.length > 0 && (
+        {show(2) && otherFields.length > 0 && (
           <section aria-label="Options" className="grid gap-x-4 gap-y-4 border-t border-line pt-5 sm:grid-cols-2">
             <h3 className="label-caps sm:col-span-2">Options</h3>
             {otherFields.map((f) => {

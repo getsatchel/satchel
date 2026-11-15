@@ -4,6 +4,7 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { AssetNode, EvalRun, ObservabilitySummary } from "@/api/types";
 import { HeaderActions } from "@/components/CommandPalette";
+import { DOCS_URL } from "@/components/nav";
 import {
   CardFooter,
   CardHeader,
@@ -71,11 +72,89 @@ export function Dashboard() {
     <>
       <PageHeader title="Dashboard" sub="What needs a curator, and how agents are using your context." actions={<HeaderActions />} />
       <div className="space-y-9">
+        <GetStarted />
         <NeedsReview />
         <AgentActivity />
         <ContextHealth />
       </div>
     </>
+  );
+}
+
+/**
+ * What a new workspace still needs: a warehouse, context, a release, an agent. Lists only what
+ * is missing and goes away when nothing is; the first row has the action.
+ */
+function GetStarted() {
+  const me = useQuery({ queryKey: ["me"], queryFn: endpoints.me, retry: false });
+  const conns = useQuery({ queryKey: ["connections"], queryFn: endpoints.listConnections });
+  const sources = useQuery({ queryKey: ["sources"], queryFn: endpoints.listSources });
+  const items = useQuery({ queryKey: ["items", "any"], queryFn: () => endpoints.listItems({ limit: 1 }) });
+  const releases = useQuery({ queryKey: ["releases", "published"], queryFn: () => endpoints.listReleases("published") });
+  const sessions = useQuery({ queryKey: ["sessions", "any"], queryFn: () => endpoints.listSessions({ limit: 1 }) });
+  // Say nothing until every answer is in: a step must not flash as undone while it loads.
+  if (!conns.data || !sources.data || !items.data || !releases.data || !sessions.data) return null;
+  const admin = me.data?.role === "admin";
+  const steps: { title: string; detail: string; done: boolean; to?: string; href?: string; action: string; adminOnly?: boolean }[] = [
+    {
+      title: "Connect a warehouse",
+      detail: "Agents query it read-only; its tables fill the Catalog.",
+      done: conns.data.length > 0,
+      to: "/settings?tab=connections&add=1",
+      action: "Add connection",
+      adminOnly: true,
+    },
+    {
+      title: "Add context",
+      detail: "A dbt, Cube or SQLMesh source, or items written in the Library.",
+      done: sources.data.length > 0 || items.data.total > 0,
+      to: "/sources?add=1",
+      action: "Add source",
+      adminOnly: true,
+    },
+    {
+      title: "Publish a release",
+      detail: "Agents are served published context only.",
+      done: releases.data.total > 0,
+      to: "/changes",
+      action: "Review changes",
+    },
+    {
+      title: "Connect an agent",
+      detail: "Claude or another MCP client. Sessions appear once it asks a question.",
+      done: sessions.data.total > 0,
+      href: `${DOCS_URL}/integrations/claude.md`,
+      action: "Setup guide",
+    },
+  ];
+  // Show the exception, not the default: only what is still to do.
+  const todo = steps.filter((s) => !s.done);
+  if (todo.length === 0) return null;
+  return (
+    <section aria-labelledby="dash-start">
+      <SectionHeading id="dash-start" icon={ICONS.list} title="Set up" count={todo.length} />
+      <ul className="card divide-y divide-line overflow-hidden">
+        {todo.map((s, i) => (
+          <li key={s.title} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+            <div className="min-w-0 flex-1 basis-48">
+              <div className="text-sm font-medium">{s.title}</div>
+              <p className="mt-0.5 text-xs text-muted">{s.detail}</p>
+            </div>
+            {i === 0 &&
+              (s.adminOnly && !admin ? (
+                <span className="text-xs text-muted">An admin can do this.</span>
+              ) : s.href ? (
+                <a className="btn-pill" href={s.href} target="_blank" rel="noreferrer">
+                  {s.action}
+                  <Icon d={ICONS.external} size={12} strokeWidth={2.2} />
+                </a>
+              ) : (
+                <PillButton to={s.to}>{s.action}</PillButton>
+              ))}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

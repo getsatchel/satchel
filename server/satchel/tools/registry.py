@@ -21,7 +21,7 @@ from satchel.llm.embeddings import EmbeddingProvider
 from satchel.mcp.auth import Principal
 from satchel.store.db import workspace_session
 from satchel.store.models import Session, ToolCall
-from satchel.tools import text
+from satchel.tools import text, turns
 
 log = logging.getLogger("satchel.tools")
 
@@ -66,6 +66,8 @@ class Call:
     args: Any
     session: Session | None = None
     tool_call_id: int | None = None
+    # The question this call belongs to (``satchel.tools.turns``).
+    turn_id: int | None = None
     result_meta: dict[str, Any] = field(default_factory=dict)
     # Data for the result widget (MCP Apps ``structuredContent``); text stays the full answer.
     structured: dict[str, Any] | None = None
@@ -77,7 +79,8 @@ class Call:
         if self.tool_call_id is None:
             if self.session is None:
                 raise RuntimeError("no session to attach the tool_call to")
-            tc = ToolCall(session_id=self.session.id, tool=self._tool, args=self._raw)
+            tc = ToolCall(session_id=self.session.id, turn_id=self.turn_id, tool=self._tool,
+                          args=self._raw)
             self.s.add(tc)
             self.s.flush()
             self.tool_call_id = tc.id
@@ -207,9 +210,11 @@ def _log_error(ctx: InvokeContext, tool: ToolDef, raw: dict[str, Any], message: 
         ) as s:
             sess = _lookup_session(s, ctx, raw.get("session_id"))
             if sess is not None:
+                turn = turns.latest_turn(s, sess.id)  # a failed call never opens a turn
                 s.add(
                     ToolCall(
                         session_id=sess.id,
+                        turn_id=turn.id if turn is not None else None,
                         tool=tool.name,
                         args=json.loads(json.dumps(raw, default=str)),
                         error=message[:2000],
@@ -218,6 +223,18 @@ def _log_error(ctx: InvokeContext, tool: ToolDef, raw: dict[str, Any], message: 
                 )
     except Exception:  # logging must never mask the real error
         log.exception("failed to log tool error")
+
+
+def _assign_turn(ctx: InvokeContext, raw: dict[str, Any]) -> int | None:
+    """The call's turn, in its own short transaction (see ``turns.turn_for_call``). None when
+    the session is unknown: the caller reports that."""
+    with workspace_session(
+        ctx.principal.workspace_id, ctx.principal.user_id, engine=ctx.engine
+    ) as s:
+        sess = _lookup_session(s, ctx, raw.get("session_id"))
+        if sess is None:
+            return None
+        return turns.turn_for_call(s, sess, raw.get("question")).id
 
 
 @dataclass
@@ -269,6 +286,7 @@ def _invoke(ctx: InvokeContext, tool: ToolDef, raw: dict[str, Any]) -> ToolOutpu
         raise ToolUserError(_validation_message(tool, e)) from None
 
     stored = json.loads(json.dumps(args.model_dump(mode="json"), default=str))
+    turn_id = _assign_turn(ctx, raw) if tool.requires_session else None
     t0 = time.perf_counter()
     with workspace_session(
         ctx.principal.workspace_id, ctx.principal.user_id, engine=ctx.engine
@@ -278,6 +296,7 @@ def _invoke(ctx: InvokeContext, tool: ToolDef, raw: dict[str, Any]) -> ToolOutpu
             call.session = _lookup_session(s, ctx, raw.get("session_id"))
             if call.session is None:
                 raise ToolUserError(text.ERR_BAD_SESSION.format(sid=raw.get("session_id")))
+            call.turn_id = turn_id
             call.ensure_tool_call()
         deferred: ToolUserError | None = None
         try:

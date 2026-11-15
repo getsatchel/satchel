@@ -4933,6 +4933,19 @@
             "title": "Tool Call Count",
             "type": "integer"
           },
+          "turn_count": {
+            "default": 1,
+            "description": "Questions asked in this session.",
+            "title": "Turn Count",
+            "type": "integer"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TurnOut"
+            },
+            "title": "Turns",
+            "type": "array"
+          },
           "user_id": {
             "anyOf": [
               {
@@ -4973,6 +4986,7 @@
           "thumbs_down",
           "redaction",
           "release_seq",
+          "turns",
           "timeline",
           "signals",
           "feedback"
@@ -5081,6 +5095,12 @@
             "title": "Tool Call Count",
             "type": "integer"
           },
+          "turn_count": {
+            "default": 1,
+            "description": "Questions asked in this session.",
+            "title": "Turn Count",
+            "type": "integer"
+          },
           "user_id": {
             "anyOf": [
               {
@@ -5160,10 +5180,22 @@
           "source": {
             "title": "Source",
             "type": "string"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
           }
         },
         "required": [
           "id",
+          "turn_id",
           "kind",
           "source",
           "created_at",
@@ -6735,10 +6767,22 @@
           "tool": {
             "title": "Tool",
             "type": "string"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
           }
         },
         "required": [
           "id",
+          "turn_id",
           "tool",
           "created_at",
           "latency_ms",
@@ -6784,6 +6828,234 @@
           "avg_latency_ms"
         ],
         "title": "ToolStat",
+        "type": "object"
+      },
+      "TurnOut": {
+        "description": "One question inside a session, in order. ``timeline`` calls point at it by ``turn_id``.",
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "answered"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tool_call_count": {
+            "title": "Tool Call Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "seq",
+          "question",
+          "status",
+          "started_at",
+          "ended_at",
+          "tool_call_count"
+        ],
+        "title": "TurnOut",
+        "type": "object"
+      },
+      "TurnPage": {
+        "properties": {
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TurnRowOut"
+            },
+            "title": "Turns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "turns"
+        ],
+        "title": "TurnPage",
+        "type": "object"
+      },
+      "TurnRowOut": {
+        "description": "A question with the session it was asked in, for the list of questions.",
+        "properties": {
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "sensitive": {
+            "title": "Sensitive",
+            "type": "boolean"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "signal_count": {
+            "title": "Signal Count",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "answered"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "thumbs_down": {
+            "title": "Thumbs Down",
+            "type": "integer"
+          },
+          "thumbs_up": {
+            "title": "Thumbs Up",
+            "type": "integer"
+          },
+          "tool_call_count": {
+            "title": "Tool Call Count",
+            "type": "integer"
+          },
+          "turn_count": {
+            "description": "Questions asked in the same session.",
+            "title": "Turn Count",
+            "type": "integer"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "user_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Label"
+          }
+        },
+        "required": [
+          "id",
+          "seq",
+          "question",
+          "status",
+          "started_at",
+          "ended_at",
+          "tool_call_count",
+          "session_id",
+          "turn_count",
+          "user_id",
+          "user_label",
+          "client",
+          "sensitive",
+          "signal_count",
+          "thumbs_up",
+          "thumbs_down"
+        ],
+        "title": "TurnRowOut",
         "type": "object"
       },
       "UpdateItemRequest": {
@@ -14586,6 +14858,188 @@
         "summary": "Sync Preview",
         "tags": [
           "sync"
+        ]
+      }
+    },
+    "/v1/turns": {
+      "get": {
+        "description": "Every question agents were asked, newest first: one row per turn, so a session\nthat was reused for follow-up questions has one row for each.",
+        "operationId": "list_turns",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Client"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 365,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Days"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_evals",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Evals",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Turns",
+        "tags": [
+          "observability"
         ]
       }
     }

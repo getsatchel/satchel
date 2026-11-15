@@ -126,3 +126,12 @@ code, pre, .mono { @apply font-mono; font-size: 12.5px; }
 .recharts-cartesian-grid line { stroke: rgb(var(--line)); }
 .recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line { stroke: rgb(var(--line)); }
 .recharts-default-tooltip { background: rgb(var(--surface)) !important; border: 1px solid rgb(var(--line)) !important; border-radius: 8px; font-size: 12px; }
+
+/* Motion is hover colour, the drawer slide and the skeleton pulse. Stop it all on request. */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

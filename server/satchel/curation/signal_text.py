@@ -11,12 +11,12 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from satchel.llm.embeddings import EmbeddingProvider
 from satchel.store.models import Session as SessionRow
-from satchel.store.models import Signal
+from satchel.store.models import SessionTurn, Signal
 from satchel.store.scopes import signal_not_eval
 
 MAX_EMBED_CHARS = 1500
@@ -87,8 +87,10 @@ def embed_pending_signals(
     """Embed signals of the workspace that have no embedding yet. Returns the count embedded."""
     rows = list(
         s.execute(
-            select(Signal, SessionRow.question)
+            # The signal's own question when it has a turn: a session can hold several.
+            select(Signal, func.coalesce(SessionTurn.question, SessionRow.question))
             .outerjoin(SessionRow, SessionRow.id == Signal.session_id)
+            .outerjoin(SessionTurn, SessionTurn.id == Signal.turn_id)
             .where(Signal.workspace_id == workspace_id, Signal.embedding.is_(None),
                    signal_not_eval())
             .order_by(Signal.id)

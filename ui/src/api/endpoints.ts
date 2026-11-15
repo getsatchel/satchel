@@ -48,6 +48,7 @@ import type {
   SessionDetail,
   SessionPage,
   SessionRow,
+  TurnPage,
   SourceCreate,
   SourceKindOut,
   SourceOut,
@@ -174,6 +175,8 @@ export const endpoints = {
   summary: (days: number) => api.get<ObservabilitySummary>("/v1/observability/summary", { days }),
   listSessions: (q: { client?: string; status?: string; limit?: number; offset?: number }) =>
     api.get<SessionPage>("/v1/sessions", { limit: 50, ...q }),
+  listTurns: (q: { client?: string; status?: string; limit?: number; offset?: number }) =>
+    api.get<TurnPage>("/v1/turns", { limit: 50, ...q }),
   getSession: (id: string) => api.get<SessionDetail>(`/v1/sessions/${id}`),
   setSensitive: (id: string, sensitive: boolean) =>
     api.post<SessionRow>(`/v1/sessions/${id}/sensitive`, { sensitive }),

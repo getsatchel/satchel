@@ -11,6 +11,7 @@ Workflow you MUST follow for every data question:
 5. If a term the user used has no definition in context, call flag_context_gap.
 6. If the user says a number looks wrong, doubts it, corrects you or pushes back, call record_user_feedback.
 7. Always finish with report_answer before replying to the user (metrics_used, tables_used, caveats).
+8. When a query result is displayed to the user as an interactive Satchel table, do NOT repeat its rows as your own table or list. Reply with the takeaway in a few sentences, the definition and filters that applied, and any caveats.
 Pass session_id and the user's original question (verbatim) on every Satchel tool call. Cite context you used by its [ctx:key@vN] tag."""
 
 WORKFLOW_PROMPT = INSTRUCTIONS
@@ -105,6 +106,20 @@ D_RUN_SQL = (
 D_GET_RESULT = (
     "Fetch a page of a previous run_sql / query_metrics result by result_id (offset, limit). "
     "Use it when the preview was truncated or you need more rows. REQUIRED: session_id."
+)
+
+_NO_REPEAT = (
+    "do NOT repeat these rows as a table or list in your reply. Give the takeaway in a few "
+    "sentences, the definition and filters that applied, and any caveats."
+)
+RESULT_SHOWN = (
+    "The user already sees this result as an interactive table next to your reply, so "
+    + _NO_REPEAT
+)
+RESULT_MAYBE_SHOWN = (
+    "If your client displays this result to the user as an interactive Satchel table, "
+    + _NO_REPEAT
+    + " Otherwise present the rows yourself."
 )
 
 ERR_NO_SESSION = (

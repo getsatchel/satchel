@@ -155,6 +155,8 @@ When Claude runs `run_sql`, `query_metrics` or pages a result, supporting client
 
 The buttons record feedback in Satchel, tagged as coming from a person ("human via widget" in the curator's session inspector, and a human/agent split in Observability). A 👎 also becomes one `user_doubt` signal (carrying the reasons: "correction" when the number or definition was wrong, else "negative"; adding reasons later updates it instead of adding another) that counts double in gap detection; a 👍 on a high-confidence answer feeds golden-query promotion; both weigh on how context is ranked. Nothing is published automatically.
 
+The agent is told not to repeat the widget's rows in its reply: the result's text ends with a note to give the takeaway, the definition and filters that applied, and any caveats instead. When Satchel cannot tell whether the client shows widgets (clients that reconnect for every request), the note is conditional, so a client without widgets still presents the rows.
+
 Support: the widget needs a client that implements the MCP Apps extension (`io.modelcontextprotocol/ui`): Claude (Desktop and claude.ai), ChatGPT, VS Code and Goose at the time of writing. Other clients, including Claude Code in the terminal, get the same complete text answer and can still use `record_user_feedback`. The widget is one self-contained file and makes no network requests.
 
 ## 7. Make agents follow the workflow

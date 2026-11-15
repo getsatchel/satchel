@@ -492,10 +492,34 @@ class Session(Base):
     eval_run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
 
-class ToolCall(Base):
-    __tablename__ = "tool_call"
+class SessionTurn(Base):
+    """One question inside a session (migration 0017). Agents reuse a ``session_id`` for
+    follow-up questions, so the tool calls of a session are grouped into turns: a new turn
+    starts when a call carries a different question (``satchel.tools.turns``)."""
+
+    __tablename__ = "session_turn"
+    __table_args__ = (
+        UniqueConstraint("session_id", "seq", name="session_turn_session_seq_uq"),
+        CheckConstraint("status in ('active','answered')", name="session_turn_status_ck"),
+    )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     session_id: Mapped[uuid.UUID] = _fk("session.id")
+    seq: Mapped[int] = mapped_column(Integer)
+    question: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'active'"))
+    started_at: Mapped[datetime] = _created()
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ToolCall(Base):
+    __tablename__ = "tool_call"
+    __table_args__ = (Index("tool_call_turn_idx", "turn_id"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    session_id: Mapped[uuid.UUID] = _fk("session.id")
+    # NULL only for calls that could not be placed in a turn (migration 0017).
+    turn_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("session_turn.id"), nullable=True
+    )
     tool: Mapped[str] = mapped_column(Text)
     args: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     result_meta: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
@@ -533,6 +557,10 @@ class Signal(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     workspace_id: Mapped[uuid.UUID] = _fk("workspace.id")
     session_id: Mapped[uuid.UUID | None] = _fk("session.id", nullable=True)
+    # The question the signal belongs to, when it came from a tool call (migration 0017).
+    turn_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("session_turn.id"), nullable=True
+    )
     user_id: Mapped[uuid.UUID | None] = _fk("app_user.id", nullable=True)
     kind: Mapped[str] = mapped_column(Text)
     source: Mapped[str] = mapped_column(Text)

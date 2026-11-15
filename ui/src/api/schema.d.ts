@@ -1121,6 +1121,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Turns
+         * @description Every question agents were asked, newest first: one row per turn, so a session
+         *     that was reused for follow-up questions has one row for each.
+         */
+        get: operations["list_turns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2932,6 +2953,14 @@ export interface components {
             timeline: components["schemas"]["ToolCallOut"][];
             /** Tool Call Count */
             tool_call_count: number;
+            /**
+             * Turn Count
+             * @description Questions asked in this session.
+             * @default 1
+             */
+            turn_count: number;
+            /** Turns */
+            turns: components["schemas"]["TurnOut"][];
             /** User Id */
             user_id: string | null;
             /** User Label */
@@ -2978,6 +3007,12 @@ export interface components {
             thumbs_up: number;
             /** Tool Call Count */
             tool_call_count: number;
+            /**
+             * Turn Count
+             * @description Questions asked in this session.
+             * @default 1
+             */
+            turn_count: number;
             /** User Id */
             user_id: string | null;
             /** User Label */
@@ -3002,6 +3037,8 @@ export interface components {
             } | null;
             /** Source */
             source: string;
+            /** Turn Id */
+            turn_id: number | null;
         };
         /** SignalStat */
         SignalStat: {
@@ -3578,6 +3615,8 @@ export interface components {
             served: components["schemas"]["ServedOut"][];
             /** Tool */
             tool: string;
+            /** Turn Id */
+            turn_id: number | null;
         };
         /** ToolStat */
         ToolStat: {
@@ -3589,6 +3628,93 @@ export interface components {
             errors: number;
             /** Tool */
             tool: string;
+        };
+        /**
+         * TurnOut
+         * @description One question inside a session, in order. ``timeline`` calls point at it by ``turn_id``.
+         */
+        TurnOut: {
+            /** Ended At */
+            ended_at: string | null;
+            /** Id */
+            id: number;
+            /** Question */
+            question: string | null;
+            /** Seq */
+            seq: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "answered";
+            /** Tool Call Count */
+            tool_call_count: number;
+        };
+        /** TurnPage */
+        TurnPage: {
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+            /** Turns */
+            turns: components["schemas"]["TurnRowOut"][];
+        };
+        /**
+         * TurnRowOut
+         * @description A question with the session it was asked in, for the list of questions.
+         */
+        TurnRowOut: {
+            /** Client */
+            client: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** Id */
+            id: number;
+            /** Question */
+            question: string | null;
+            /** Sensitive */
+            sensitive: boolean;
+            /** Seq */
+            seq: number;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Signal Count */
+            signal_count: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "answered";
+            /** Thumbs Down */
+            thumbs_down: number;
+            /** Thumbs Up */
+            thumbs_up: number;
+            /** Tool Call Count */
+            tool_call_count: number;
+            /**
+             * Turn Count
+             * @description Questions asked in the same session.
+             */
+            turn_count: number;
+            /** User Id */
+            user_id: string | null;
+            /** User Label */
+            user_label: string | null;
         };
         /** UpdateItemRequest */
         UpdateItemRequest: {
@@ -6498,6 +6624,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SyncPreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_turns: {
+        parameters: {
+            query?: {
+                client?: string | null;
+                user_id?: string | null;
+                status?: string | null;
+                days?: number | null;
+                include_evals?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnPage"];
                 };
             };
             /** @description Validation Error */

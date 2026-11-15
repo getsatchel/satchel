@@ -29,7 +29,7 @@ from satchel.store.models import (
     ToolCall,
 )
 from satchel.store.models import Session as SessionRow
-from satchel.tools import text
+from satchel.tools import text, turns
 from satchel.tools.registry import Call, ToolDef, ToolUserError
 
 _SID = "session_id returned by start_analysis"
@@ -165,6 +165,7 @@ def _signal(
     sig = Signal(
         workspace_id=c.ctx.principal.workspace_id,
         session_id=c.session.id,
+        turn_id=c.turn_id,
         user_id=c.ctx.principal.user_id,
         kind=kind,
         source=source,
@@ -220,6 +221,7 @@ def start_analysis(c: Call) -> dict[str, Any]:
     c.s.add(sess)
     c.s.flush()
     c.session = sess
+    c.turn_id = turns.open_turn(c.s, sess, a.question).id
     always = always_on_entries(c.s, rid)
     c.ensure_tool_call()
     _log_served(c, [(e.version_id, None) for e in always])
@@ -428,6 +430,7 @@ def report_answer(c: Call) -> dict[str, Any]:
     assert c.session is not None
     items = _session_item_ids(c.s, c.session.id)
     c.session.status = "answered"
+    turns.mark_answered(c.s, c.turn_id)
     payload = {
         "confidence": a.confidence,
         "caveats": a.caveats,

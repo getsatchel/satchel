@@ -15,6 +15,7 @@ from sqlalchemy import select
 from satchel.mcp import apps
 from satchel.store.db import admin_session
 from satchel.store.models import Feedback, Signal, ToolCall
+from satchel.tools import text
 from tests.test_data_plane import env, result_dir, start, warehouse  # noqa: F401  (fixtures)
 from tests.test_mcp import Env, call, text_of, with_client
 
@@ -82,6 +83,7 @@ def test_clients_without_the_extension_get_plain_tools(env: Env) -> None:  # noq
     assert all(t.meta is None for t in tools) and "rate_result" not in {t.name for t in tools}
     assert res.structuredContent is None
     assert "result_id:" in text_of(res) and "| order_date | amount |" in text_of(res)
+    assert "do NOT repeat" not in text_of(res)  # no widget, so the agent presents the rows
 
 
 def test_structured_payload_and_complete_text(env: Env, ui_on: None) -> None:  # noqa: F811
@@ -106,6 +108,8 @@ def test_structured_payload_and_complete_text(env: Env, ui_on: None) -> None:  #
     json.dumps(sc)  # JSON-safe
     t = text_of(res)  # the text stays complete for clients that ignore the widget
     assert "rows: 80" in t and f"result_id: {sc['result_id']}" in t and "50 of 80" in t
+    # ...and tells the agent the user already sees the table, on the query and on paging
+    assert t.endswith(text.RESULT_SHOWN) and text_of(page).endswith(text.RESULT_SHOWN)
     # paging keeps the *original* tool call, so a rating lands on the query, not the paging call
     p = page.structuredContent
     assert p["offset"] == 50 and len(p["rows"]) == 20 and p["tool_call_id"] == sc["tool_call_id"]
