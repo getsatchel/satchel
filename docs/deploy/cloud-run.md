@@ -96,7 +96,7 @@ The MCP endpoint is `<url>/mcp` (`terraform output mcp_url`). Authentication is 
 
 ## 8. Upgrades
 
-1. Pick the new tag, set `image_tag = "0.3.0"`.
+1. Pick the new tag, set `image_tag = "0.4.0"`.
 2. `gcloud run jobs execute satchel-migrate ...` is run for you if `run_migrations_on_apply = true`; otherwise it must run **before** the service rolls out. Do it with the new image: `terraform apply -target=module.cloud_run.google_cloud_run_v2_job.this` first (this updates the jobs to the new image), run the migrate command, then a full `terraform apply`.
 3. If you forget, the new revision cannot pass its `/readyz` startup probe (schema not at head), so Cloud Run keeps serving the old revision and the apply fails without downtime. Run the migration and apply again.
 
