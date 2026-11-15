@@ -1761,6 +1761,7 @@
         "type": "object"
       },
       "EvidenceSession": {
+        "description": "One question the signals came from (or a whole session, for signals recorded before\nsessions were split into questions).",
         "properties": {
           "client": {
             "anyOf": [
@@ -1827,6 +1828,18 @@
               }
             ],
             "title": "Started At"
+          },
+          "turn_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which question in the session (1-based); None for the whole session.",
+            "title": "Turn Seq"
           },
           "user_label": {
             "anyOf": [

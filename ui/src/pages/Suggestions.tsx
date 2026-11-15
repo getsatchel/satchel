@@ -480,15 +480,19 @@ function Evidence({ sessions, truncated }: { sessions: EvidenceSession[]; trunca
   return (
     <div className="space-y-3">
       {sessions.map((e) => (
-        <div key={e.session_id ?? "system"} className="card p-3">
+        <div key={`${e.session_id ?? "system"}:${e.turn_seq ?? ""}`} className="card p-3">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {e.session_id ? (
-              <Link to={`/sessions/${e.session_id}`} className="font-medium text-accent hover:underline">
+              <Link
+                to={`/sessions/${e.session_id}${e.turn_seq != null ? `?turn=${e.turn_seq}` : ""}`}
+                className="font-medium text-accent hover:underline"
+              >
                 {e.question ? `"${e.question}"` : e.sensitive ? "Sensitive session" : "Open session"}
               </Link>
             ) : (
               <span className="font-medium">Context findings (no session)</span>
             )}
+            {e.turn_seq != null && e.turn_seq > 1 && <span className="text-xs text-muted">follow-up question {e.turn_seq}</span>}
             {e.user_label && <span className="text-xs text-muted">{e.user_label}</span>}
             {e.client && <span className="badge">{e.client}</span>}
             {e.started_at && <span className="text-xs text-muted">{timeAgo(e.started_at)}</span>}

@@ -479,15 +479,24 @@ def record_user_feedback(c: Call) -> dict[str, Any]:
     a: FeedbackArgs = c.args
     assert c.session is not None
     rating = 1 if a.sentiment == "positive" else -1
-    last_ctx = c.s.scalar(
-        select(ToolCall.id)
-        .where(
-            ToolCall.session_id == c.session.id,
-            ToolCall.tool.in_(["search_context", "get_context_pack"]),
+    # The feedback is about the question being answered now: rate its last context call, or
+    # the session's when this question did not fetch any context.
+    sid = c.session.id
+
+    def last_ctx_call(*where: Any) -> int | None:
+        return c.s.scalar(
+            select(ToolCall.id)
+            .where(
+                ToolCall.session_id == sid,
+                ToolCall.tool.in_(["search_context", "get_context_pack"]),
+                *where,
+            )
+            .order_by(ToolCall.id.desc())
+            .limit(1)
         )
-        .order_by(ToolCall.id.desc())
-        .limit(1)
-    )
+
+    last_ctx = (last_ctx_call(ToolCall.turn_id == c.turn_id) if c.turn_id is not None
+                else None) or last_ctx_call()
     c.s.add(
         Feedback(
             session_id=c.session.id,
@@ -557,6 +566,8 @@ def propose_context_change(c: Call) -> dict[str, Any]:
         provenance={
             "source": "agent",
             "ref": str(c.session.id),
+            # The question the proposal came from (a session can hold several).
+            **({"turn": c.turn_id} if c.turn_id is not None else {}),
             "op": a.op,
             "target": a.target,
             "rationale": a.rationale,
