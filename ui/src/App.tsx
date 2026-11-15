@@ -9,6 +9,7 @@ import { ErrorBox, Loading } from "./components/ui";
 import { Dashboard } from "./pages/Dashboard";
 import { Inbox } from "./pages/Inbox";
 import { Library } from "./pages/Library";
+import { AgentInstructions } from "./pages/AgentInstructions";
 import { ItemDetailPage } from "./pages/ItemDetail";
 import { ItemNew } from "./pages/ItemNew";
 import { Releases } from "./pages/Releases";
@@ -101,6 +102,7 @@ export function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="inbox" element={<Inbox />} />
         <Route path="library" element={<Library />} />
+        <Route path="agent" element={<AgentInstructions />} />
         <Route path="library/new" element={<ItemNew />} />
         <Route path="library/item/*" element={<ItemDetailPage />} />
         {/* Pages that became tabs: old links and bookmarks keep working. */}

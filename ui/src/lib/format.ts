@@ -37,6 +37,7 @@ export function errMsg(e: unknown): string {
 
 export const ITEM_TYPE_LABEL: Record<string, string> = {
   workspace_rule: "Workspace rule",
+  agent_instructions: "Agent instructions",
   guide: "Guide",
   glossary_term: "Glossary term",
   golden_query: "Golden query",

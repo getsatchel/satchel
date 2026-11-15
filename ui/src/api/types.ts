@@ -104,3 +104,5 @@ export type DeploymentInfo = S["DeploymentOut"];
 export type DeploymentGroup = S["DeploymentGroup"];
 export type GitTestRequest = S["GitTestRequest"];
 export type GitTestOut = S["GitTestOut"];
+
+export type AgentInstructionsInfo = S["AgentInstructionsInfo"];

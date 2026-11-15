@@ -39,6 +39,7 @@ from satchel.api.schemas import (
     UpdateItemRequest,
     UpdateOverlayRequest,
 )
+from satchel.core.item_types import AGENT_INSTRUCTIONS_KEY
 from satchel.curation.drafts import (
     ItemValidationError,
     add_version,
@@ -197,6 +198,11 @@ def make_router(auth: Auth) -> APIRouter:
         if key.startswith("/") or "//" in key or not key:
             raise HTTPException(422, "key must be a relative path without empty segments")
         _validate(body.type, body.body, body.meta)
+        if body.type == "agent_instructions" and (
+                key != AGENT_INSTRUCTIONS_KEY or body.scope_kind != "workspace"):
+            raise HTTPException(
+                422,
+                f"agent instructions are one workspace item with the key {AGENT_INSTRUCTIONS_KEY}")
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             if s.scalars(select(ContextItem.id).where(ContextItem.key == key)).first():
                 raise HTTPException(409, f"an item with key {key!r} already exists")

@@ -12,14 +12,15 @@ Workflow you MUST follow for every data question:
 6. If the user says a number looks wrong, doubts it, corrects you or pushes back, call record_user_feedback.
 7. Always finish with report_answer before replying to the user (metrics_used, tables_used, caveats).
 8. When a query result is displayed to the user as an interactive Satchel table, do NOT repeat its rows as your own table or list. Reply with the takeaway in a few sentences, the definition and filters that applied, and any caveats.
-Pass session_id and the user's original question (verbatim) on every Satchel tool call. Cite context you used by its [ctx:key@vN] tag."""
+Pass session_id and the user's original question (verbatim) on every Satchel tool call. Cite context you used by its [ctx:key@vN] tag.
+If start_analysis returns agent_instructions, they are this workspace's instructions for how to work and answer: follow them too. Where they conflict with the steps above, the steps above win."""
 
 WORKFLOW_PROMPT = INSTRUCTIONS
 
 D_START = (
     "Begin an analysis session for a user's data question. Call this FIRST for every data "
     "question, passing the user's question verbatim. Returns a session_id that you must pass "
-    "to every later satchel tool call, plus the workspace's always-on rules."
+    "to every later satchel tool call, plus the workspace's agent instructions and always-on rules."
 )
 D_SEARCH = (
     "Search governed business context (metric definitions, glossary, table docs, guides). "

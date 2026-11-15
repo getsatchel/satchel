@@ -27,6 +27,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/inbox", label: "Inbox", icon: ICONS.inbox, keywords: "suggestions proposals review" },
       { to: "/library", label: "Library", icon: "M4 4h6v16H4zM12 4h3v16h-3zM17 6l3-1 2 15-3 1z", keywords: "items context docs glossary" },
+      { to: "/agent", label: "Agent instructions", icon: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5", keywords: "behaviour behavior prompt skill tone format answer style" },
       { to: "/releases", label: "Releases", icon: "M12 3l9 5v8l-9 5-9-5V8zM12 12l9-4M12 12v9M12 12L3 8", keywords: "rollback versions changes preview publish unpublished drafts history" },
     ],
   },

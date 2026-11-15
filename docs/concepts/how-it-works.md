@@ -8,7 +8,7 @@ Satchel sits between your agents (Claude, Cursor, ChatGPT, Codex) and your data.
 | Concept | What it is |
 |---|---|
 | **Workspace** | The tenancy boundary. Every row is scoped to one, enforced by Postgres row-level security. |
-| **Context item** | A curated, versioned piece of knowledge: guide, glossary term, metric, golden query, table doc, endorsement. Context is shared and reviewed: every user of a workspace gets the same answers. Satchel keeps no per-user memory; a user's preferences belong to their own agent's memory, and a correction that matters to everyone becomes a signal. |
+| **Context item** | A curated, versioned piece of knowledge: guide, glossary term, metric, golden query, table doc, endorsement, and the workspace's agent instructions (how agents should work and answer, on top of Satchel's own workflow). Context is shared and reviewed: every user of a workspace gets the same answers. Satchel keeps no per-user memory; a user's preferences belong to their own agent's memory, and a correction that matters to everyone becomes a signal. |
 | **Release** | An immutable set of published context items. Agents read the published release. Changes go draft → preview release → publish, and can be rolled back. |
 | **Source** | An upstream tool (dbt, Cube, SQLMesh, a git repo) synced into context. Fields are owned by the source or by a hand-written overlay. |
 | **Connection** | A warehouse (Postgres, DuckDB today) used by the optional data plane to run governed, read-only SQL. |
@@ -44,7 +44,7 @@ and publish.
 
 ## A typical agent session
 
-1. `start_analysis` opens a session with the user's question.
+1. `start_analysis` opens a session with the user's question and returns the workspace's agent instructions and rules.
 2. `search_context` / `get_context_pack` retrieve definitions, then `describe_table` or `describe_metric`.
 3. `query_metrics` (preferred) or `run_sql` fetches data through the guarded SQL gateway.
 4. `report_answer` closes the session. `flag_context_gap` and `record_user_feedback` feed the loop.

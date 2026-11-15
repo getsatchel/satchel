@@ -31,7 +31,7 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from satchel.core.item_types import ITEM_TYPES, normalized_meta
+from satchel.core.item_types import CURATOR_ONLY_TYPES, ITEM_TYPES, normalized_meta
 from satchel.curation.apply import KEY_PREFIX, clean_key, default_key, slugify, unique_key
 from satchel.curation.config import CurationConfig
 from satchel.curation.drafts import ItemValidationError, validate_item
@@ -88,7 +88,8 @@ DRAFT_SCHEMA: dict[str, Any] = {
                 "type": "object",
                 "properties": {
                     "op": {"type": "string", "enum": list(OPS)},
-                    "item_type": {"type": "string", "enum": sorted(ITEM_TYPES)},
+                    "item_type": {"type": "string",
+                                  "enum": sorted(set(ITEM_TYPES) - CURATOR_ONLY_TYPES)},
                     "key": {"type": "string", "description": "Key for a NEW item"},
                     "target_key": {"type": "string",
                                    "description": "Key of the existing item to change"},
@@ -447,6 +448,8 @@ def resolve_change(
     meta: dict[str, Any] = dict(meta_raw) if isinstance(meta_raw, dict) else {}
     rationale = str(raw.get("rationale") or "")[:2000]
     item_type = raw.get("item_type") if raw.get("item_type") in ITEM_TYPES else None
+    if item_type in CURATOR_ONLY_TYPES:
+        return None, f"{item_type} is written by curators, never suggested"
     target_key = raw.get("target_key") if isinstance(raw.get("target_key"), str) else None
     target_asset = raw.get("target_asset") if isinstance(raw.get("target_asset"), str) else None
 
@@ -460,6 +463,8 @@ def resolve_change(
             return None, f"{op}: unknown target_key {target_key!r}"
         if item.state in ("deprecated", "proposed") or item.scope_kind == "user":
             return None, f"{op}: {item.key} is {item.state}"
+        if item.type in CURATOR_ONLY_TYPES:
+            return None, f"{op}: {item.key} is written by curators, never suggested"
         if item.key in taken:
             return None, f"{op}: duplicate change for {item.key}"
         if op == "deprecate_item":

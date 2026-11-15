@@ -12,6 +12,8 @@ import yaml
 from pydantic import BaseModel
 
 from satchel.core.item_types import (
+    AGENT_INSTRUCTIONS_KEY,
+    AgentInstructions,
     AssetDoc,
     Caveat,
     GlossaryTerm,
@@ -80,7 +82,7 @@ def _markdown_item(
 ) -> tuple[ParsedItem, BaseModel]:
     post = frontmatter.loads(text)
     model = validate_item(item_type, post.content.strip(), dict(post.metadata))
-    assert isinstance(model, WorkspaceRule | Guide | Caveat)
+    assert isinstance(model, WorkspaceRule | AgentInstructions | Guide | Caveat)
     meta = model.model_dump(mode="json", exclude={"body"})
     body = model.body
     item = ParsedItem(
@@ -140,6 +142,10 @@ def _parse_one(path: Path, rel: str, config: dict[str, Any]) -> list[ParsedItem]
     suffix = path.suffix.lower()
     is_md = suffix == ".md"
     is_yaml = suffix in {".yaml", ".yml"}
+
+    if rel == AGENT_INSTRUCTIONS_KEY:
+        item, _ = _markdown_item(rel, "agent_instructions", path.read_text("utf-8"), None)
+        return [item]
 
     if rel == "workspace.md" or (top == "domains" and len(parts) >= 3 and parts[-1] == "rules.md"):
         item, _ = _markdown_item(rel, "workspace_rule", path.read_text("utf-8"), None)

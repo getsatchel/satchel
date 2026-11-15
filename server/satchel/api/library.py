@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -22,9 +23,11 @@ from satchel.api.schemas import (
     VersionOut,
     VersionSummary,
 )
+from satchel.core.item_types import AGENT_INSTRUCTIONS_KEY, AGENT_INSTRUCTIONS_MAX
 from satchel.sources.precedence import doc_group_of
 from satchel.store.db import workspace_session
 from satchel.store.models import ContextItem, ContextVersion
+from satchel.tools.text import INSTRUCTIONS
 
 
 def version_summaries(
@@ -69,10 +72,23 @@ def item_detail(s: Session, item: ContextItem) -> ItemDetail:
     )
 
 
+class AgentInstructionsInfo(BaseModel):
+    base: str = Field(description="Satchel's own instructions, sent to every agent first.")
+    key: str = Field(description="The key of the workspace's agent_instructions item.")
+    max_chars: int
+
+
 def make_router(auth: Auth) -> APIRouter:
     r = APIRouter(tags=["library"])
     Any_ = Annotated[Caller, Depends(auth.require("explorer"))]
     eng = auth.ctx.engine
+
+    @r.get("/v1/agent-instructions", response_model=AgentInstructionsInfo)
+    def agent_instructions_info(who: Any_) -> AgentInstructionsInfo:
+        """What the Agent page shows around the workspace's own instructions (the item itself
+        is read and edited through /v1/items like any other)."""
+        return AgentInstructionsInfo(
+            base=INSTRUCTIONS, key=AGENT_INSTRUCTIONS_KEY, max_chars=AGENT_INSTRUCTIONS_MAX)
 
     @r.get("/v1/items", response_model=ItemPage)
     def list_items(

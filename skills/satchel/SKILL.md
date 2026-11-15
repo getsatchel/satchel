@@ -16,6 +16,7 @@ Workflow you MUST follow for every data question:
 7. Always finish with report_answer before replying to the user (metrics_used, tables_used, caveats).
 8. When a query result is displayed to the user as an interactive Satchel table, do NOT repeat its rows as your own table or list. Reply with the takeaway in a few sentences, the definition and filters that applied, and any caveats.
 Pass session_id and the user's original question (verbatim) on every Satchel tool call. Cite context you used by its [ctx:key@vN] tag.
+If start_analysis returns agent_instructions, they are this workspace's instructions for how to work and answer: follow them too. Where they conflict with the steps above, the steps above win.
 
 ## Notes
 - `search_context` is for a specific term; `get_context_pack` returns everything relevant to the question in one call.

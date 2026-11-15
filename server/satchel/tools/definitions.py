@@ -12,7 +12,12 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session as OrmSession
 
-from satchel.core.item_types import ItemValidationError, normalized_meta, yaml_item_dict
+from satchel.core.item_types import (
+    CURATOR_ONLY_TYPES,
+    ItemValidationError,
+    normalized_meta,
+    yaml_item_dict,
+)
 from satchel.curation.releases import release_items_stmt
 from satchel.retrieval import build_context_pack, search_context
 from satchel.retrieval.pack import always_on_entries
@@ -226,14 +231,16 @@ def start_analysis(c: Call) -> dict[str, Any]:
     c.ensure_tool_call()
     _log_served(c, [(e.version_id, None) for e in always])
     seq = c.s.scalar(select(Release.seq).where(Release.id == rid)) if rid else None
-    return {
-        "session_id": str(sess.id),
-        "release": seq,
-        "always_on_context": "\n\n".join(f"{e.tag}\n{e.text}" for e in always)
-        or "(no workspace rules published)",
-        "next": "Call get_context_pack(session_id, question) before writing SQL; finish with "
-        "report_answer.",
-    }
+    agent = [e for e in always if e.type == "agent_instructions"]
+    rules = [e for e in always if e.type != "agent_instructions"]
+    out: dict[str, Any] = {"session_id": str(sess.id), "release": seq}
+    if agent:
+        out["agent_instructions"] = "\n\n".join(f"{e.tag}\n{e.text}" for e in agent)
+    out["always_on_context"] = (
+        "\n\n".join(f"{e.tag}\n{e.text}" for e in rules) or "(no workspace rules published)")
+    out["next"] = ("Call get_context_pack(session_id, question) before writing SQL; finish with "
+                   "report_answer.")
+    return out
 
 
 def search_context_tool(c: Call) -> dict[str, Any]:
@@ -505,7 +512,7 @@ def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60] or "item"
 
 
-_MARKDOWN_TYPES = {"workspace_rule", "guide", "caveat", "semantic_model"}
+_MARKDOWN_TYPES = {"workspace_rule", "agent_instructions", "guide", "caveat", "semantic_model"}
 
 
 def propose_context_change(c: Call) -> dict[str, Any]:
@@ -514,6 +521,10 @@ def propose_context_change(c: Call) -> dict[str, Any]:
     a: ProposeArgs = c.args
     assert c.session is not None
     meta = dict(a.meta or {})
+    if a.type in CURATOR_ONLY_TYPES:
+        raise ToolUserError(
+            "Agent instructions are written by curators in Satchel, not proposed by agents. "
+            "Propose a guide or workspace_rule instead.")
     try:
         enriched_meta = normalized_meta(a.type, a.body, meta)
     except ItemValidationError as e:

@@ -21,6 +21,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agent-instructions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent Instructions Info
+         * @description What the Agent page shows around the workspace's own instructions (the item itself
+         *     is read and edited through /v1/items like any other).
+         */
+        get: operations["agent_instructions_info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/assets": {
         parameters: {
             query?: never;
@@ -1229,6 +1250,21 @@ export interface components {
             meta?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** AgentInstructionsInfo */
+        AgentInstructionsInfo: {
+            /**
+             * Base
+             * @description Satchel's own instructions, sent to every agent first.
+             */
+            base: string;
+            /**
+             * Key
+             * @description The key of the workspace's agent_instructions item.
+             */
+            key: string;
+            /** Max Chars */
+            max_chars: number;
         };
         /** AssetDetail */
         AssetDetail: {
@@ -3982,6 +4018,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    agent_instructions_info: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentInstructionsInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

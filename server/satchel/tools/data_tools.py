@@ -251,6 +251,7 @@ def _shown_note(c: Call) -> str:
 _CTX_TYPE_LABEL = {
     "asset_doc": "table doc", "glossary_term": "glossary", "guide": "guide",
     "golden_query": "golden query", "workspace_rule": "rule", "caveat": "caveat",
+    "agent_instructions": "agent instructions",
     "semantic_model": "metric model", "endorsement": "endorsement",
 }
 
