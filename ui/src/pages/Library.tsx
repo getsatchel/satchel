@@ -166,6 +166,9 @@ function ItemTable({ items }: { items: ItemSummary[] }) {
                   <Link className="min-w-0 text-ink hover:text-accent" to={itemPath(i.key)} onClick={(e) => e.stopPropagation()}>
                     <KeyLines itemKey={i.key} />
                   </Link>
+                  <span className="md:hidden">
+                    <TypeBadge type={i.type} />
+                  </span>
                   {i.managed_by !== usual && i.managed_by === "git" && <GitBadge />}
                   {i.managed_by !== usual && i.managed_by === "source" && <SourceBadge />}
                   {i.managed_by !== usual && i.managed_by === "ui" && <span className="badge">UI</span>}

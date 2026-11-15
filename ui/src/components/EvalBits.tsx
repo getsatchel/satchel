@@ -42,10 +42,10 @@ export function DeltaTable(props: { rows: MeasureDelta[]; aLabel: string; bLabel
       <table className="w-full text-sm">
         <thead className="border-b border-line">
           <tr>
-            <th className="th">Measure</th>
-            <th className="th">{props.aLabel}</th>
-            <th className="th">{props.bLabel}</th>
-            <th className="th">Change</th>
+            <th className="th w-full">Measure</th>
+            <th className="th w-px text-right">{props.aLabel}</th>
+            <th className="th w-px text-right">{props.bLabel}</th>
+            <th className="th w-px text-right">Change</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -53,10 +53,10 @@ export function DeltaTable(props: { rows: MeasureDelta[]; aLabel: string; bLabel
             const bad = props.regressed?.has(r.measure) || (r.delta != null && r.delta < 0);
             return (
               <tr key={r.measure}>
-                <td className="td font-mono [overflow-wrap:anywhere]">{r.measure}</td>
-                <td className="td tabular-nums">{pct(r.a)}</td>
-                <td className="td tabular-nums">{pct(r.b)}</td>
-                <td className={`td whitespace-nowrap tabular-nums ${bad ? "text-bad" : r.delta != null && r.delta > 0 ? "text-good" : "text-muted"}`}>
+                <td className="td min-w-[7rem] font-mono [overflow-wrap:anywhere]">{r.measure}</td>
+                <td className="td text-right tabular-nums">{pct(r.a)}</td>
+                <td className="td text-right tabular-nums">{pct(r.b)}</td>
+                <td className={`td whitespace-nowrap text-right tabular-nums ${bad ? "text-bad" : r.delta != null && r.delta > 0 ? "text-good" : "text-muted"}`}>
                   {r.delta == null ? "n/a" : `${r.delta > 0 ? "+" : ""}${Math.round(r.delta * 100)} pts`}
                 </td>
               </tr>

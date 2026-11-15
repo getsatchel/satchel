@@ -390,76 +390,80 @@ export function ConnectionsSection({ admin, encryption }: { admin: boolean; encr
         </EmptyState>
       ) : (
         <TableCard>
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th className="th w-full">Name</th>
-                <th className="th w-px whitespace-nowrap">Kind</th>
-                <th className="th hidden w-px whitespace-nowrap text-right md:table-cell">Assets</th>
-                <th className="th hidden w-px whitespace-nowrap sm:table-cell">Secret</th>
-                {admin && (
-                  <th className="th w-px">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((c) => {
-                const cfg = (c.config ?? {}) as Record<string, unknown>;
-                const where = cfg.host
-                  ? `${String(cfg.user ?? "")}@${String(cfg.host)}/${String(cfg.database ?? "")}`
-                  : cfg.account
-                    ? `${String(cfg.user ?? "")}@${String(cfg.account)}/${String(cfg.database ?? "")}`
-                    : cfg.project
-                      ? `${String(cfg.data_project ?? cfg.project)}${cfg.datasets ? ` (${String(cfg.datasets)})` : ""}`
-                      : cfg.path
-                        ? String(cfg.path)
-                        : null;
-                return (
-                  <tr key={c.id} className="border-t border-line">
-                    <td className="td">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link className="font-medium hover:underline" to={`/catalog?connection=${encodeURIComponent(c.name)}`}>
-                          {c.name}
-                        </Link>
-                        {c.default_for_ai && <span className="badge badge-good">default</span>}
-                      </div>
-                      {where && <div className="mt-0.5 font-mono text-xs text-muted [overflow-wrap:anywhere]">{where}</div>}
+          <thead>
+            <tr>
+              <th className="th w-full">Name</th>
+              <th className="th hidden w-px whitespace-nowrap sm:table-cell">Kind</th>
+              <th className="th hidden w-px whitespace-nowrap text-right md:table-cell">Assets</th>
+              <th className="th hidden w-px whitespace-nowrap sm:table-cell">Secret</th>
+              {admin && (
+                <th className="th hidden w-px lg:table-cell">
+                  <span className="sr-only">Actions</span>
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => {
+              const cfg = (c.config ?? {}) as Record<string, unknown>;
+              const where = cfg.host
+                ? `${String(cfg.user ?? "")}@${String(cfg.host)}/${String(cfg.database ?? "")}`
+                : cfg.account
+                  ? `${String(cfg.user ?? "")}@${String(cfg.account)}/${String(cfg.database ?? "")}`
+                  : cfg.project
+                    ? `${String(cfg.data_project ?? cfg.project)}${cfg.datasets ? ` (${String(cfg.datasets)})` : ""}`
+                    : cfg.path
+                      ? String(cfg.path)
+                      : null;
+              // Below `lg` the actions fold under the name, so the name and path keep the width.
+              const actions = (
+                <>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => test.mutate(c)} disabled={busy(test, c)}>
+                    {busy(test, c) ? "Testing..." : "Test"}
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => crawl.mutate(c)} disabled={busy(crawl, c)}>
+                    {busy(crawl, c) ? "Crawling..." : "Crawl"}
+                  </button>
+                  {!c.default_for_ai && (
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => makeDefault.mutate(c)}>
+                      Make default
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm({ editing: c })}>
+                    Edit
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => setRemoving(c)} aria-label={`Remove ${c.name}`}>
+                    Remove
+                  </button>
+                </>
+              );
+              return (
+                <tr key={c.id} className="border-t border-line">
+                  <td className="td">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link className="font-medium hover:underline" to={`/catalog?connection=${encodeURIComponent(c.name)}`}>
+                        {c.name}
+                      </Link>
+                      <span className="text-xs text-muted sm:hidden">{label(c.kind)}</span>
+                      {c.default_for_ai && <span className="badge badge-good">default</span>}
+                    </div>
+                    {where && <div className="mt-0.5 font-mono text-xs text-muted [overflow-wrap:anywhere]">{where}</div>}
+                    {admin && <div className="-ml-2 mt-1.5 flex flex-wrap gap-1 lg:hidden">{actions}</div>}
+                  </td>
+                  <td className="td hidden whitespace-nowrap sm:table-cell">{label(c.kind)}</td>
+                  <td className="td hidden whitespace-nowrap text-right tabular-nums md:table-cell">{c.asset_count}</td>
+                  <td className="td hidden whitespace-nowrap text-xs text-muted sm:table-cell">
+                    {c.secret === "stored" ? "encrypted" : c.secret === "env" ? <span title="An env:NAME reference set with the CLI">environment</span> : "–"}
+                  </td>
+                  {admin && (
+                    <td className="td hidden whitespace-nowrap lg:table-cell">
+                      <div className="flex justify-end gap-1">{actions}</div>
                     </td>
-                    <td className="td whitespace-nowrap">{label(c.kind)}</td>
-                    <td className="td hidden whitespace-nowrap text-right tabular-nums md:table-cell">{c.asset_count}</td>
-                    <td className="td hidden whitespace-nowrap text-xs text-muted sm:table-cell">
-                      {c.secret === "stored" ? "encrypted" : c.secret === "env" ? <span title="An env:NAME reference set with the CLI">environment</span> : "–"}
-                    </td>
-                    {admin && (
-                      <td className="td whitespace-nowrap">
-                        <div className="flex justify-end gap-1">
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => test.mutate(c)} disabled={busy(test, c)}>
-                            {busy(test, c) ? "Testing..." : "Test"}
-                          </button>
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => crawl.mutate(c)} disabled={busy(crawl, c)}>
-                            {busy(crawl, c) ? "Crawling..." : "Crawl"}
-                          </button>
-                          {!c.default_for_ai && (
-                            <button type="button" className="btn btn-ghost btn-sm hidden lg:inline-flex" onClick={() => makeDefault.mutate(c)}>
-                              Make default
-                            </button>
-                          )}
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm({ editing: c })}>
-                            Edit
-                          </button>
-                          <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => setRemoving(c)} aria-label={`Remove ${c.name}`}>
-                            Remove
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
         </TableCard>
       )}
       {form && <ConnectionForm kinds={kinds.data} editing={form.editing} encryption={encryption} first={rows.length === 0} onClose={closeForm} />}

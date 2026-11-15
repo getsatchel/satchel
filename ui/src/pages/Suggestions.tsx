@@ -91,7 +91,7 @@ export function SuggestionsView({ isAdmin }: { isAdmin: boolean }) {
         />
         {isAdmin && (
           <div className="ml-auto flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-xs text-muted">
+            <label className="flex min-h-10 items-center gap-1.5 text-xs text-muted sm:min-h-0">
               <input type="checkbox" checked={skipLlm} onChange={(e) => setSkipLlm(e.target.checked)} />
               Skip LLM
             </label>
@@ -152,7 +152,7 @@ function SuggestionRow({ s, active, onClick }: { s: SuggestionSummary; active: b
         title={fullTime(s.updated_at)}
       />
       <div className="mt-1 line-clamp-2 text-sm font-medium">{s.title}</div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted/80">
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted">
         <KindBadge source={s.source} />
         <span>
           {s.evidence_count} signal{s.evidence_count === 1 ? "" : "s"}

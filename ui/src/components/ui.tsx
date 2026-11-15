@@ -32,13 +32,28 @@ export function ListDetail(props: {
   split?: keyof typeof SPLIT;
 }) {
   const s = SPLIT[props.split ?? "lg"];
+  const wide = useWide(props.split === "xl" ? "(min-width: 1280px)" : "(min-width: 1024px)");
+  const backRef = useRef<HTMLButtonElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  // One pane at a time: opening a detail hides the list, so focus moves to Back; Back returns it
+  // to the row that opened the detail.
+  useEffect(() => {
+    if (wide) return;
+    if (props.hasDetail) {
+      if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) opener.current = document.activeElement;
+      backRef.current?.focus();
+    } else if (opener.current?.isConnected) {
+      opener.current.focus();
+      opener.current = null;
+    }
+  }, [props.hasDetail, wide]);
   return (
     <div className={`grid items-start gap-4 ${s.grid}`}>
       <div className={props.hasDetail ? `hidden ${s.show}` : ""}>{props.list}</div>
       {props.hasDetail ? (
         <div className="min-w-0">
           {props.onBack && (
-            <button className={`btn btn-ghost btn-sm mb-2 -ml-2 ${s.hide}`} onClick={props.onBack}>
+            <button ref={backRef} className={`btn btn-ghost btn-sm mb-2 -ml-2 ${s.hide}`} onClick={props.onBack}>
               <Icon d="M15 18l-6-6 6-6" size={14} />
               {props.backLabel ?? "Back"}
             </button>
@@ -335,15 +350,28 @@ export function Tabs<T extends string>(props: {
   value: T;
   onChange: (id: T) => void;
 }) {
+  // Arrow keys move between tabs (the ARIA tabs pattern); only the selected tab is in the Tab order.
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const i = props.tabs.findIndex((t) => t.id === props.value);
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    const to = e.key === "Home" ? 0 : e.key === "End" ? props.tabs.length - 1 : step ? (i + step + props.tabs.length) % props.tabs.length : -1;
+    const tab = props.tabs[to];
+    if (to < 0 || !tab) return;
+    e.preventDefault();
+    props.onChange(tab.id);
+    e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[to]?.focus();
+  };
   return (
-    <div role="tablist" className="mb-3 flex gap-1 overflow-x-auto border-b border-line">
+    <div role="tablist" className="mb-3 flex gap-1 overflow-x-auto border-b border-line" onKeyDown={onKey}>
       {props.tabs.map((t) => (
         <button
           key={t.id}
+          type="button"
           role="tab"
           aria-selected={props.value === t.id}
+          tabIndex={props.value === t.id ? 0 : -1}
           onClick={() => props.onChange(t.id)}
-          className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
+          className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium sm:py-2 ${
             props.value === t.id ? "border-accent text-ink" : "border-transparent text-muted hover:text-ink"
           }`}
         >
@@ -371,7 +399,7 @@ export function Segmented<T extends string | number>(props: {
           disabled={Boolean(o.disabled)}
           title={o.disabled ?? undefined}
           onClick={() => props.onChange(o.id)}
-          className={`h-8 shrink-0 whitespace-nowrap rounded px-2.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 ${
+          className={`h-9 shrink-0 whitespace-nowrap rounded px-2.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 ${
             props.value === o.id ? "bg-primary text-primary-ink" : "text-muted hover:text-ink"
           }`}
         >
@@ -458,7 +486,7 @@ export function SectionHeading(props: { title: ReactNode; count?: number; action
       <h2 id={props.id} className="label-caps flex min-w-0 items-center gap-2">
         {props.icon && <Icon d={props.icon} size={14} className="text-muted" />}
         <span className="min-w-0">{props.title}</span>
-        {props.count != null && <span className="tabular-nums text-muted/70">{props.count}</span>}
+        {props.count != null && <span className="tabular-nums text-muted">{props.count}</span>}
       </h2>
       <span className="h-px min-w-6 flex-1 bg-line" aria-hidden />
       {props.actions && <div className="flex flex-wrap items-center gap-2">{props.actions}</div>}
@@ -530,7 +558,7 @@ export function InfoTip({ text, label = "More info" }: { text: string; label?: s
         onMouseLeave={() => setPos(null)}
         onFocus={show}
         onBlur={() => setPos(null)}
-        className="-m-1.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted/70 hover:text-ink"
+        className="-m-1.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted hover:text-ink"
       >
         <Icon d={ICONS.info} size={14} />
       </button>

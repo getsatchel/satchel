@@ -73,7 +73,7 @@ function ReleaseHistory() {
                 <div className="min-w-[12rem] flex-1">
                   <StatusLine tone={r.is_current ? "good" : "muted"} state={r.is_current ? "Live" : "Superseded"} time={timeAgo(r.created_at)} title={fullTime(r.created_at)} />
                   <div className="mt-1 break-words text-sm">{r.note ?? <span className="text-muted">No note</span>}</div>
-                  <div className="mt-0.5 font-mono text-xs text-muted/80">
+                  <div className="mt-0.5 font-mono text-xs text-muted">
                     {r.created_by ? (r.created_by === me.data?.user_id ? "you" : `user ${r.created_by.slice(0, 8)}`) : "system"} · {r.item_count} items
                   </div>
                 </div>

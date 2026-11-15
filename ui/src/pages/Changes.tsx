@@ -385,7 +385,7 @@ function PreviewPanel({ id, onClose }: { id: string; onClose: () => void }) {
         }}
       >
         <input
-          className="input min-w-0 flex-1"
+          className="input min-w-0 sm:flex-1"
           placeholder="e.g. what was revenue last month?"
           aria-label="Test question"
           value={question}

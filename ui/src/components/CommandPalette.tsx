@@ -158,12 +158,15 @@ function Palette({ onClose }: { onClose: () => void }) {
             aria-controls={`${id}-list`}
             aria-activedescendant={shown[active] ? `${id}-${shown[active].id}` : undefined}
             aria-autocomplete="list"
-            className="h-12 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted/70 focus-visible:outline-none"
+            aria-label="Search pages and actions"
+            className="h-12 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted focus-visible:outline-none"
             placeholder="Jump to a page or run an action"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <Kbd>Esc</Kbd>
+          <button type="button" className="-mr-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-md sm:h-auto sm:w-auto" aria-label="Close command palette" onClick={onClose}>
+            <Kbd>Esc</Kbd>
+          </button>
         </div>
         <ul ref={list} id={`${id}-list`} role="listbox" aria-label="Commands" className="max-h-[min(60vh,24rem)] overflow-y-auto py-1.5">
           {shown.length === 0 && <li className="px-4 py-6 text-center text-sm text-muted">Nothing matches “{q.trim()}”.</li>}
@@ -192,7 +195,7 @@ function Palette({ onClose }: { onClose: () => void }) {
             );
           })}
         </ul>
-        <div className="flex items-center gap-3 border-t border-line px-4 py-2 text-xs text-muted">
+        <div className="hidden items-center gap-3 border-t border-line px-4 py-2 text-xs text-muted sm:flex" aria-hidden>
           <span className="inline-flex items-center gap-1">
             <Kbd>↑</Kbd>
             <Kbd>↓</Kbd> move

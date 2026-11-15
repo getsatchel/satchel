@@ -393,23 +393,23 @@ function AssetRow(props: {
   return (
     <div role="treeitem" aria-expanded={hasKids ? open : undefined} aria-selected={isSel}>
       <div
-        className={`group relative flex h-8 items-center gap-3 pr-3 ${isSel ? "bg-accent-soft/70" : "hover:bg-sunken/70"}`}
+        className={`group relative flex h-10 items-center gap-3 pr-3 sm:h-8 ${isSel ? "bg-accent-soft/70" : "hover:bg-sunken/70"}`}
         style={{ paddingLeft: 8 + Math.min(depth, 6) * 12 }}
       >
         {isSel && <span className="absolute inset-y-0 left-0 w-0.5 bg-accent" aria-hidden />}
-        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch">
           {hasKids ? (
             <button
               aria-label={`${open ? "Collapse" : "Expand"} ${a.name}`}
               onClick={() => setOpen(a.id, !open)}
-              className="grid h-5 w-5 shrink-0 place-items-center rounded hover:bg-line/60"
+              className="grid w-6 shrink-0 place-items-center self-stretch rounded hover:bg-line/60 sm:h-5 sm:w-5 sm:self-center"
             >
               <Chevron open={open} />
             </button>
           ) : (
-            <span className="w-5 shrink-0" />
+            <span className="w-6 shrink-0 sm:w-5" />
           )}
-          <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => onSelect(a.id)} onKeyDown={onKey}>
+          <button className="flex min-w-0 flex-1 items-center gap-2 self-stretch text-left" onClick={() => onSelect(a.id)} onKeyDown={onKey}>
             <KindIcon kind={a.kind} className={isCol ? "text-muted/70" : "text-muted"} />
             <span
               className={`truncate font-mono text-[13px] ${a.dropped ? "text-muted line-through" : isCol ? "text-ink/85" : "font-medium text-ink"}`}
@@ -417,10 +417,10 @@ function AssetRow(props: {
             >
               {a.name}
             </span>
-            {hasKids && !isCol && <span className="shrink-0 text-xs tabular-nums text-muted/80">{a.children.length}</span>}
+            {hasKids && !isCol && <span className="shrink-0 text-xs tabular-nums text-muted">{a.children.length}</span>}
           </button>
         </span>
-        <span className={`hidden w-32 truncate text-xs sm:block ${a.data_type ? "font-mono text-muted" : "text-muted/80"}`}>
+        <span className={`hidden w-32 truncate text-xs sm:block ${a.data_type ? "font-mono text-muted" : "text-muted"}`}>
           {a.data_type ?? a.kind}
         </span>
         <span className="flex w-12 shrink-0 justify-end sm:w-36">
@@ -545,8 +545,8 @@ function AssetPanel({ id, node, onClose }: { id: string; node: AssetNode | null;
         <PanelSection title={`Columns (${columns.length})`}>
           <ul className="-mx-1 max-h-72 overflow-auto">
             {columns.map((c) => (
-              <li key={c.id} className="flex items-center gap-2 rounded px-1 py-1 hover:bg-sunken/70">
-                <span className={`min-w-0 flex-1 truncate font-mono text-[13px] ${c.dropped ? "text-muted line-through" : ""}`}>{c.name}</span>
+              <li key={c.id} className="flex min-w-0 items-center gap-2 rounded px-1 py-1 hover:bg-sunken/70">
+                <span className={`min-w-0 flex-1 font-mono text-[13px] [overflow-wrap:anywhere] ${c.dropped ? "text-muted line-through" : ""}`}>{c.name}</span>
                 {c.excluded_from_ai && <span className="badge badge-bad">excluded</span>}
                 <span className="shrink-0 font-mono text-xs text-muted">{c.data_type}</span>
               </li>
@@ -566,7 +566,7 @@ function AssetPanel({ id, node, onClose }: { id: string; node: AssetNode | null;
                 <ul className="space-y-1">
                   {items.map((l) => (
                     <li key={`${l.key}:${l.relation}`} className="flex min-w-0 items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate" title={l.key}>
+                      <span className="min-w-0 flex-1">
                         <ItemLink itemKey={l.key} />
                       </span>
                       {l.state !== "published" && <StateBadge state={l.state} />}

@@ -31,8 +31,8 @@ Tokens are RGB triplets (so Tailwind can apply alpha, `bg-accent/40`), switched 
 | `muted` | `#68696C` | `#96989D` | secondary text, labels |
 | `primary` / `primary-ink` | ink / bg | near-white / dark | the primary button, the selected segment |
 | `accent` / `accent-soft` | `#2F45E8` / `#E9ECFD` | `#8796FF` / `#1F2344` | links, focus ring, selection, the active nav row, endorsed |
-| `good` | `#1F7D4C` | `#6AC48A` | healthy, live, passed |
-| `warn` | `#AB680B` | `#E4B054` | needs a person: drafts, unpublished, pending |
+| `good` | `#1C7446` | `#6AC48A` | healthy, live, passed |
+| `warn` | `#965A08` | `#E4B054` | needs a person: drafts, unpublished, pending |
 | `bad` | `#BE3226` | `#F08070` | broken, failed, excluded |
 | `info` | `#4F5BD5` | `#93A0F5` | agent-originated, neutral activity |
 
@@ -42,7 +42,7 @@ Each tone has a `-soft` background for badges and error boxes.
 - **Tones are never decoration.** "Needs attention" is always `warn`. A finished step, a saved form and a default value get no colour.
 - **Never fill a card, header or row with a tone.** The exceptions are the selected list row (`bg-accent-soft/70`) and error boxes.
 - **Neutrals stay neutral.** The greys sit a hair warm of pure grey so they never read cold; no cream, sand or brown tint.
-- Text contrast on `bg` and `surface` is at least 4.5:1 for `ink`, `muted`, `accent`, `good`, `bad` and `info` in both themes. Light `warn` is the exception (see [Known gaps](#known-gaps)).
+- Text contrast on `bg`, `surface` and the tone's own `-soft` badge background is at least 4.5:1 for `ink`, `muted`, `accent`, `good`, `warn`, `bad` and `info` in both themes. Text and icons that carry meaning are full `text-muted`, never `text-muted/70` or `/80` (under 3.5:1 in light); a translucent muted is only for separators and decorative chevrons.
 - Charts use `PALETTE` in `src/pages/Usage.tsx`: cobalt first, then teal, amber, violet, slate and rose, with lighter variants for dark.
 
 ### Type
@@ -108,6 +108,7 @@ Put the layers from PRODUCT.md where they belong: state and the next action in t
 ### Tables and lists
 
 - The primary column is `w-full`; the others are `w-px whitespace-nowrap`. Hide less important columns at smaller breakpoints and fold their values under the primary cell on phones.
+- Row actions (Test, Edit, Remove) get their own column only from `md` or `lg`. Below that they render as a wrapped row of `btn-sm` buttons under the primary cell, so a row of buttons never squeezes the name to one word per line. Never nest a `<table>` inside `TableCard`: it already renders one.
 - A row that opens something has a real link in its primary cell; the row click is a convenience on top.
 - Filters sit above the table: a `Segmented` to switch what the rows are, `FilterSelect` to narrow them. Filter state lives in the URL.
 - A selected row in a list beside a detail is `ListRow`: `bg-accent-soft/70` and a 2px accent bar. Hover is `bg-sunken`.
@@ -160,14 +161,17 @@ Put the layers from PRODUCT.md where they belong: state and the next action in t
 - No horizontal page scroll at 390px. `TableCard` scrolls inside itself instead of clipping.
 - No fixed column grid without a breakpoint. `CardGrid` for cards; `StatGrid` is two columns on phones.
 - Breakpoints are Tailwind's (`sm` 640, `md` 768, `lg` 1024, `xl` 1280). The drawer replaces the sidebar below `md`; list and detail split from `lg` or `xl`.
-- Controls are 36px tall on phones (`h-9`) and 32px from `sm`; nav rows and menu items are 40px on phones. Inputs use 14px text on phones.
-- Do not auto-select a list row on a narrow screen: it would hide the list.
+- Controls are 40px tall on phones (`.btn`, `.btn-pill`, `.input`: `h-10`) and 32px from `sm`; `.btn-sm` and `Segmented` are 36px on phones, nav rows and menu items 40px, and checkboxes and radios 20px. A small toggle or disclosure button gets `min-h-10 sm:min-h-0`. Inputs use 14px text on phones.
+- A row inside a `flex-col sm:flex-row` form takes `sm:flex-1`, not `flex-1`: in a column, `flex-1` collapses an input to its padding.
+- Do not auto-select a list row on a narrow screen: it would hide the list. On one pane, `ListDetail` moves focus to Back when a detail opens and back to the row that opened it.
 
 ## Accessibility
 
 - Everything works from the keyboard. The focus ring is the 2px accent outline from `index.css`; never remove it.
 - Menus (`Dropdown`): arrow keys move, Enter selects, Esc closes and returns focus. Tooltips (`InfoTip`) open on hover and on focus.
-- Dialogs are native `<dialog>` elements labelled by their title; focus goes to the first field.
+- `Tabs` follow the ARIA tabs pattern: only the selected tab is in the Tab order, and the arrow keys, Home and End move between tabs.
+- The phone drawer is modal: opening it focuses Close, Tab stays inside it, and Esc closes it and returns focus to the menu button. The command palette has a Close button for touch.
+- Dialogs are native `<dialog>` elements labelled by their title; focus goes to the first field. Code editors and diffs (`CodeEditor`, `CodeDiff`) are labelled groups and pass the label to Monaco.
 - Colour is never the only signal: a state is a dot and a word, an error is a badge and a message.
 - Results that appear without a page change use `role="status"`; failures use `role="alert"`.
 - The shell has a "Skip to content" link; a page has one `h1` (the `PageHeader`) and `h2` section headings.
@@ -219,8 +223,7 @@ These share the tokens above. Change them together.
 
 ## Known gaps
 
-- **Touch targets** are 36px on phones; the common guideline is 44px.
-- **Light `warn`** text is about 4.2:1 on `bg` and `surface`, under the 4.5:1 target for small text. Darkening it changes a token the website shares.
-- **Placeholder text** (`muted` at 70%) is below 4.5:1.
-- **Dialogs on phones** (the bottom sheet) have not been checked on a narrow screen.
+- **Touch targets** are 40px on phones for buttons and inputs and 36px for `.btn-sm` and `Segmented`; the common guideline is 44px. `InfoTip` is 28px, and `<details>` summaries are one text line tall.
+- **Monaco diffs** label their wrapper, but the inner text areas of a diff editor still have no accessible name.
+- **The website** (getsatchel.dev) and the MCP app widgets (`ui-widgets/src/style.css`, built into `server/satchel/resources/widgets/`) still use the old light `good` (and the website the old `warn`); update them to `#1C7446` and `#965A08`. The widgets only put `good` on `surface`, where the old value passes.
 - **No automated UI tests:** only review checks these rules.
