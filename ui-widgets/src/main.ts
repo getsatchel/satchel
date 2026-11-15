@@ -1,6 +1,6 @@
-import { App, applyDocumentTheme, applyHostFonts, applyHostStyleVariables } from "@modelcontextprotocol/ext-apps/app-with-deps";
-import { chooseChart, compact, filterChips, fmtValue, humanize, isKpi, isPayload, queryLine, sortRows } from "./logic";
-import type { Cell, ChartSpec, CtxItem, Format, Payload } from "./logic";
+import { App, applyDocumentTheme } from "@modelcontextprotocol/ext-apps/app-with-deps";
+import { chartMarks, chooseChart, compact, filterChips, fmtValue, humanize, isAnswer, isKpi, isPayload, queryLine, sortRows } from "./logic";
+import type { AnswerPayload, Cell, ChartSpec, CtxItem, Format, Payload } from "./logic";
 
 const PAGE = 200; // rows fetched per "Load more"
 const SHOWN = 50; // rows rendered before "N more"
@@ -14,6 +14,12 @@ const $ = <T extends HTMLElement>(id: string): T => {
 
 interface ToolResultLike { isError?: boolean; structuredContent?: unknown; content?: { type: string; text?: string }[] }
 
+// Two kinds of card. "step": one run_sql / query_metrics / get_result call, collapsed to a line
+// until opened, since the answer card shows the results that matter. "answer": report_answer's
+// card, with the headline, points, the results as tabs, caveats and the steps taken.
+let answer: AnswerPayload | null = null;
+let tab = 0;
+let expanded = false;
 let data: Payload | null = null;
 let rows: Cell[][] = [];
 let sort: { col: number; dir: "asc" | "desc" } | null = null;
@@ -22,7 +28,7 @@ let asTable = false;
 let rated: "up" | "down" | null = null;
 let hostName = "";
 
-const app = new App({ name: "satchel-result", version: "1.0.0" }, {});
+const app = new App({ name: "satchel-result", version: "1.1.0" }, {});
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, cls?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -59,7 +65,9 @@ function renderTable(): void {
     const tr = el("tr");
     data.columns.forEach((c, i) => {
       const v = r[i] ?? null;
-      const td = el("td", fmtValue(v, data?.formats?.[c.name]), c.kind === "number" ? "num" : v === null ? "null" : "");
+      // A midnight timestamp is a date (month or day buckets): show it as one.
+      const shown = c.kind === "time" && typeof v === "string" ? v.replace(/T00:00:00(\.0+)?(Z|\+00:00)?$/, "") : fmtValue(v, data?.formats?.[c.name]);
+      const td = el("td", shown, c.kind === "number" ? "num" : v === null ? "null" : "");
       if (v === null) td.textContent = "∅";
       tr.append(td);
     });
@@ -106,9 +114,10 @@ function renderChart(spec: ChartSpec | null): void {
   box.replaceChildren();
   box.hidden = spec === null;
   if (!spec) return;
-  const W = 640, H = 200, L = 46, R = 10, T = 8, B = 28;
+  const W = 640, H = 210, L = 46, R = 12, T = 16, B = 28;
   const s = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${spec.yLabel} by ${spec.xLabel}` });
   const yf = data?.formats?.[spec.yLabel];
+  const ann = chartMarks(spec, data?.annotations);
   const ys = spec.type === "line" ? spec.points.map((p) => p.y) : spec.bars.map((b) => b.y);
   const ymin = Math.min(0, ...ys), ymax = Math.max(0, ...ys);
   const span = ymax - ymin || 1;
@@ -119,10 +128,13 @@ function renderChart(spec: ChartSpec | null): void {
     lab.textContent = axisLabel(t, yf);
     s.append(lab);
   }
+  // Where each drawn point sits, for the marks.
+  let at: (i: number) => { x: number; y: number };
   if (spec.type === "line") {
     const xs = spec.points.map((p) => p.x);
     const x0 = Math.min(...xs), x1 = Math.max(...xs);
     const px = (x: number): number => L + (W - L - R) * ((x - x0) / (x1 - x0 || 1));
+    at = (i) => { const p = spec.points[i]; return p ? { x: px(p.x), y: py(p.y) } : { x: 0, y: 0 }; };
     s.append(svg("polyline", { class: "ln", points: spec.points.map((p) => `${px(p.x)},${py(p.y)}`).join(" ") }));
     if (spec.points.length <= 40) {
       for (const p of spec.points) {
@@ -144,6 +156,7 @@ function renderChart(spec: ChartSpec | null): void {
   } else {
     const slot = (W - L - R) / spec.bars.length;
     const every = Math.ceil(spec.bars.length / 10);
+    at = (i) => { const b = spec.bars[i]; return b ? { x: L + i * slot + slot / 2, y: py(Math.max(b.y, 0)) } : { x: 0, y: 0 }; };
     spec.bars.forEach((b, i) => {
       const x = L + i * slot + slot * 0.15;
       const top = py(Math.max(b.y, 0)), bottom = py(Math.min(b.y, 0));
@@ -158,6 +171,23 @@ function renderChart(spec: ChartSpec | null): void {
         s.append(lab);
       }
     });
+  }
+  // The average as a dashed reference line, and the peak / low (or top bar) labelled.
+  if (ann.average !== null && ann.average > ymin && ann.average < ymax) {
+    const y = py(ann.average);
+    s.append(svg("line", { class: "avg", x1: L, x2: W - R, y1: y, y2: y }));
+    const t = svg("text", { class: "avg-l", x: W - R, y: y - 4, "text-anchor": "end" });
+    t.textContent = `avg ${fmtValue(+ann.average.toFixed(2), yf)}`;
+    s.append(t);
+  }
+  for (const m of ann.marks) {
+    const p = at(m.index);
+    if (spec.type === "line") s.append(svg("circle", { class: "hit", cx: p.x, cy: p.y, r: 4 }));
+    const anchor = p.x < L + 60 ? "start" : p.x > W - R - 60 ? "end" : "middle";
+    const below = p.y < T + 14 || (m.label.startsWith("Low") && p.y < H - B - 18);
+    const t = svg("text", { class: "hit-l", x: p.x, y: below ? p.y + 16 : p.y - 8, "text-anchor": anchor });
+    t.textContent = m.label;
+    s.append(t);
   }
   box.append(s);
 }
@@ -181,20 +211,22 @@ function renderKpi(): void {
   data.columns.forEach((c, i) => {
     if (c.kind !== "number") return;
     const tile = el("div", undefined, "tile");
-    const big = el("div", fmtValue(row[i] ?? null, data?.formats?.[c.name]) || "\u2205", "big");
+    const big = el("div", fmtValue(row[i] ?? null, data?.formats?.[c.name]) || "∅", "big");
     tile.append(big, el("div", humanize(c.name), "lbl"));
-    if (subs.length) tile.append(el("div", subs.join(" \u00b7 "), "sub"));
+    if (subs.length) tile.append(el("div", subs.join(" · "), "sub"));
     box.append(tile);
   });
 }
 
-function renderCtx(): void {
-  if (!data) return;
-  const items: CtxItem[] = data.ctx_items ?? data.ctx.map((tag) => {
+function ctxItemsOf(p: Payload): CtxItem[] {
+  return p.ctx_items ?? p.ctx.map((tag) => {
     const m = /^\[ctx:(.+)@v(\d+)\]$/.exec(tag);
     const key = m?.[1] ?? tag;
     return { tag, key, version: Number(m?.[2] ?? 0), type: "", type_label: "", title: key, url: null };
   });
+}
+
+function renderCtx(items: CtxItem[]): void {
   const holder = $("ctx");
   holder.replaceChildren();
   $("ctxbox").hidden = items.length === 0;
@@ -203,7 +235,7 @@ function renderCtx(): void {
     const c = it.url ? el("a", undefined, "chip") : el("span", undefined, "chip");
     if (it.type_label) c.append(el("span", it.type_label, "ty"));
     c.append(el("span", it.title, "tt"));
-    c.title = `${it.tag}${it.title !== it.key ? ` \u2013 ${it.key}` : ""}`;
+    c.title = `${it.tag}${it.title !== it.key ? ` – ${it.key}` : ""}`;
     if (it.url && c instanceof HTMLAnchorElement) {
       const url = it.url;
       c.href = url;
@@ -216,24 +248,40 @@ function renderCtx(): void {
   }
 }
 
-function render(): void {
-  if (!data) return;
-  $("empty").hidden = true;
-  $("app").hidden = false;
-  const m = data.metric;
+function resultTitle(p: Payload): string {
+  const m = p.metric;
   const metricLabel = m?.metrics?.length ? `${m.metrics.join(", ")}${m.dimensions?.length ? ` by ${m.dimensions.join(", ")}` : ""}` : null;
-  const title = data.title || metricLabel || data.question || "Query result";
-  $("title").textContent = title;
+  return p.title || metricLabel || p.question || "Query result";
+}
+
+/** The current result: its own card (a step) or the selected tab of the answer card. */
+function renderResult(): void {
+  $("result").hidden = data === null;
+  if (!data) return;
+  const step = answer === null;
+  const open = !step || expanded;
+  const m = data.metric;
+  const multi = (answer?.results.length ?? 0) > 1;
+  $("title").textContent = resultTitle(data);
+  $("title").hidden = multi; // the tab already names it
   const kpi = isKpi(data.columns, rows, data.row_count);
   const showKpi = kpi && !asTable;
   const meta = $("meta");
   meta.replaceChildren();
   meta.append(el("span", data.tool === "query_metrics" ? "metric" : "sql", "badge"));
   const n = data.row_count;
-  meta.append(document.createTextNode(`${n.toLocaleString()} row${n === 1 ? "" : "s"}${data.truncated ? " (truncated at the row cap)" : ""}${data.connection ? ` \u00b7 ${data.connection}` : ""}`));
+  meta.append(document.createTextNode(`${n.toLocaleString()} row${n === 1 ? "" : "s"}${data.truncated ? " (truncated at the row cap)" : ""}${data.connection ? ` · ${data.connection}` : ""}`));
   const vb = $<HTMLButtonElement>("view-btn");
-  vb.hidden = !kpi;
+  vb.hidden = !kpi || !open;
   vb.textContent = asTable ? "Show as number" : "Show as table";
+  const tg = $<HTMLButtonElement>("toggle");
+  tg.hidden = !step;
+  tg.textContent = expanded ? "Hide result" : "Show result";
+  tg.setAttribute("aria-expanded", String(expanded));
+  const first = data.facts?.[0]?.text;
+  $("glance").hidden = open || !first;
+  $("glance").textContent = first ?? "";
+  $("rbody").hidden = !open;
   const chips = $("chips");
   chips.replaceChildren();
   for (const c of filterChips(m?.filters)) chips.append(chip(c.text, "filter"));
@@ -242,8 +290,9 @@ function render(): void {
   $("rawbox").hidden = !m;
   $("rawq").textContent = m ? JSON.stringify(m, null, 2) : "";
   $("sql").textContent = data.sql;
-  renderCtx();
-  $("fb-label").textContent = `${kpi ? "Was this number right?" : "Was this result right?"} Your data team sees this.`;
+  const facts = $("facts");
+  facts.replaceChildren(...(data.facts ?? []).filter((f) => f.kind !== "no_rows").map((f) => el("li", f.text)));
+  $("factbox").hidden = facts.childElementCount === 0;
   const none = data.row_count === 0;
   $("none").hidden = !none;
   $("kpi").hidden = !showKpi;
@@ -259,28 +308,125 @@ function render(): void {
     renderChart(chooseChart(data.columns, rows));
     renderTable();
   }
-  $("fb").hidden = data.tool_call_id === null;
+}
+
+function renderAnswer(): void {
+  const a = answer;
+  $("answer").hidden = a === null;
+  $("caveats").hidden = !a?.caveats.length;
+  $("steps").hidden = !a?.steps.length;
+  $("tabs").hidden = (a?.results.length ?? 0) < 2;
+  const conf = $("conf");
+  conf.hidden = !a || a.confidence === "high";
+  conf.textContent = a ? `${a.confidence} confidence` : "";
+  if (!a) return;
+  $("question").textContent = a.question ?? "";
+  $("question").hidden = !a.question;
+  $("headline").textContent = a.headline;
+  $("points").replaceChildren(...a.points.map((p) => el("li", p)));
+  $("points").hidden = a.points.length === 0;
+  $("caveat-list").replaceChildren(...a.caveats.map((c) => el("li", c)));
+  const tabs = $("tabs");
+  tabs.replaceChildren();
+  a.results.forEach((r, i) => {
+    const b = el("button", resultTitle(r), "tab");
+    b.type = "button";
+    b.id = `tab-${i}`;
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(i === tab));
+    b.setAttribute("aria-controls", "result");
+    b.tabIndex = i === tab ? 0 : -1;
+    b.title = resultTitle(r);
+    b.addEventListener("click", () => selectTab(i));
+    b.addEventListener("keydown", (e) => {
+      const k = e.key;
+      const next = k === "ArrowRight" ? i + 1 : k === "ArrowLeft" ? i - 1 : k === "Home" ? 0 : k === "End" ? a.results.length - 1 : null;
+      if (next === null) return;
+      e.preventDefault();
+      selectTab((next + a.results.length) % a.results.length);
+      document.getElementById(`tab-${tab}`)?.focus();
+    });
+    tabs.append(b);
+  });
+  if (a.results.length > 1) $("result").setAttribute("aria-labelledby", `tab-${tab}`);
+  else $("result").removeAttribute("aria-labelledby");
+  const shown = new Map(a.results.map((r, i) => [r.result_id, i]));
+  const list = $("step-list");
+  list.replaceChildren();
+  for (const s of a.steps) {
+    const li = el("li", undefined, s.error ? "err" : "");
+    const idx = s.result_id ? shown.get(s.result_id) : undefined;
+    if (idx !== undefined && a.results.length > 1) {
+      const b = el("button", s.label);
+      b.type = "button";
+      b.addEventListener("click", () => selectTab(idx));
+      li.append(b);
+    } else li.append(document.createTextNode(s.label));
+    if (s.detail) li.append(el("span", ` — ${s.detail}`, "detail"));
+    list.append(li);
+  }
+  $("steps-summary").textContent = `How this was answered (${a.steps.length} step${a.steps.length === 1 ? "" : "s"})`;
+}
+
+function render(): void {
+  if (!answer && !data) return;
+  $("empty").hidden = true;
+  $("app").hidden = false;
+  const step = answer === null;
+  $("kind").textContent = step ? (data?.tool === "query_metrics" ? "Metric query" : "Query") : "Answer";
+  renderAnswer();
+  renderResult();
+  renderCtx(answer ? answer.ctx_items : data ? ctxItemsOf(data) : []);
+  $("ctxbox").hidden ||= step && !expanded;
+  const kpi = data ? isKpi(data.columns, rows, data.row_count) : false;
+  $("fb-label").textContent = `${answer ? "Was this answer right?" : kpi ? "Was this number right?" : "Was this result right?"} Your data team sees this.`;
+  $("fb").hidden = !data || data.tool_call_id === null || (step && !expanded);
+  $("wrong").hidden ||= $("fb").hidden;
+}
+
+function useResult(p: Payload | null): void {
+  data = p;
+  rows = p?.rows ?? [];
+  sort = null;
+  showAll = false;
+  asTable = false;
+}
+
+function resetFeedback(): void {
+  rated = null;
+  setStatus("");
+  $("wrong").hidden = true;
+  $<HTMLTextAreaElement>("wrong-text").value = "";
+  document.querySelectorAll("#reasons .btn").forEach((b) => b.setAttribute("aria-pressed", "false"));
+  syncButtons();
+}
+
+function selectTab(i: number): void {
+  if (!answer || i === tab) return;
+  tab = i;
+  useResult(answer.results[i] ?? null);
+  resetFeedback();
+  render();
 }
 
 function accept(res: ToolResultLike, append: boolean): void {
-  if (!isPayload(res.structuredContent)) return;
   const p = res.structuredContent;
-  if (append && data) {
-    rows = rows.concat(p.rows);
-    data = { ...data, row_count: p.row_count, truncated: p.truncated };
-  } else {
-    data = p;
-    rows = p.rows;
-    sort = null;
-    showAll = false;
-    asTable = false;
-    rated = null;
-    setStatus("");
-    $("wrong").hidden = true;
-    $<HTMLTextAreaElement>("wrong-text").value = "";
-    document.querySelectorAll("#reasons .btn").forEach((b) => b.setAttribute("aria-pressed", "false"));
-    syncButtons();
-  }
+  if (isAnswer(p)) {
+    answer = p;
+    tab = 0;
+    useResult(p.results[0] ?? null);
+    resetFeedback();
+  } else if (isPayload(p)) {
+    if (append && data) {
+      rows = rows.concat(p.rows);
+      data = { ...data, row_count: p.row_count, truncated: p.truncated };
+    } else {
+      answer = null;
+      expanded = false;
+      useResult(p);
+      resetFeedback();
+    }
+  } else return;
   render();
 }
 
@@ -338,7 +484,7 @@ async function rate(sentiment: "up" | "down", comment?: string, reasons: string[
     if (res.isError) throw new Error(res.content?.[0]?.text ?? "rate_result failed");
     rated = sentiment;
     syncButtons();
-    setStatus("Thanks \u2014 sent to your data team.");
+    setStatus("Thanks — sent to your data team.");
     // A thumbs down is recorded at once; the panel then lets the user say what was off.
     $("wrong").hidden = sentiment === "up";
   } catch (e) {
@@ -348,11 +494,10 @@ async function rate(sentiment: "up" | "down", comment?: string, reasons: string[
   }
 }
 
-function applyHost(ctx: { theme?: "light" | "dark"; styles?: { variables?: unknown; css?: { fonts?: string } } } | undefined): void {
-  if (!ctx) return;
-  if (ctx.theme) applyDocumentTheme(ctx.theme);
-  if (ctx.styles?.variables) applyHostStyleVariables(ctx.styles.variables as never);
-  if (ctx.styles?.css?.fonts) applyHostFonts(ctx.styles.css.fonts);
+// Satchel's own look (tokens and Geist) on purpose, so the card is familiar from the web UI;
+// only light/dark follows the host.
+function applyHost(ctx: { theme?: "light" | "dark" } | undefined): void {
+  if (ctx?.theme) applyDocumentTheme(ctx.theme);
 }
 
 $("fb-up").addEventListener("click", () => void rate("up"));
@@ -367,6 +512,7 @@ $("wrong-send").addEventListener("click", () => {
   void rate("down", $<HTMLTextAreaElement>("wrong-text").value.trim() || undefined, reasons);
 });
 $("view-btn").addEventListener("click", () => { asTable = !asTable; render(); });
+$("toggle").addEventListener("click", () => { expanded = !expanded; render(); });
 $("more-btn").addEventListener("click", () => {
   if (data && rows.length > SHOWN && !showAll) { showAll = true; renderTable(); } else void loadMore();
 });

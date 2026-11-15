@@ -1,4 +1,5 @@
-// Bundles src/main.ts + style.css into ONE self-contained HTML file and writes it to
+// Bundles src/main.ts + style.css (and Satchel's Geist fonts, inlined) into ONE self-contained
+// HTML file and writes it to
 // ../server/satchel/resources/widgets/result.html. `--check` fails if the committed file is stale.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -21,7 +22,15 @@ const js = await build({
 });
 const code = js.outputFiles[0].text.replace(/<\/script/gi, "<\\/script");
 const css = readFileSync(resolve(here, "src/style.css"), "utf8");
+// The host sandbox fetches nothing, so the fonts ride along as data: URIs (latin subset only).
+const font = (family, pkg, file) => {
+  const b64 = readFileSync(resolve(here, "node_modules/@fontsource-variable", pkg, "files", file)).toString("base64");
+  return `@font-face{font-family:"${family}";font-style:normal;font-display:swap;font-weight:100 900;src:url(data:font/woff2;base64,${b64}) format("woff2-variations");}`;
+};
+const fonts = font("Geist Variable", "geist", "geist-latin-wght-normal.woff2")
+  + font("Geist Mono Variable", "geist-mono", "geist-mono-latin-wght-normal.woff2");
 const html = readFileSync(resolve(here, "src/index.html"), "utf8")
+  .replace("/*__FONTS__*/", () => fonts)
   .replace("/*__CSS__*/", () => css)
   .replace("/*__JS__*/", () => code);
 

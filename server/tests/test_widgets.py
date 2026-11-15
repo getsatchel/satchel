@@ -63,7 +63,7 @@ def test_tool_meta_and_visibility(env: Env, ui_on: None) -> None:  # noqa: F811
         return {t.name: t.meta for t in (await c.list_tools()).tools}
 
     meta = with_client(env, fn)
-    for name in ("run_sql", "query_metrics", "get_result"):
+    for name in ("run_sql", "query_metrics", "get_result", "report_answer"):
         assert meta[name]["ui"]["resourceUri"] == "ui://satchel/result"
     assert meta["rate_result"]["ui"]["visibility"] == ["app"]
     assert meta["list_metrics"] is None
@@ -297,3 +297,51 @@ def test_built_widget_matches_its_source() -> None:
     assert (root / "style.css").read_text() in html, "run `npm run build` in ui-widgets/"
     template = (root / "index.html").read_text()
     assert template.split("/*__JS__*/")[1] in html  # the template tail is embedded verbatim
+
+
+def test_answer_card(env: Env, ui_on: None) -> None:  # noqa: F811
+    """report_answer shows one answer card: the agent's headline and points, the question's
+    results with rows as tabs (facts recomputed), and every step, the empty query included."""
+    empty_sql = "select order_date, amount from analytics.orders where amount < 0"
+
+    async def fn(c: ClientSession) -> tuple[Any, Any, Any, Any]:
+        await c.initialize()
+        sid = await start(c, "orders")
+        await call(c, "search_context", session_id=sid, question="orders", query="orders")
+        first = await call(c, "run_sql", session_id=sid, question="orders", sql=SQL,
+                           title="Orders by day")
+        empty = await call(c, "run_sql", session_id=sid, question="orders", sql=empty_sql,
+                           title="Refunds")
+        rep = await call(c, "report_answer", session_id=sid, answer_summary="80 orders",
+                         headline="There were 80 orders.", key_points=["Amounts vary."],
+                         confidence="high")
+        rid = first.structuredContent["result_id"]
+        picked = await call(c, "report_answer", session_id=sid, answer_summary="80 orders",
+                            result_ids=[empty.structuredContent["result_id"], rid, "nope"],
+                            confidence="high")
+        return first, empty, rep, picked
+
+    first, empty, rep, picked = with_client(env, fn)
+    # facts reach the agent in the text and the widget in the payload
+    assert "facts (computed from the rows" in text_of(first)
+    assert first.structuredContent["facts"] and first.structuredContent["annotations"]
+    assert text_of(empty).count("No rows matched this query.") == 1
+    card = rep.structuredContent
+    assert card["kind"] == "answer" and card["headline"] == "There were 80 orders."
+    assert card["summary"] == "80 orders" and card["points"] == ["Amounts vary."]
+    (res,) = card["results"]  # the empty query is a step, not a tab
+    assert res["title"] == "Orders by day" and res["row_count"] == 80
+    assert res["facts"] == first.structuredContent["facts"]
+    labels = [s["label"] for s in card["steps"]]
+    assert labels[0] == "Started the analysis" and "Ran SQL: Refunds" in labels
+    assert "report_answer" not in [s["tool"] for s in card["steps"]]
+    assert next(s for s in card["steps"] if s["label"] == "Ran SQL: Refunds")["detail"] == "0 rows"
+    assert json.loads(text_of(rep))["note"] == text.ANSWER_SHOWN
+    # result_ids pick and order the tabs; unknown ids are ignored; no headline -> the summary
+    p = picked.structuredContent
+    assert [r["title"] for r in p["results"]] == ["Refunds", "Orders by day"]
+    assert p["headline"] == "80 orders" and p["summary"] is None
+    # facts quote data values, so they are not kept in the tool call's evidence
+    with admin_session(engine=env.engine) as s:
+        meta = s.scalars(select(ToolCall.result_meta).where(ToolCall.tool == "run_sql")).all()
+    assert all("facts" not in json.dumps(m) for m in meta)

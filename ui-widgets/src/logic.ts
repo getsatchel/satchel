@@ -29,12 +29,42 @@ export interface Payload {
   truncated: boolean;
   ctx: string[];
   ctx_items?: CtxItem[];
+  facts?: Fact[];
+  annotations?: Annotations | null;
+}
+
+/** A fact the server computed from the rows (never from a model). */
+export interface Fact { kind: string; text: string }
+/** For the chart: the column the facts describe, its average and points worth marking. */
+export interface Annotations { column: string; average: number; marks: { x: string; label: string }[] }
+export interface Step { tool: string; label: string; detail: string | null; error: boolean; result_id: string | null }
+/** report_answer's card: the agent's answer, the question's results as tabs, and its steps. */
+export interface AnswerPayload {
+  satchel: 1;
+  kind: "answer";
+  session_id: string;
+  question: string | null;
+  headline: string;
+  summary: string | null;
+  points: string[];
+  caveats: string[];
+  confidence: string;
+  results: Payload[];
+  steps: Step[];
+  ctx_items: CtxItem[];
+}
+
+export function isAnswer(v: unknown): v is AnswerPayload {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return o["satchel"] === 1 && o["kind"] === "answer" && typeof o["headline"] === "string"
+    && Array.isArray(o["results"]) && (o["results"] as unknown[]).every(isPayload);
 }
 
 export function isPayload(v: unknown): v is Payload {
   if (typeof v !== "object" || v === null) return false;
   const o = v as Record<string, unknown>;
-  return o["satchel"] === 1 && Array.isArray(o["columns"]) && Array.isArray(o["rows"])
+  return o["satchel"] === 1 && o["kind"] === undefined && Array.isArray(o["columns"]) && Array.isArray(o["rows"])
     && typeof o["result_id"] === "string" && typeof o["session_id"] === "string";
 }
 
@@ -201,4 +231,14 @@ export function isKpi(columns: Column[], rows: Cell[][], rowCount: number): bool
 
 export function humanize(name: string): string {
   return name.replace(/_/g, " ");
+}
+
+/** The annotations that apply to this chart: same column, and marks that hit a drawn point. */
+export function chartMarks(spec: ChartSpec, a: Annotations | null | undefined): { average: number | null; marks: { index: number; label: string }[] } {
+  if (!a || a.column !== spec.yLabel) return { average: null, marks: [] };
+  const labels = spec.type === "line" ? spec.points.map((p) => p.label) : spec.bars.map((b) => b.label);
+  const marks = a.marks
+    .map((m) => ({ index: labels.indexOf(spec.type === "line" ? m.x.slice(0, 10) : m.x), label: m.label }))
+    .filter((m) => m.index >= 0);
+  return { average: Number.isFinite(a.average) ? a.average : null, marks };
 }
