@@ -84,6 +84,31 @@
         "title": "AcceptProposalRequest",
         "type": "object"
       },
+      "AgentInstructionsInfo": {
+        "properties": {
+          "base": {
+            "description": "Satchel's own instructions, sent to every agent first.",
+            "title": "Base",
+            "type": "string"
+          },
+          "key": {
+            "description": "The key of the workspace's agent_instructions item.",
+            "title": "Key",
+            "type": "string"
+          },
+          "max_chars": {
+            "title": "Max Chars",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "base",
+          "key",
+          "max_chars"
+        ],
+        "title": "AgentInstructionsInfo",
+        "type": "object"
+      },
       "AssetDetail": {
         "properties": {
           "also_described_by": {
@@ -7542,6 +7567,88 @@
           }
         },
         "summary": "Healthz"
+      }
+    },
+    "/v1/agent-instructions": {
+      "get": {
+        "description": "What the Agent page shows around the workspace's own instructions (the item itself\nis read and edited through /v1/items like any other).",
+        "operationId": "agent_instructions_info",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstructionsInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Instructions Info",
+        "tags": [
+          "library"
+        ]
       }
     },
     "/v1/assets": {

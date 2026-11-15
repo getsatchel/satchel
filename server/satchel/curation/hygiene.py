@@ -48,7 +48,7 @@ log = logging.getLogger("satchel.curation")
 
 REPEAT_DAYS = 90
 # Served implicitly or not text: never "dead".
-DEAD_EXEMPT_TYPES = {"workspace_rule", "endorsement", "semantic_model"}
+DEAD_EXEMPT_TYPES = {"workspace_rule", "agent_instructions", "endorsement", "semantic_model"}
 MAX_CHECKED_PAIRS = 5000
 MAX_PAIR_CHARS = 3000
 CONTRADICTION_SCHEMA: dict[str, Any] = {

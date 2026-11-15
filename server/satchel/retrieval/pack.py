@@ -26,6 +26,7 @@ from satchel.store.models import (
 
 # Fixed packing/render order (design §5.1 step 6).
 SECTIONS: list[tuple[str, list[str]]] = [
+    ("Agent instructions", ["agent_instructions"]),
     ("Rules", ["workspace_rule"]),
     ("Caveats", ["caveat"]),
     ("Glossary", ["glossary_term"]),
@@ -35,7 +36,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
     ("Other", ["semantic_model", "endorsement"]),
 ]
 _TYPE_ORDER = {t: i for i, (_, ts) in enumerate(SECTIONS) for t in ts}
-ALWAYS_ON = {"workspace_rule"}
+ALWAYS_ON = {"agent_instructions", "workspace_rule"}
 MAX_ITEMS = 25
 
 
@@ -86,12 +87,13 @@ def _always_on(session: Session, rid: uuid.UUID) -> list[PackEntry]:
         .join(ContextVersion, ContextVersion.id == ReleaseItem.version_id)
         .where(
             ReleaseItem.release_id == rid,
-            ContextItem.type == "workspace_rule",
+            ContextItem.type.in_(ALWAYS_ON),
             ContextItem.scope_kind == "workspace",
         )
         .order_by(ContextItem.key)
     )
-    pairs = [(i, v) for i, v in rows]
+    # Agent instructions first, then the rules (the pack's section order).
+    pairs = sorted(((i, v) for i, v in rows), key=lambda p: _TYPE_ORDER[p[0].type])
     for item, ver in pairs:
         tag = f"[ctx:{item.key}@v{ver.seq}]"
         entries.append(
@@ -111,7 +113,7 @@ def _always_on(session: Session, rid: uuid.UUID) -> list[PackEntry]:
 
 
 def always_on_entries(session: Session, release_id: uuid.UUID | None) -> list[PackEntry]:
-    """The always-on workspace rules of a release."""
+    """The always-on entries of a release: agent instructions, then workspace rules."""
     return _always_on(session, release_id) if release_id else []
 
 
@@ -127,7 +129,7 @@ def build_context_pack(
 ) -> ContextPack:
     """Build the context pack for ``question`` inside an RLS ``workspace_session``.
 
-    Always-on rules (the workspace rules) are included first and are
+    Always-on entries (agent instructions and workspace rules) are included first and are
     never dropped, even if they alone exceed the budget. Remaining candidates are added
     greedily by score while they fit, then rendered in fixed type order. When
     ``tool_call_id`` is given, a ``served_context`` row is logged per packed version.

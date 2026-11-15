@@ -4,13 +4,14 @@ from satchel.core.item_types import ITEM_TYPES, ItemValidationError, validate_it
 
 
 def test_registry_has_all_types() -> None:
-    assert len(ITEM_TYPES) == 8
+    assert len(ITEM_TYPES) == 9
 
 
 @pytest.mark.parametrize(
     ("t", "body", "meta"),
     [
         ("workspace_rule", "Always use net revenue.", {}),
+        ("agent_instructions", "Answer in two sentences.", {}),
         (
             "guide",
             "# Refunds\nText",

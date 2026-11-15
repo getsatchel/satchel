@@ -1,6 +1,7 @@
 import { api, keyPath } from "./client";
 import { crawlReportOf, curationReportOf, isJob, syncReportOf } from "./jobs";
 import type {
+  AgentInstructionsInfo,
   AssetDetail,
   AssetPage,
   ChangeDecision,
@@ -82,6 +83,7 @@ export const endpoints = {
   me: () => api.get<Me>("/v1/me"),
 
   listItems: (f: ItemFilters) => api.get<ItemPage>("/v1/items", { limit: 200, ...f }),
+  agentInstructions: () => api.get<AgentInstructionsInfo>("/v1/agent-instructions"),
   getItem: (key: string) => api.get<ItemDetail>(`/v1/items/${keyPath(key)}`),
   getVersion: (key: string, seq: number) =>
     api.get<VersionOut>(`/v1/items/${keyPath(key)}/versions/${seq}`),

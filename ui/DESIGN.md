@@ -80,7 +80,7 @@ Each tone has a `-soft` background for badges and error boxes.
 | Group | Pages |
 | --- | --- |
 | (top) | Dashboard (`/dashboard`, the default route) |
-| CURATE | Inbox, Library, Changes, Releases |
+| CURATE | Inbox, Library, Agent instructions, Changes, Releases |
 | OBSERVE | Sessions, Observability, Evals, Jobs |
 | DATA | Catalog, Sources |
 | ADMIN | Settings (Models, Connections, Members, Limits, Deployment) |

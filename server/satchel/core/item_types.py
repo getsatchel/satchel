@@ -18,6 +18,15 @@ class WorkspaceRule(_Strict):
     domain: str | None = None
 
 
+AGENT_INSTRUCTIONS_MAX = 8000
+
+
+class AgentInstructions(_Strict):
+    """How agents should behave in this workspace, added after Satchel's own workflow."""
+
+    body: str = Field(min_length=1, max_length=AGENT_INSTRUCTIONS_MAX)
+
+
 class Guide(_Strict):
     name: str = Field(min_length=1)
     description: str = Field(min_length=1)
@@ -97,6 +106,7 @@ class Caveat(_Strict):
 
 ITEM_TYPES: dict[str, type[BaseModel]] = {
     "workspace_rule": WorkspaceRule,
+    "agent_instructions": AgentInstructions,
     "guide": Guide,
     "glossary_term": GlossaryTerm,
     "golden_query": GoldenQuery,
@@ -112,7 +122,13 @@ ITEM_TYPES: dict[str, type[BaseModel]] = {
 SOURCE_META_KEYS = ("source", "overlay")
 
 # Types whose body is markdown text; meta carries the remaining fields.
-_MARKDOWN_BODY = {"workspace_rule", "guide", "caveat", "semantic_model"}
+_MARKDOWN_BODY = {"workspace_rule", "agent_instructions", "guide", "caveat", "semantic_model"}
+
+# Types only people write: agents cannot propose them and the suggestion engine never drafts them,
+# so nothing an agent reads can rewrite the instructions agents receive.
+CURATOR_ONLY_TYPES = {"agent_instructions"}
+# The canonical key, at the context repo root like workspace.md.
+AGENT_INSTRUCTIONS_KEY = "agent.md"
 
 
 class ItemValidationError(ValueError):
