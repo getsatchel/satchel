@@ -166,7 +166,7 @@ The buttons record feedback in Satchel, tagged as coming from a person ("human v
 
 The agent is told not to repeat the widget's rows in its reply: the result's text ends with a note to give the takeaway, the definition and filters that applied, and any caveats instead. When Satchel cannot tell whether the client shows widgets (clients that reconnect for every request), the note is conditional, so a client without widgets still presents the rows.
 
-Support: the widget needs a client that implements the MCP Apps extension (`io.modelcontextprotocol/ui`): Claude (Desktop and claude.ai), ChatGPT, VS Code and Goose at the time of writing. Other clients, including Claude Code in the terminal, get the same complete text answer and can still use `record_user_feedback`. The widget is one self-contained file and makes no network requests.
+Support: the widget needs a client that implements the MCP Apps extension (`io.modelcontextprotocol/ui`): Claude (Desktop and claude.ai), ChatGPT, VS Code and Goose at the time of writing. Other clients, including Claude Code in the terminal, get the same complete text answer and can still use `record_user_feedback`. The widget is one self-contained file and makes no network requests. Its URI changes with each Satchel build, so after an upgrade start a new chat to get the new widget: a chat that is already open keeps the tool list it started with.
 
 ## 7. Make agents follow the workflow
 

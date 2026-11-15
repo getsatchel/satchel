@@ -257,5 +257,11 @@ for (const id of ["#result", "#tabs", "#fb", "#conf", "#points", "#caveats", "#s
 }
 await pa.page.close();
 
+// ---- a payload from a newer server: say so instead of waiting for ever ----
+const future = { satchel: 1, kind: "something-new", session_id: "S" };
+const fu = await open(future, future);
+await fu.frame.locator("#empty", { hasText: "newer widget" }).waitFor();
+await fu.page.close();
+
 await browser.close();
 console.log("widget e2e ok");

@@ -30,7 +30,7 @@ flowchart LR
 
   subgraph Core["satchel core (Python package)"]
     Registry["Tool registry (satchel.tools)<br/>10 context + signal tools + 5 data tools + app-only rate_result (data tools only with a connection)"]:::built
-    Widget["Result widget (ui-widgets/ → satchel/resources/widgets/result.html)<br/>MCP Apps ui://satchel/result · text/html;profile=mcp-app · single inline file<br/>Satchel-branded cards: answer card on report_answer (headline · key points · results as tabs · caveats · steps) and one-line query cards<br/>KPI tile or sortable table · filter chips · auto chart with average and peak/low marks · facts (satchel/data/facts.py) · pretty SQL/ctx chips · 👍 👎 + reasons · Load more rows"]:::built
+    Widget["Result widget (ui-widgets/ → satchel/resources/widgets/result.html)<br/>MCP Apps ui://satchel/result/{hash} · text/html;profile=mcp-app · single inline file<br/>Satchel-branded cards: answer card on report_answer (headline · key points · results as tabs · caveats · steps) and one-line query cards<br/>KPI tile or sortable table · filter chips · auto chart with average and peak/low marks · facts (satchel/data/facts.py) · pretty SQL/ctx chips · 👍 👎 + reasons · Load more rows"]:::built
     Items["core.item_types<br/>validate_item"]:::built
     Retrieval["retrieval<br/>hybrid search · RRF · priors · context packs"]:::built
     Signals["signals<br/>agent signals + implicit SQL extractors (sync, after run_sql)"]:::built
@@ -72,7 +72,7 @@ flowchart LR
   Curation -->|"release + release_item; redacted evidence reads"| PG
   CI -->|preview · eval · publish| API
   MCP --> Registry
-  MCP -->|"resources/read ui://satchel/result; structuredContent on run_sql / query_metrics / get_result / report_answer (only if the client negotiated io.modelcontextprotocol/ui)"| Widget
+  MCP -->|"resources/read ui://satchel/result/{hash} (versioned per build); structuredContent on run_sql / query_metrics / get_result / report_answer (only if the client negotiated io.modelcontextprotocol/ui)"| Widget
   Claude -->|"host renders the widget in a sandboxed iframe"| Widget
   Widget -->|"postMessage → host → tools/call: rate_result (source=human), get_result"| MCP
   API --> Registry
