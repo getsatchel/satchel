@@ -7,6 +7,7 @@ import { ApiError } from "@/api/client";
 import { useToast } from "@/components/Toast";
 import { DescList, EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, PageHeader, SectionHeading, Segmented, StatusDot, TableCard, Tabs } from "@/components/ui";
 import { ConnectionsSection } from "@/pages/SettingsConnections";
+import { MembersSection } from "@/pages/SettingsMembers";
 import { DeploymentSection, LimitsSection } from "@/pages/SettingsLimits";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
 
@@ -488,10 +489,11 @@ function ModelsSection({ admin }: { admin: boolean }) {
   );
 }
 
-type Tab = "models" | "connections" | "limits" | "deployment";
+type Tab = "models" | "connections" | "members" | "limits" | "deployment";
 const TABS: { id: Tab; label: string; admin?: boolean }[] = [
   { id: "models", label: "Models" },
   { id: "connections", label: "Connections" },
+  { id: "members", label: "Members", admin: true },
   { id: "limits", label: "Limits" },
   { id: "deployment", label: "Deployment", admin: true },
 ];
@@ -519,6 +521,7 @@ export function Settings() {
       <div className="mt-6 space-y-9">
         {tab === "models" && <ModelsSection admin={admin} />}
         {tab === "connections" && <ConnectionsSection admin={admin} encryption={llm.data?.encryption_configured ?? true} />}
+        {tab === "members" && <MembersSection />}
         {tab === "limits" && <LimitsSection admin={admin} />}
         {tab === "deployment" && <DeploymentSection />}
       </div>

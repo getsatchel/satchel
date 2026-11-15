@@ -137,7 +137,7 @@ def verify_token(
         row = s.execute(
             select(ApiToken, AppUser.role)
             .join(AppUser, AppUser.id == ApiToken.user_id)
-            .where(ApiToken.hash == hash_token(raw))
+            .where(ApiToken.hash == hash_token(raw), AppUser.disabled_at.is_(None))
         ).first()
         if row is None:
             return None

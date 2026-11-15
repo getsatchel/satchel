@@ -27,7 +27,7 @@ from satchel.oauth.common import (
 )
 from satchel.settings import Settings
 from satchel.store.db import admin_session
-from satchel.store.models import ApiToken, AuthFlow
+from satchel.store.models import ApiToken, AppUser, AuthFlow
 
 
 class OAuthError(Exception):
@@ -146,6 +146,8 @@ def refresh(
             failure = OAuthError("invalid_grant", "refresh token reuse detected; grant revoked")
         elif tok.revoked_at is not None or (tok.expires_at and tok.expires_at <= now):
             failure = OAuthError("invalid_grant", "refresh token expired or revoked")
+        elif (u := s.get(AppUser, tok.user_id)) is None or u.disabled_at is not None:
+            failure = OAuthError("invalid_grant", "the member is deactivated")
         else:
             try:
                 _check_resource(resource, tok.resource, settings)

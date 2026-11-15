@@ -558,6 +558,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Members */
+        get: operations["list_members"];
+        put?: never;
+        /** Invite */
+        post: operations["invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/members/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Sign In */
+        put: operations["set_sign_in"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/members/{member_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel Invite */
+        delete: operations["cancel_invite"];
+        options?: never;
+        head?: never;
+        /** Update Member */
+        patch: operations["update_member"];
+        trace?: never;
+    };
     "/v1/observability/summary": {
         parameters: {
             query?: never;
@@ -1966,6 +2019,27 @@ export interface components {
              */
             status: "queued" | "ignored" | "pong";
         };
+        /** InviteIn */
+        InviteIn: {
+            /** Emails */
+            emails: string[];
+            /**
+             * Role
+             * @default analyst
+             * @enum {string}
+             */
+            role: "admin" | "curator" | "analyst" | "explorer";
+        };
+        /** InviteOut */
+        InviteOut: {
+            /**
+             * Existing
+             * @description Addresses that are already members (unchanged).
+             */
+            existing: string[];
+            /** Invited */
+            invited: components["schemas"]["MemberOut"][];
+        };
         /** ItemDetail */
         ItemDetail: {
             /**
@@ -2392,6 +2466,56 @@ export interface components {
             skipped: number;
             /** Warnings */
             warnings: number;
+        };
+        /** MemberOut */
+        MemberOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Email */
+            email: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is You */
+            is_you: boolean;
+            /** Last Active At */
+            last_active_at: string | null;
+            /** Name */
+            name: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "curator" | "analyst" | "explorer";
+            /**
+             * Status
+             * @description invited: never signed in or used a token; deactivated: refused everywhere.
+             * @enum {string}
+             */
+            status: "active" | "invited" | "deactivated";
+        };
+        /** MemberPatch */
+        MemberPatch: {
+            /** Active */
+            active?: boolean | null;
+            /** Role */
+            role?: ("admin" | "curator" | "analyst" | "explorer") | null;
+        };
+        /** MembersOut */
+        MembersOut: {
+            /** Members */
+            members: components["schemas"]["MemberOut"][];
+            /**
+             * Oidc Configured
+             * @description Whether the server has an identity provider.
+             */
+            oidc_configured: boolean;
+            sign_in: components["schemas"]["SignInPolicy"];
         };
         /** ObservabilitySummary */
         ObservabilitySummary: {
@@ -3017,6 +3141,17 @@ export interface components {
             user_id: string | null;
             /** User Label */
             user_label: string | null;
+        };
+        /** SignInPolicy */
+        SignInPolicy: {
+            /** Allowed Email Domains */
+            allowed_email_domains?: string[];
+            /**
+             * Provision
+             * @description reject: only members may sign in. explorer: anyone else with a verified email (in allowed_email_domains, if set) joins as an explorer on first sign-in.
+             * @enum {string}
+             */
+            provision: "reject" | "explorer";
         };
         /** SignalOut */
         SignalOut: {
@@ -5261,6 +5396,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invite: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_sign_in: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInPolicy"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInPolicy"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_invite: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_member: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"];
                 };
             };
             /** @description Validation Error */

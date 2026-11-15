@@ -263,7 +263,7 @@ class FlowService:
         by_sub = s.scalars(select(AppUser).where(
             AppUser.workspace_id == ws.id, AppUser.external_sub == ident.subject)).first()
         if by_sub is not None:
-            return "user", by_sub
+            return ("deny", None) if by_sub.disabled_at is not None else ("user", by_sub)
         if self._email_trusted(ident):
             assert ident.email
             by_email = s.scalars(select(AppUser).where(
@@ -271,7 +271,7 @@ class FlowService:
                 func.lower(AppUser.email) == ident.email.lower())).first()
             if by_email is not None:
                 # Never re-link an account already bound to a different IdP subject.
-                if by_email.external_sub not in (None, ident.subject):
+                if by_email.external_sub not in (None, ident.subject) or by_email.disabled_at:
                     return "deny", None
                 return "user", by_email
         auth = (ws.settings or {}).get("auth", {})

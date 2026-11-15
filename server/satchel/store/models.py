@@ -84,6 +84,8 @@ class AppUser(Base):
     display_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     role: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = _created()
+    # Set when an admin deactivates the member: every sign-in path and token then refuses them.
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class OAuthClient(Base):

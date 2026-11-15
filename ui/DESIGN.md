@@ -83,7 +83,7 @@ Each tone has a `-soft` background for badges and error boxes.
 | CURATE | Inbox, Library, Changes, Releases |
 | OBSERVE | Sessions, Observability, Evals, Jobs |
 | DATA | Catalog, Sources |
-| ADMIN | Settings (Models, Connections, Limits, Deployment) |
+| ADMIN | Settings (Models, Connections, Members, Limits, Deployment) |
 
 Add a page by adding it to `NAV_GROUPS` in `src/components/nav.ts`; the sidebar and the command palette both read it. `⌘K` / `Ctrl+K` opens the palette anywhere, and every `PageHeader` shows the hint. The Dashboard adds the ink "New" menu (`HeaderActions`).
 

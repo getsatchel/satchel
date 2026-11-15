@@ -102,7 +102,8 @@ class Auth:
             if not x_satchel_user and not x_satchel_workspace:
                 admin = s.scalars(
                     select(AppUser)
-                    .where(AppUser.workspace_id == ws.id, AppUser.role == "admin")
+                    .where(AppUser.workspace_id == ws.id, AppUser.role == "admin",
+                           AppUser.disabled_at.is_(None))
                     .order_by(AppUser.created_at)
                 ).first()
                 if admin is not None:
@@ -119,6 +120,8 @@ class Auth:
                 ).first()
                 if u is None:
                     raise HTTPException(403, "user is not a member of this workspace")
+                if u.disabled_at is not None:
+                    raise _unauth("this member is deactivated")
                 role = u.role
             return Caller(workspace_id=ws.id, user_id=user_id, role=role, auth="dev")
 
