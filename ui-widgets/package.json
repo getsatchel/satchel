@@ -7,7 +7,8 @@
     "build": "node build.mjs",
     "check": "node build.mjs --check",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "node test/widget.e2e.mjs"
+    "test:e2e": "node test/widget.e2e.mjs && node test/charts.e2e.mjs",
+    "gallery": "node test/gallery.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^2.0.4"
