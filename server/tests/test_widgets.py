@@ -20,6 +20,9 @@ from tests.test_data_plane import env, result_dir, start, warehouse  # noqa: F40
 from tests.test_mcp import Env, call, text_of, with_client
 
 SQL = "select order_date, amount from analytics.orders order by order_date limit 80"
+# One row per day: a time series, so it gets a line chart and facts (raw orders get neither).
+DAILY = ("select order_date, sum(amount) as amount from analytics.orders group by order_date "
+         "order by order_date limit 80")
 UI_CAPS = {"extensions": {apps.EXTENSION_ID: {"mimeTypes": [apps.MIME_TYPE]}}}
 
 
@@ -312,7 +315,7 @@ def test_answer_card(env: Env, ui_on: None) -> None:  # noqa: F811
         await c.initialize()
         sid = await start(c, "orders")
         await call(c, "search_context", session_id=sid, question="orders", query="orders")
-        first = await call(c, "run_sql", session_id=sid, question="orders", sql=SQL,
+        first = await call(c, "run_sql", session_id=sid, question="orders", sql=DAILY,
                            title="Orders by day")
         empty = await call(c, "run_sql", session_id=sid, question="orders", sql=empty_sql,
                            title="Refunds")
@@ -329,6 +332,7 @@ def test_answer_card(env: Env, ui_on: None) -> None:  # noqa: F811
     # facts reach the agent in the text and the widget in the payload
     assert "facts (computed from the rows" in text_of(first)
     assert first.structuredContent["facts"] and first.structuredContent["annotations"]
+    assert first.structuredContent["chart"] == {"type": "line", "x": ["order_date"], "y": "amount"}
     assert text_of(empty).count("No rows matched this query.") == 1
     card = rep.structuredContent
     assert card["kind"] == "answer" and card["headline"] == "There were 80 orders."
