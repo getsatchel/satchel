@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import re
 import uuid
-from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any, Literal
 from urllib.parse import quote
@@ -855,11 +854,11 @@ def build_data_tools() -> list[ToolDef]:
         tool("list_metrics", text.D_LIST_METRICS, ListMetricsArgs, list_metrics_tool),
         tool("describe_metric", text.D_DESCRIBE_METRIC, DescribeMetricArgs, describe_metric_tool,
              question=True),
-        replace(tool("query_metrics", text.D_QUERY_METRICS, QueryMetricsArgs, query_metrics,
-                     question=True), widget=True),
-        replace(tool("run_sql", text.D_RUN_SQL, RunSqlArgs, run_sql, question=True),
-                widget=True),
-        replace(tool("get_result", text.D_GET_RESULT, GetResultArgs, get_result), widget=True),
+        # No card of their own: their results show as tabs of report_answer's answer card, so a
+        # question gets one card. They still return the payload, for that card's "Load more".
+        tool("query_metrics", text.D_QUERY_METRICS, QueryMetricsArgs, query_metrics, question=True),
+        tool("run_sql", text.D_RUN_SQL, RunSqlArgs, run_sql, question=True),
+        tool("get_result", text.D_GET_RESULT, GetResultArgs, get_result),
         ToolDef("rate_result", text.D_RATE_RESULT, RateResultArgs, rate_result,
                 requires_connection=True, app_only=True),
     ]

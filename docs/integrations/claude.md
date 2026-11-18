@@ -145,8 +145,8 @@ uv run satchel serve api --port 8080 &
 
 Supporting clients show Satchel's results as cards in the conversation, in Satchel's own look. A question ends
 with one **answer card** from `report_answer`: the agent's headline and key points, the results as tabs, the
-facts Satchel computed from the rows, caveats and the steps taken. Each `run_sql` or `query_metrics` call before it
-shows as a one-line card that opens with **Show result**. The full description is in the
+facts Satchel computed from the rows, caveats and the steps taken. The `run_sql` and `query_metrics` calls before it
+show as ordinary tool steps, so a question gets one card. The full description is in the
 [MCP tools reference](../reference/mcp-tools.md#cards-in-claude-and-other-mcp-apps-hosts).
 
 <!-- site: AnswerCardShot -->
