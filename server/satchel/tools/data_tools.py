@@ -24,7 +24,7 @@ from satchel.data.connections import (
     sqlglot_dialect,
 )
 from satchel.data.connectors import SqlTimeout
-from satchel.data.facts import Facts
+from satchel.data.facts import Facts, choose_chart
 from satchel.data.facts import compute as compute_facts
 from satchel.data.gateway import GatewayResult, GuardrailError, run_guarded
 from satchel.data.results import column_kind, json_cell, markdown_table, read_page, store_result
@@ -410,7 +410,8 @@ def _set_widget(c: Call, **kw: Any) -> None:
     facts: Facts | None = kw.pop("facts", None)
     c.structured = _result_payload(
         c, ctx_items=_ctx_items(c), facts=facts.facts if facts else [],
-        annotations=facts.annotations if facts else None, **kw,
+        annotations=facts.annotations if facts else None,
+        chart=facts.chart if facts else None, **kw,
     )
 
 
@@ -435,6 +436,7 @@ def _result_payload(
     title: str | None = None,
     facts: list[dict[str, str]] | None = None,
     annotations: dict[str, Any] | None = None,
+    chart: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """One result as the widget renders it: in its own card, or as a tab of the answer card."""
     assert c.session is not None
@@ -464,6 +466,8 @@ def _result_payload(
         "ctx_items": ctx_items,
         "facts": facts or [],
         "annotations": annotations,
+        # The chart to draw (facts.choose_chart), or None for none: the widget doesn't guess.
+        "chart": chart,
     }
 
 
@@ -664,8 +668,11 @@ def get_result(c: Call) -> str:
     nxt = a.offset + len(rows)
     c.result_meta.update(result_id=a.result_id, offset=a.offset, rows=len(rows))
     src = c.s.get(Connection, row.connection_id) if row.connection_id else None
+    types = {x["name"]: x["type"] for x in row.columns}
+    chart = choose_chart([column_kind(types.get(n, "")) for n in cols], cols, rows)
     _set_widget(c, tool="get_result", result_id=row.id, tool_call_id=row.tool_call_id,
                 sql=row.sql, connection=None, columns=row.columns, cols=cols, rows=rows,
+                facts=Facts(chart=chart),
                 row_count=row.row_count, truncated=row.truncated, offset=a.offset,
                 dialect=(sqlglot_dialect(src.kind) or src.kind) if src else None)
     tail = (f"\n(next page: get_result(result_id, offset={nxt}))" if nxt < row.row_count else "")
@@ -819,7 +826,7 @@ def answer_payload(
             metric=card.get("metric"), formats=card.get("formats"),
             dialect=(sqlglot_dialect(src.kind) or src.kind) if src else None,
             title=card.get("title") or tc.args.get("title"), facts=facts.facts,
-            annotations=facts.annotations,
+            annotations=facts.annotations, chart=facts.chart,
         ))
     return {
         "satchel": 1,

@@ -1,5 +1,5 @@
 import { App, applyDocumentTheme } from "@modelcontextprotocol/ext-apps/app-with-deps";
-import { chartMarks, chooseChart, compact, filterChips, fmtValue, humanize, isAnswer, isKpi, isPayload, queryLine, sortRows } from "./logic";
+import { chartCoversTable, chartFor, chartMarks, compact, niceTicks, filterChips, fmtValue, humanize, isAnswer, isKpi, isPayload, queryLine, sortRows } from "./logic";
 import type { AnswerPayload, Cell, ChartSpec, CtxItem, Format, Payload } from "./logic";
 
 const PAGE = 200; // rows fetched per "Load more"
@@ -124,15 +124,22 @@ function renderChart(spec: ChartSpec | null): void {
   box.replaceChildren();
   box.hidden = spec === null;
   if (!spec) return;
-  const W = 640, H = 210, L = 46, R = 12, T = 16, B = 28;
+  const W = 640, H = 222, L = 46, R = 12, T = 28, B = 28;
   const s = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${spec.yLabel} by ${spec.xLabel}` });
   const yf = data?.formats?.[spec.yLabel];
   const ann = chartMarks(spec, data?.annotations);
+  // In bars already ranked high to low, "Top" only repeats the first bar.
+  if (spec.type === "bar" && spec.bars.every((b, i, a) => i === 0 || (a[i - 1]?.y ?? 0) >= b.y)) ann.marks = [];
   const ys = spec.type === "line" ? spec.points.map((p) => p.y) : spec.bars.map((b) => b.y);
-  const ymin = Math.min(0, ...ys), ymax = Math.max(0, ...ys);
+  const ticks = niceTicks(Math.min(0, ...ys), Math.max(0, ...ys));
+  const ymin = ticks[0] ?? 0, ymax = ticks[ticks.length - 1] ?? 0;
   const span = ymax - ymin || 1;
   const py = (y: number): number => T + (H - T - B) * (1 - (y - ymin) / span);
-  for (const t of [ymin, ymin + span / 2, ymax]) {
+  // The measure's name over the y axis, so the numbers say what they count.
+  const yt = svg("text", { class: "axt", x: 0, y: 10 });
+  yt.textContent = humanize(spec.yLabel);
+  s.append(yt);
+  for (const t of ticks) {
     s.append(svg("line", { class: "ax", x1: L, x2: W - R, y1: py(t), y2: py(t) }));
     const lab = svg("text", { x: L - 4, y: py(t) + 3, "text-anchor": "end" });
     lab.textContent = axisLabel(t, yf);
@@ -155,13 +162,17 @@ function renderChart(spec: ChartSpec | null): void {
         s.append(d);
       }
     }
-    const first = spec.points[0], last = spec.points[spec.points.length - 1];
-    if (first && last) {
-      const a = svg("text", { x: L, y: H - 8 });
-      a.textContent = first.label;
-      const b = svg("text", { x: W - R, y: H - 8, "text-anchor": "end" });
-      b.textContent = last.label;
-      s.append(a, b);
+    // Up to six dates along the x axis, evenly spread over the points; months show as 2025-03.
+    const n = spec.points.length;
+    const monthly = spec.points.every((p) => p.label.endsWith("-01"));
+    const ticks = n <= 6 ? spec.points.map((_, i) => i) : Array.from({ length: 6 }, (_, k) => Math.round((k * (n - 1)) / 5));
+    for (const i of new Set(ticks)) {
+      const p = spec.points[i];
+      if (!p) continue;
+      const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
+      const t = svg("text", { x: px(p.x), y: H - 8, "text-anchor": anchor });
+      t.textContent = monthly ? p.label.slice(0, 7) : p.label;
+      s.append(t);
     }
   } else {
     const slot = (W - L - R) / spec.bars.length;
@@ -177,7 +188,9 @@ function renderChart(spec: ChartSpec | null): void {
       s.append(r);
       if (i % every === 0) {
         const lab = svg("text", { x: x + slot * 0.35, y: H - 8, "text-anchor": "middle" });
-        lab.textContent = b.label.length > 12 ? `${b.label.slice(0, 11)}…` : b.label;
+        // As many characters as fit the bars' slot (about 5.8px each at 10px).
+        const fit = Math.max(4, Math.floor((slot * every) / 5.8) - 1);
+        lab.textContent = b.label.length > fit ? `${b.label.slice(0, fit - 1)}…` : b.label;
         s.append(lab);
       }
     });
@@ -281,9 +294,12 @@ function renderResult(): void {
   meta.append(el("span", data.tool === "query_metrics" ? "metric" : "sql", "badge"));
   const n = data.row_count;
   meta.append(document.createTextNode(`${n.toLocaleString()} row${n === 1 ? "" : "s"}${data.truncated ? " (truncated at the row cap)" : ""}${data.connection ? ` · ${data.connection}` : ""}`));
+  // A chart that shows every column folds the table behind a button; a KPI can show as a table.
+  const chart = !kpi && data.row_count > 0 ? chartFor(data, rows) : null;
+  const fold = chart !== null && chartCoversTable(data.chart, data.columns);
   const vb = $<HTMLButtonElement>("view-btn");
-  vb.hidden = !kpi || !open;
-  vb.textContent = asTable ? "Show as number" : "Show as table";
+  vb.hidden = !(kpi || fold) || !open;
+  vb.textContent = kpi ? (asTable ? "Show as number" : "Show as table") : asTable ? "Hide table" : "Show table";
   const tg = $<HTMLButtonElement>("toggle");
   tg.hidden = !step;
   tg.textContent = expanded ? "Hide result" : "Show result";
@@ -306,7 +322,7 @@ function renderResult(): void {
   const none = data.row_count === 0;
   $("none").hidden = !none;
   $("kpi").hidden = !showKpi;
-  $("tablewrap").hidden = showKpi || none;
+  $("tablewrap").hidden = showKpi || none || (fold && !asTable);
   if (none) {
     renderChart(null);
     $("more").hidden = true;
@@ -315,8 +331,9 @@ function renderResult(): void {
     renderChart(null);
     $("more").hidden = true;
   } else {
-    renderChart(chooseChart(data.columns, rows));
+    renderChart(chart);
     renderTable();
+    if (fold && !asTable) $("more").hidden = true;
   }
 }
 

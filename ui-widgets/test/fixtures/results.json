@@ -1,0 +1,1692 @@
+{
+ "monthly_revenue": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "monthly_revenue",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Monthly revenue (AUD)",
+  "sql": "SELECT date_trunc('month', order_date) AS month, sum(amount) / 100.0 AS revenue_aud FROM analytics.orders WHERE status NOT IN ('returned', 'return_pending') GROUP BY 1 ORDER BY 1",
+  "metric": null,
+  "formats": {
+   "revenue_aud": {
+    "style": "currency",
+    "currency": "AUD"
+   }
+  },
+  "columns": [
+   {
+    "name": "month",
+    "type": "timestamp[us]",
+    "kind": "time"
+   },
+   {
+    "name": "revenue_aud",
+    "type": "double",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    "2024-01-01T00:00:00",
+    159.95
+   ],
+   [
+    "2024-02-01T00:00:00",
+    268.5
+   ],
+   [
+    "2024-03-01T00:00:00",
+    546.35
+   ],
+   [
+    "2024-04-01T00:00:00",
+    667.85
+   ],
+   [
+    "2024-05-01T00:00:00",
+    1511.1
+   ],
+   [
+    "2024-06-01T00:00:00",
+    560.4
+   ],
+   [
+    "2024-07-01T00:00:00",
+    1161.75
+   ],
+   [
+    "2024-08-01T00:00:00",
+    1299.3
+   ],
+   [
+    "2024-09-01T00:00:00",
+    996.8
+   ],
+   [
+    "2024-10-01T00:00:00",
+    1678.65
+   ],
+   [
+    "2024-11-01T00:00:00",
+    2077.2
+   ],
+   [
+    "2024-12-01T00:00:00",
+    1927.1
+   ],
+   [
+    "2025-01-01T00:00:00",
+    1671.55
+   ],
+   [
+    "2025-02-01T00:00:00",
+    2039.4
+   ],
+   [
+    "2025-03-01T00:00:00",
+    1816.15
+   ],
+   [
+    "2025-04-01T00:00:00",
+    2290.3
+   ],
+   [
+    "2025-05-01T00:00:00",
+    1628.25
+   ],
+   [
+    "2025-06-01T00:00:00",
+    1705.8
+   ],
+   [
+    "2025-07-01T00:00:00",
+    1650.6
+   ],
+   [
+    "2025-08-01T00:00:00",
+    1983.45
+   ],
+   [
+    "2025-09-01T00:00:00",
+    1216.5
+   ],
+   [
+    "2025-10-01T00:00:00",
+    2205.75
+   ],
+   [
+    "2025-11-01T00:00:00",
+    1713.05
+   ],
+   [
+    "2025-12-01T00:00:00",
+    3258.2
+   ]
+  ],
+  "offset": 0,
+  "row_count": 24,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [
+   {
+    "kind": "change",
+    "text": "revenue_aud went from A$159.95 (2024-01) to A$3,258.20 (2025-12), up 1937%."
+   },
+   {
+    "kind": "latest",
+    "text": "Latest month (2025-12): A$3,258.20, up 90% on 2025-11."
+   },
+   {
+    "kind": "range",
+    "text": "Peak A$3,258.20 in 2025-12; low A$159.95 in 2024-01. Average A$1,501.41 a month."
+   },
+   {
+    "kind": "trend",
+    "text": "The trend is rising over 24 months."
+   }
+  ],
+  "annotations": {
+   "column": "revenue_aud",
+   "average": 1501.4145833333332,
+   "marks": [
+    {
+     "x": "2025-12-01",
+     "label": "Peak A$3,258.20"
+    },
+    {
+     "x": "2024-01-01",
+     "label": "Low A$159.95"
+    }
+   ]
+  },
+  "chart": {
+   "type": "line",
+   "x": [
+    "month"
+   ],
+   "y": "revenue_aud"
+  }
+ },
+ "top_customers": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "top_customers",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Top 10 customers by lifetime spend (AUD)",
+  "sql": "SELECT c.customer_id, c.first_name, c.last_name, sum(o.amount) / 100.0 AS lifetime_spend_aud, count(*) AS valid_orders, min(o.order_date) AS first_order, max(o.order_date) AS last_order FROM analytics.orders o JOIN analytics.customers c USING (customer_id) WHERE o.status NOT IN ('returned', 'return_pending') GROUP BY ALL ORDER BY lifetime_spend_aud DESC LIMIT 10",
+  "metric": null,
+  "formats": {},
+  "columns": [
+   {
+    "name": "customer_id",
+    "type": "int32",
+    "kind": "number"
+   },
+   {
+    "name": "first_name",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "last_name",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "lifetime_spend_aud",
+    "type": "double",
+    "kind": "number"
+   },
+   {
+    "name": "valid_orders",
+    "type": "int64",
+    "kind": "number"
+   },
+   {
+    "name": "first_order",
+    "type": "date32[day]",
+    "kind": "time"
+   },
+   {
+    "name": "last_order",
+    "type": "date32[day]",
+    "kind": "time"
+   }
+  ],
+  "rows": [
+   [
+    31,
+    "Ava",
+    "Taylor",
+    1361.7,
+    21,
+    "2024-11-01",
+    "2025-12-31"
+   ],
+   [
+    1,
+    "Mia",
+    "Brown",
+    1329.75,
+    19,
+    "2024-10-23",
+    "2025-12-24"
+   ],
+   [
+    34,
+    "Ethan",
+    "Patel",
+    1279.8,
+    16,
+    "2024-07-01",
+    "2025-12-28"
+   ],
+   [
+    14,
+    "Noah",
+    "Smith",
+    1233.25,
+    20,
+    "2024-06-23",
+    "2025-12-08"
+   ],
+   [
+    13,
+    "Jack",
+    "Brown",
+    1208.3,
+    18,
+    "2024-08-05",
+    "2025-10-12"
+   ],
+   [
+    12,
+    "Ethan",
+    "Wilson",
+    1143.1,
+    18,
+    "2024-09-03",
+    "2025-12-31"
+   ],
+   [
+    37,
+    "Liam",
+    "Brown",
+    1133.95,
+    16,
+    "2024-03-15",
+    "2025-10-13"
+   ],
+   [
+    40,
+    "Ava",
+    "Lee",
+    1095.2,
+    17,
+    "2024-07-31",
+    "2025-12-07"
+   ],
+   [
+    27,
+    "Mia",
+    "Smith",
+    1081.2,
+    21,
+    "2024-04-27",
+    "2025-12-02"
+   ],
+   [
+    2,
+    "Oscar",
+    "Hall",
+    1066.25,
+    15,
+    "2024-11-18",
+    "2025-12-31"
+   ]
+  ],
+  "offset": 0,
+  "row_count": 10,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [
+   {
+    "kind": "top",
+    "text": "Ava Taylor has the most lifetime_spend_aud: 1,361.70, 11% of the 11,932.50 total of these 10."
+   },
+   {
+    "kind": "concentration",
+    "text": "The top 3 of these 10 make up 33%."
+   },
+   {
+    "kind": "bottom",
+    "text": "Oscar Hall has the least of these 10: 1,066.25 (average 1,193.25)."
+   }
+  ],
+  "annotations": {
+   "column": "lifetime_spend_aud",
+   "average": 1193.25,
+   "marks": [
+    {
+     "x": "Ava Taylor",
+     "label": "Top 1,361.70"
+    }
+   ]
+  },
+  "chart": {
+   "type": "bar",
+   "x": [
+    "first_name",
+    "last_name"
+   ],
+   "y": "lifetime_spend_aud"
+  }
+ },
+ "payment_methods": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "payment_methods",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Payments by method",
+  "sql": "SELECT payment_method, count(*) AS payments, sum(amount) / 100.0 AS amount_aud FROM analytics.payments GROUP BY 1 ORDER BY amount_aud DESC",
+  "metric": null,
+  "formats": {
+   "amount_aud": {
+    "style": "currency",
+    "currency": "AUD"
+   }
+  },
+  "columns": [
+   {
+    "name": "payment_method",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "payments",
+    "type": "int64",
+    "kind": "number"
+   },
+   {
+    "name": "amount_aud",
+    "type": "double",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    "bank_transfer",
+    224,
+    14894.85
+   ],
+   [
+    "credit_card",
+    195,
+    12508.7
+   ],
+   [
+    "gift_card",
+    194,
+    12444.05
+   ],
+   [
+    "coupon",
+    179,
+    11613.9
+   ]
+  ],
+  "offset": 0,
+  "row_count": 4,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [
+   {
+    "kind": "top",
+    "text": "bank_transfer has the most amount_aud: A$14,894.85, 29% of the A$51,461.50 total of these 4."
+   },
+   {
+    "kind": "bottom",
+    "text": "coupon has the least of these 4: A$11,613.90 (average A$12,865.38)."
+   }
+  ],
+  "annotations": {
+   "column": "amount_aud",
+   "average": 12865.375,
+   "marks": [
+    {
+     "x": "bank_transfer",
+     "label": "Top A$14,894.85"
+    }
+   ]
+  },
+  "chart": {
+   "type": "bar",
+   "x": [
+    "payment_method"
+   ],
+   "y": "amount_aud"
+  }
+ },
+ "revenue_by_status": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "revenue_by_status",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Order value by status",
+  "sql": "SELECT status, sum(amount) / 100.0 AS order_value FROM analytics.orders GROUP BY 1 ORDER BY 2 DESC",
+  "metric": null,
+  "formats": {
+   "order_value": {
+    "style": "currency",
+    "currency": "AUD"
+   }
+  },
+  "columns": [
+   {
+    "name": "status",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "order_value",
+    "type": "double",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    "completed",
+    29549.75
+   ],
+   [
+    "returned",
+    6088.55
+   ],
+   [
+    "shipped",
+    4740.3
+   ],
+   [
+    "return_pending",
+    3250.45
+   ],
+   [
+    "placed",
+    1743.9
+   ]
+  ],
+  "offset": 0,
+  "row_count": 5,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [
+   {
+    "kind": "top",
+    "text": "completed has the most order_value: A$29,549.75, 65% of the A$45,372.95 total of these 5."
+   },
+   {
+    "kind": "bottom",
+    "text": "placed has the least of these 5: A$1,743.90 (average A$9,074.59)."
+   }
+  ],
+  "annotations": {
+   "column": "order_value",
+   "average": 9074.59,
+   "marks": [
+    {
+     "x": "completed",
+     "label": "Top A$29,549.75"
+    }
+   ]
+  },
+  "chart": {
+   "type": "bar",
+   "x": [
+    "status"
+   ],
+   "y": "order_value"
+  }
+ },
+ "monthly_orders_and_revenue": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "monthly_orders_and_revenue",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Orders and revenue by month",
+  "sql": "SELECT date_trunc('month', order_date) AS month, count(*) AS orders, sum(amount) / 100.0 AS revenue_aud, avg(amount) / 100.0 AS avg_order_aud FROM analytics.orders WHERE status NOT IN ('returned', 'return_pending') AND order_date >= DATE '2025-01-01' GROUP BY 1 ORDER BY 1",
+  "metric": null,
+  "formats": {
+   "revenue_aud": {
+    "style": "currency",
+    "currency": "AUD"
+   },
+   "avg_order_aud": {
+    "style": "currency",
+    "currency": "AUD"
+   }
+  },
+  "columns": [
+   {
+    "name": "month",
+    "type": "timestamp[us]",
+    "kind": "time"
+   },
+   {
+    "name": "orders",
+    "type": "int64",
+    "kind": "number"
+   },
+   {
+    "name": "revenue_aud",
+    "type": "double",
+    "kind": "number"
+   },
+   {
+    "name": "avg_order_aud",
+    "type": "double",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    "2025-01-01T00:00:00",
+    23,
+    1671.55,
+    72.67608695652174
+   ],
+   [
+    "2025-02-01T00:00:00",
+    31,
+    2039.4,
+    65.78709677419356
+   ],
+   [
+    "2025-03-01T00:00:00",
+    26,
+    1816.15,
+    69.85192307692307
+   ],
+   [
+    "2025-04-01T00:00:00",
+    37,
+    2290.3,
+    61.9
+   ],
+   [
+    "2025-05-01T00:00:00",
+    28,
+    1628.25,
+    58.151785714285715
+   ],
+   [
+    "2025-06-01T00:00:00",
+    25,
+    1705.8,
+    68.232
+   ],
+   [
+    "2025-07-01T00:00:00",
+    25,
+    1650.6,
+    66.024
+   ],
+   [
+    "2025-08-01T00:00:00",
+    29,
+    1983.45,
+    68.39482758620689
+   ],
+   [
+    "2025-09-01T00:00:00",
+    21,
+    1216.5,
+    57.92857142857143
+   ],
+   [
+    "2025-10-01T00:00:00",
+    28,
+    2205.75,
+    78.77678571428572
+   ],
+   [
+    "2025-11-01T00:00:00",
+    24,
+    1713.05,
+    71.37708333333333
+   ],
+   [
+    "2025-12-01T00:00:00",
+    50,
+    3258.2,
+    65.164
+   ]
+  ],
+  "offset": 0,
+  "row_count": 12,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [
+   {
+    "kind": "change",
+    "text": "revenue_aud went from A$1,671.55 (2025-01) to A$3,258.20 (2025-12), up 95%."
+   },
+   {
+    "kind": "latest",
+    "text": "Latest month (2025-12): A$3,258.20, up 90% on 2025-11."
+   },
+   {
+    "kind": "range",
+    "text": "Peak A$3,258.20 in 2025-12; low A$1,216.50 in 2025-09. Average A$1,931.58 a month."
+   },
+   {
+    "kind": "trend",
+    "text": "The trend is rising over 12 months."
+   },
+   {
+    "kind": "change",
+    "text": "orders went from 23 to 50, up 117%."
+   },
+   {
+    "kind": "change",
+    "text": "avg_order_aud went from A$72.68 to A$65.16, down 10%."
+   }
+  ],
+  "annotations": {
+   "column": "revenue_aud",
+   "average": 1931.5833333333333,
+   "marks": [
+    {
+     "x": "2025-12-01",
+     "label": "Peak A$3,258.20"
+    },
+    {
+     "x": "2025-09-01",
+     "label": "Low A$1,216.50"
+    }
+   ]
+  },
+  "chart": {
+   "type": "line",
+   "x": [
+    "month"
+   ],
+   "y": "revenue_aud"
+  }
+ },
+ "monthly_by_method": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "monthly_by_method",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Monthly payments by method",
+  "sql": "SELECT date_trunc('month', created_at) AS month, payment_method, sum(amount) / 100.0 AS amount_aud FROM analytics.payments WHERE created_at >= TIMESTAMP '2025-07-01' GROUP BY 1, 2 ORDER BY 1, 2",
+  "metric": null,
+  "formats": {
+   "amount_aud": {
+    "style": "currency",
+    "currency": "AUD"
+   }
+  },
+  "columns": [
+   {
+    "name": "month",
+    "type": "timestamp[us]",
+    "kind": "time"
+   },
+   {
+    "name": "payment_method",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "amount_aud",
+    "type": "double",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    "2025-07-01T00:00:00",
+    "bank_transfer",
+    260.3
+   ],
+   [
+    "2025-07-01T00:00:00",
+    "coupon",
+    783.75
+   ],
+   [
+    "2025-07-01T00:00:00",
+    "credit_card",
+    453.4
+   ],
+   [
+    "2025-07-01T00:00:00",
+    "gift_card",
+    674.4
+   ],
+   [
+    "2025-08-01T00:00:00",
+    "bank_transfer",
+    862.3
+   ],
+   [
+    "2025-08-01T00:00:00",
+    "coupon",
+    570.9
+   ],
+   [
+    "2025-08-01T00:00:00",
+    "credit_card",
+    836.7
+   ],
+   [
+    "2025-08-01T00:00:00",
+    "gift_card",
+    434.95
+   ],
+   [
+    "2025-09-01T00:00:00",
+    "bank_transfer",
+    505.85
+   ],
+   [
+    "2025-09-01T00:00:00",
+    "coupon",
+    348.85
+   ],
+   [
+    "2025-09-01T00:00:00",
+    "credit_card",
+    250.9
+   ],
+   [
+    "2025-09-01T00:00:00",
+    "gift_card",
+    603.25
+   ],
+   [
+    "2025-10-01T00:00:00",
+    "bank_transfer",
+    609.5
+   ],
+   [
+    "2025-10-01T00:00:00",
+    "coupon",
+    809.5
+   ],
+   [
+    "2025-10-01T00:00:00",
+    "credit_card",
+    1065.25
+   ],
+   [
+    "2025-10-01T00:00:00",
+    "gift_card",
+    974.75
+   ],
+   [
+    "2025-11-01T00:00:00",
+    "bank_transfer",
+    258.35
+   ],
+   [
+    "2025-11-01T00:00:00",
+    "coupon",
+    715.65
+   ],
+   [
+    "2025-11-01T00:00:00",
+    "credit_card",
+    764.85
+   ],
+   [
+    "2025-11-01T00:00:00",
+    "gift_card",
+    461.3
+   ],
+   [
+    "2025-12-01T00:00:00",
+    "bank_transfer",
+    1775.3
+   ],
+   [
+    "2025-12-01T00:00:00",
+    "coupon",
+    995.25
+   ],
+   [
+    "2025-12-01T00:00:00",
+    "credit_card",
+    881.2
+   ],
+   [
+    "2025-12-01T00:00:00",
+    "gift_card",
+    942.15
+   ],
+   [
+    "2026-01-01T00:00:00",
+    "bank_transfer",
+    290.95
+   ],
+   [
+    "2026-01-01T00:00:00",
+    "coupon",
+    50.5
+   ],
+   [
+    "2026-01-01T00:00:00",
+    "credit_card",
+    180.45
+   ],
+   [
+    "2026-01-01T00:00:00",
+    "gift_card",
+    136.45
+   ]
+  ],
+  "offset": 0,
+  "row_count": 28,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [],
+  "annotations": null,
+  "chart": null
+ },
+ "net_revenue_total": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "net_revenue_total",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Net revenue, all time",
+  "sql": "SELECT sum(amount) / 100.0 AS net_revenue_aud FROM analytics.orders WHERE status NOT IN ('returned', 'return_pending')",
+  "metric": null,
+  "formats": {
+   "net_revenue_aud": {
+    "style": "currency",
+    "currency": "AUD"
+   }
+  },
+  "columns": [
+   {
+    "name": "net_revenue_aud",
+    "type": "double",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    36033.95
+   ]
+  ],
+  "offset": 0,
+  "row_count": 1,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [],
+  "annotations": null,
+  "chart": null
+ },
+ "customer_list": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "customer_list",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Customers",
+  "sql": "SELECT customer_id, first_name, last_name, email, signup_date FROM analytics.customers ORDER BY customer_id",
+  "metric": null,
+  "formats": {},
+  "columns": [
+   {
+    "name": "customer_id",
+    "type": "int32",
+    "kind": "number"
+   },
+   {
+    "name": "first_name",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "last_name",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "email",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "signup_date",
+    "type": "date32[day]",
+    "kind": "time"
+   }
+  ],
+  "rows": [
+   [
+    1,
+    "Mia",
+    "Brown",
+    "mia.brown1@jaffle.example",
+    "2024-10-12"
+   ],
+   [
+    2,
+    "Oscar",
+    "Hall",
+    "oscar.hall2@jaffle.example",
+    "2024-10-25"
+   ],
+   [
+    3,
+    "Noah",
+    "Smith",
+    "noah.smith3@jaffle.example",
+    "2024-01-24"
+   ],
+   [
+    4,
+    "Mia",
+    "Walker",
+    "mia.walker4@jaffle.example",
+    "2024-10-23"
+   ],
+   [
+    5,
+    "Mia",
+    "Walker",
+    "mia.walker5@jaffle.example",
+    "2024-04-18"
+   ],
+   [
+    6,
+    "Zoe",
+    "Smith",
+    "zoe.smith6@jaffle.example",
+    "2024-01-20"
+   ],
+   [
+    7,
+    "Ethan",
+    "Lee",
+    "ethan.lee7@jaffle.example",
+    "2024-09-12"
+   ],
+   [
+    8,
+    "Mia",
+    "Taylor",
+    "mia.taylor8@jaffle.example",
+    "2024-10-03"
+   ],
+   [
+    9,
+    "Ethan",
+    "Smith",
+    "ethan.smith9@jaffle.example",
+    "2024-03-13"
+   ],
+   [
+    10,
+    "Ava",
+    "Nguyen",
+    "ava.nguyen10@jaffle.example",
+    "2024-05-14"
+   ],
+   [
+    11,
+    "Zoe",
+    "Hall",
+    "zoe.hall11@jaffle.example",
+    "2024-01-04"
+   ],
+   [
+    12,
+    "Ethan",
+    "Wilson",
+    "ethan.wilson12@jaffle.example",
+    "2024-08-23"
+   ],
+   [
+    13,
+    "Jack",
+    "Brown",
+    "jack.brown13@jaffle.example",
+    "2024-04-29"
+   ],
+   [
+    14,
+    "Noah",
+    "Smith",
+    "noah.smith14@jaffle.example",
+    "2024-04-20"
+   ],
+   [
+    15,
+    "Ella",
+    "Hall",
+    "ella.hall15@jaffle.example",
+    "2024-10-26"
+   ],
+   [
+    16,
+    "Ruby",
+    "Patel",
+    "ruby.patel16@jaffle.example",
+    "2024-01-18"
+   ],
+   [
+    17,
+    "Mia",
+    "Hall",
+    "mia.hall17@jaffle.example",
+    "2024-10-26"
+   ],
+   [
+    18,
+    "Ava",
+    "Smith",
+    "ava.smith18@jaffle.example",
+    "2024-01-01"
+   ],
+   [
+    19,
+    "Mia",
+    "Taylor",
+    "mia.taylor19@jaffle.example",
+    "2024-04-18"
+   ],
+   [
+    20,
+    "Noah",
+    "Lee",
+    "noah.lee20@jaffle.example",
+    "2024-08-23"
+   ],
+   [
+    21,
+    "Jack",
+    "King",
+    "jack.king21@jaffle.example",
+    "2024-07-27"
+   ],
+   [
+    22,
+    "Oscar",
+    "Walker",
+    "oscar.walker22@jaffle.example",
+    "2024-06-29"
+   ],
+   [
+    23,
+    "Zoe",
+    "Taylor",
+    "zoe.taylor23@jaffle.example",
+    "2024-04-14"
+   ],
+   [
+    24,
+    "Zoe",
+    "Patel",
+    "zoe.patel24@jaffle.example",
+    "2024-04-19"
+   ],
+   [
+    25,
+    "Ava",
+    "Lee",
+    "ava.lee25@jaffle.example",
+    "2024-08-25"
+   ],
+   [
+    26,
+    "Mia",
+    "Brown",
+    "mia.brown26@jaffle.example",
+    "2024-02-14"
+   ],
+   [
+    27,
+    "Mia",
+    "Smith",
+    "mia.smith27@jaffle.example",
+    "2024-04-17"
+   ],
+   [
+    28,
+    "Zoe",
+    "Taylor",
+    "zoe.taylor28@jaffle.example",
+    "2024-01-20"
+   ],
+   [
+    29,
+    "Ruby",
+    "Patel",
+    "ruby.patel29@jaffle.example",
+    "2024-02-12"
+   ],
+   [
+    30,
+    "Jack",
+    "Wilson",
+    "jack.wilson30@jaffle.example",
+    "2024-04-10"
+   ],
+   [
+    31,
+    "Ava",
+    "Taylor",
+    "ava.taylor31@jaffle.example",
+    "2024-09-06"
+   ],
+   [
+    32,
+    "Ethan",
+    "King",
+    "ethan.king32@jaffle.example",
+    "2024-01-29"
+   ],
+   [
+    33,
+    "Liam",
+    "Nguyen",
+    "liam.nguyen33@jaffle.example",
+    "2024-10-02"
+   ],
+   [
+    34,
+    "Ethan",
+    "Patel",
+    "ethan.patel34@jaffle.example",
+    "2024-06-26"
+   ],
+   [
+    35,
+    "Mia",
+    "Lee",
+    "mia.lee35@jaffle.example",
+    "2024-03-20"
+   ],
+   [
+    36,
+    "Ethan",
+    "Walker",
+    "ethan.walker36@jaffle.example",
+    "2024-03-20"
+   ],
+   [
+    37,
+    "Liam",
+    "Brown",
+    "liam.brown37@jaffle.example",
+    "2024-03-13"
+   ],
+   [
+    38,
+    "Ethan",
+    "Brown",
+    "ethan.brown38@jaffle.example",
+    "2024-07-20"
+   ],
+   [
+    39,
+    "Zoe",
+    "Hall",
+    "zoe.hall39@jaffle.example",
+    "2024-03-31"
+   ],
+   [
+    40,
+    "Ava",
+    "Lee",
+    "ava.lee40@jaffle.example",
+    "2024-05-06"
+   ]
+  ],
+  "offset": 0,
+  "row_count": 40,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [],
+  "annotations": null,
+  "chart": null
+ },
+ "orders_by_customer_id": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "orders_by_customer_id",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Orders per customer (top 10)",
+  "sql": "SELECT customer_id, count(*) AS orders FROM analytics.orders WHERE status NOT IN ('returned', 'return_pending') GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 10",
+  "metric": null,
+  "formats": {},
+  "columns": [
+   {
+    "name": "customer_id",
+    "type": "int32",
+    "kind": "number"
+   },
+   {
+    "name": "orders",
+    "type": "int64",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    27,
+    21
+   ],
+   [
+    31,
+    21
+   ],
+   [
+    0,
+    20
+   ],
+   [
+    14,
+    20
+   ],
+   [
+    1,
+    19
+   ],
+   [
+    12,
+    18
+   ],
+   [
+    13,
+    18
+   ],
+   [
+    18,
+    17
+   ],
+   [
+    35,
+    17
+   ],
+   [
+    40,
+    17
+   ]
+  ],
+  "offset": 0,
+  "row_count": 10,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [
+   {
+    "kind": "top",
+    "text": "customer_id 27 has the most orders: 21, 11% of the 188 total of these 10."
+   },
+   {
+    "kind": "concentration",
+    "text": "The top 3 of these 10 make up 33%."
+   },
+   {
+    "kind": "bottom",
+    "text": "customer_id 40 has the least of these 10: 17 (average 18.8)."
+   }
+  ],
+  "annotations": {
+   "column": "orders",
+   "average": 18.8,
+   "marks": [
+    {
+     "x": "27",
+     "label": "Top 21"
+    }
+   ]
+  },
+  "chart": {
+   "type": "bar",
+   "x": [
+    "customer_id"
+   ],
+   "y": "orders"
+  }
+ },
+ "daily_orders": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "daily_orders",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Daily orders, last 60 days",
+  "sql": "SELECT order_date, count(*) AS orders FROM analytics.orders WHERE order_date > DATE '2025-12-31' - 60 GROUP BY 1 ORDER BY 1",
+  "metric": null,
+  "formats": {},
+  "columns": [
+   {
+    "name": "order_date",
+    "type": "date32[day]",
+    "kind": "time"
+   },
+   {
+    "name": "orders",
+    "type": "int64",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    "2025-11-02",
+    1
+   ],
+   [
+    "2025-11-03",
+    1
+   ],
+   [
+    "2025-11-04",
+    1
+   ],
+   [
+    "2025-11-05",
+    2
+   ],
+   [
+    "2025-11-06",
+    1
+   ],
+   [
+    "2025-11-07",
+    1
+   ],
+   [
+    "2025-11-09",
+    3
+   ],
+   [
+    "2025-11-10",
+    2
+   ],
+   [
+    "2025-11-11",
+    2
+   ],
+   [
+    "2025-11-14",
+    1
+   ],
+   [
+    "2025-11-16",
+    1
+   ],
+   [
+    "2025-11-17",
+    1
+   ],
+   [
+    "2025-11-18",
+    1
+   ],
+   [
+    "2025-11-21",
+    1
+   ],
+   [
+    "2025-11-22",
+    1
+   ],
+   [
+    "2025-11-23",
+    1
+   ],
+   [
+    "2025-11-25",
+    1
+   ],
+   [
+    "2025-11-26",
+    1
+   ],
+   [
+    "2025-11-27",
+    2
+   ],
+   [
+    "2025-11-28",
+    1
+   ],
+   [
+    "2025-11-29",
+    2
+   ],
+   [
+    "2025-11-30",
+    1
+   ],
+   [
+    "2025-12-02",
+    1
+   ],
+   [
+    "2025-12-04",
+    2
+   ],
+   [
+    "2025-12-06",
+    1
+   ],
+   [
+    "2025-12-07",
+    1
+   ],
+   [
+    "2025-12-08",
+    1
+   ],
+   [
+    "2025-12-09",
+    1
+   ],
+   [
+    "2025-12-12",
+    1
+   ],
+   [
+    "2025-12-13",
+    2
+   ],
+   [
+    "2025-12-16",
+    2
+   ],
+   [
+    "2025-12-19",
+    1
+   ],
+   [
+    "2025-12-20",
+    3
+   ],
+   [
+    "2025-12-22",
+    1
+   ],
+   [
+    "2025-12-24",
+    2
+   ],
+   [
+    "2025-12-25",
+    1
+   ],
+   [
+    "2025-12-27",
+    1
+   ],
+   [
+    "2025-12-28",
+    1
+   ],
+   [
+    "2025-12-31",
+    43
+   ]
+  ],
+  "offset": 0,
+  "row_count": 39,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [
+   {
+    "kind": "change",
+    "text": "orders went from 1 (2025-11-02) to 43 (2025-12-31), up 4200%."
+   },
+   {
+    "kind": "latest",
+    "text": "Latest day (2025-12-31): 43, up 4200% on 2025-12-28."
+   },
+   {
+    "kind": "range",
+    "text": "Peak 43 in 2025-12-31; low 1 in 2025-11-02. Average 2.41 a day."
+   },
+   {
+    "kind": "trend",
+    "text": "The trend is rising over 39 days."
+   }
+  ],
+  "annotations": {
+   "column": "orders",
+   "average": 2.41025641025641,
+   "marks": [
+    {
+     "x": "2025-12-31",
+     "label": "Peak 43"
+    },
+    {
+     "x": "2025-11-02",
+     "label": "Low 1"
+    }
+   ]
+  },
+  "chart": {
+   "type": "line",
+   "x": [
+    "order_date"
+   ],
+   "y": "orders"
+  }
+ },
+ "customers_by_last_order": {
+  "satchel": 1,
+  "tool": "run_sql",
+  "session_id": "S1",
+  "result_id": "customers_by_last_order",
+  "tool_call_id": 1,
+  "connection": "warehouse",
+  "question": null,
+  "title": "Customers by most recent order",
+  "sql": "SELECT c.first_name || ' ' || c.last_name AS customer, max(o.order_date) AS last_order, sum(o.amount) / 100.0 AS spend_aud FROM analytics.orders o JOIN analytics.customers c USING (customer_id) WHERE o.status NOT IN ('returned', 'return_pending') GROUP BY 1 ORDER BY 2 DESC LIMIT 8",
+  "metric": null,
+  "formats": {
+   "spend_aud": {
+    "style": "currency",
+    "currency": "AUD"
+   }
+  },
+  "columns": [
+   {
+    "name": "customer",
+    "type": "string",
+    "kind": "text"
+   },
+   {
+    "name": "last_order",
+    "type": "date32[day]",
+    "kind": "time"
+   },
+   {
+    "name": "spend_aud",
+    "type": "double",
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   [
+    "Liam Nguyen",
+    "2025-12-31",
+    395.9
+   ],
+   [
+    "Ethan Wilson",
+    "2025-12-31",
+    1143.1
+   ],
+   [
+    "Ava Taylor",
+    "2025-12-31",
+    1361.7
+   ],
+   [
+    "Mia Walker",
+    "2025-12-31",
+    1706.65
+   ],
+   [
+    "Ethan Lee",
+    "2025-12-31",
+    767.7
+   ],
+   [
+    "Mia Hall",
+    "2025-12-31",
+    546.35
+   ],
+   [
+    "Ava Lee",
+    "2025-12-31",
+    1639.6
+   ],
+   [
+    "Ethan Brown",
+    "2025-12-31",
+    854.25
+   ]
+  ],
+  "offset": 0,
+  "row_count": 8,
+  "truncated": false,
+  "ctx": [],
+  "ctx_items": [],
+  "facts": [
+   {
+    "kind": "top",
+    "text": "Mia Walker has the most spend_aud: A$1,706.65, 20% of the A$8,415.25 total of these 8."
+   },
+   {
+    "kind": "concentration",
+    "text": "The top 3 of these 8 make up 56%."
+   },
+   {
+    "kind": "bottom",
+    "text": "Liam Nguyen has the least of these 8: A$395.90 (average A$1,051.91)."
+   }
+  ],
+  "annotations": {
+   "column": "spend_aud",
+   "average": 1051.90625,
+   "marks": [
+    {
+     "x": "Mia Walker",
+     "label": "Top A$1,706.65"
+    }
+   ]
+  },
+  "chart": {
+   "type": "bar",
+   "x": [
+    "customer"
+   ],
+   "y": "spend_aud"
+  }
+ }
+}

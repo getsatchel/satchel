@@ -31,7 +31,12 @@ export interface Payload {
   ctx_items?: CtxItem[];
   facts?: Fact[];
   annotations?: Annotations | null;
+  /** The chart the server chose (facts.choose_chart); null for none. Missing on older servers. */
+  chart?: ChartChoice | null;
 }
+
+/** Which columns to draw: x is the date (line) or the label columns (bar), y the measure. */
+export interface ChartChoice { type: "line" | "bar"; x: string[]; y: string }
 
 /** A fact the server computed from the rows (never from a model). */
 export interface Fact { kind: string; text: string }
@@ -73,6 +78,49 @@ export type ChartSpec =
   | { type: "bar"; xLabel: string; yLabel: string; bars: { label: string; y: number }[] };
 
 const MAX_BARS = 30;
+
+/** The chart for a result: the server's choice when it sent one, else the old guess. */
+export function chartFor(p: Payload, rows: Cell[][]): ChartSpec | null {
+  if (p.chart === undefined) return chooseChart(p.columns, rows);
+  return p.chart ? buildChart(p.chart, p.columns, rows) : null;
+}
+
+/** The server's chart choice drawn from the rows: one point per row, or one bar per row in order. */
+export function buildChart(c: ChartChoice, columns: Column[], rows: Cell[][]): ChartSpec | null {
+  const yi = columns.findIndex((col) => col.name === c.y);
+  const xi = c.x.map((n) => columns.findIndex((col) => col.name === n));
+  if (yi < 0 || xi.length === 0 || xi.some((i) => i < 0)) return null;
+  const xLabel = c.x.join(" ");
+  if (c.type === "line") {
+    const ti = xi[0] ?? -1;
+    const pts: { x: number; y: number; label: string }[] = [];
+    for (const r of rows) {
+      const t = r[ti];
+      const y = r[yi];
+      const x = typeof t === "string" ? Date.parse(t) : NaN;
+      if (typeof y === "number" && !Number.isNaN(x)) pts.push({ x, y, label: String(t).slice(0, 10) });
+    }
+    pts.sort((a, b) => a.x - b.x);
+    return pts.length >= 2 ? { type: "line", xLabel, yLabel: c.y, points: pts } : null;
+  }
+  const bars = rows
+    .slice(0, MAX_BARS)
+    .map((r) => ({ label: xi.map((i) => r[i]).filter((v) => v !== null && v !== undefined).map(String).join(" "), y: r[yi] }))
+    .filter((b): b is { label: string; y: number } => typeof b.y === "number");
+  return bars.length >= 2 ? { type: "bar", xLabel, yLabel: c.y, bars } : null;
+}
+
+/** True when the chart already shows every column, so the table adds nothing until asked for. */
+export function chartCoversTable(c: ChartChoice | null | undefined, columns: Column[]): boolean {
+  if (!c) return false;
+  const drawn = new Set([...c.x, c.y]);
+  return columns.every((col) => drawn.has(col.name) || isIdentifier(col.name));
+}
+
+/** A number column that names a thing (customer_id) rather than measures it; as the server's. */
+export function isIdentifier(name: string): boolean {
+  return /(^|_)(id|ids|key|code|number|no|zip|postcode|sku)$/i.test(name);
+}
 
 export function chooseChart(columns: Column[], rows: Cell[][]): ChartSpec | null {
   if (rows.length < 2) return null;
@@ -117,8 +165,20 @@ export function compact(n: number): string {
   const a = Math.abs(n);
   if (a >= 1e9) return `${+(n / 1e9).toFixed(1)}B`;
   if (a >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
-  if (a >= 1e4) return `${+(n / 1e3).toFixed(1)}k`;
+  if (a >= 1e3) return `${+(n / 1e3).toFixed(1)}k`;
   return String(+n.toFixed(2));
+}
+
+/** Round axis ticks (0, 500, 1k, 1.5k) from 0 or the lowest value to past the highest. */
+export function niceTicks(lo: number, hi: number, count = 4): number[] {
+  if (hi === lo) return [lo];
+  const raw = (hi - lo) / count;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = ([1, 2, 2.5, 5, 10].find((m) => m * mag >= raw) ?? 10) * mag;
+  const start = Math.floor(lo / step) * step;
+  const out: number[] = [];
+  for (let t = start; t < hi + step - 1e-9 * step; t += step) out.push(+t.toPrecision(12));
+  return out;
 }
 
 export function sortRows(rows: Cell[][], col: number, dir: "asc" | "desc"): Cell[][] {

@@ -2,7 +2,7 @@
 
 > **Living document.** Update this file in the same PR as any change that adds, removes or renames a component, table, tool or data flow, or that changes a component's status. Status colours: **built** (green) · **in progress** (amber) · **planned** (grey).
 >
-> Last updated: 2026-11-16.
+> Last updated: 2026-11-17.
 
 ## 1. System overview
 
@@ -30,7 +30,7 @@ flowchart LR
 
   subgraph Core["satchel core (Python package)"]
     Registry["Tool registry (satchel.tools)<br/>10 context + signal tools + 5 data tools + app-only rate_result (data tools only with a connection)"]:::built
-    Widget["Result widget (ui-widgets/ → satchel/resources/widgets/result.html)<br/>MCP Apps ui://satchel/result/{hash} · text/html;profile=mcp-app · single inline file<br/>Satchel-branded cards: answer card on report_answer (headline · key points · results as tabs · caveats · steps) and one-line query cards<br/>KPI tile or sortable table · filter chips · auto chart with average and peak/low marks · facts (satchel/data/facts.py) · pretty SQL/ctx chips · 👍 👎 + reasons · Load more rows"]:::built
+    Widget["Result widget (ui-widgets/ → satchel/resources/widgets/result.html)<br/>MCP Apps ui://satchel/result/{hash} · text/html;profile=mcp-app · single inline file<br/>Satchel-branded cards: answer card on report_answer (headline · key points · results as tabs · caveats · steps) and one-line query cards<br/>KPI tile or sortable table · filter chips · chart chosen server-side (facts.choose_chart: line, bars or none) with average and peak/low marks · facts (satchel/data/facts.py) · pretty SQL/ctx chips · 👍 👎 + reasons · Load more rows"]:::built
     Items["core.item_types<br/>validate_item"]:::built
     Retrieval["retrieval<br/>hybrid search · RRF · priors · context packs"]:::built
     Signals["signals<br/>agent signals + implicit SQL extractors (sync, after run_sql)"]:::built
