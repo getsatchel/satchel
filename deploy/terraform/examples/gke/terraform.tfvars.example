@@ -1,6 +1,6 @@
 project_id = "my-gcp-project"
 region     = "us-central1"
-image_tag  = "0.5.2"
+image_tag  = "0.5.3"
 
 domain         = "satchel.example.com"
 oidc_issuer    = "https://accounts.google.com"

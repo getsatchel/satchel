@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: getsatchel/satchel/action@v0.5.2
+      - uses: getsatchel/satchel/action@v0.5.3
         with:
           url: https://satchel.example.com
           path: context
