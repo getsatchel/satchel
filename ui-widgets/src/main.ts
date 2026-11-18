@@ -234,7 +234,13 @@ function renderKpi(): void {
   data.columns.forEach((c, i) => {
     if (c.kind !== "number") return;
     const tile = el("div", undefined, "tile");
-    const big = el("div", fmtValue(row[i] ?? null, data?.formats?.[c.name]) || "∅", "big");
+    // A number with no unit keeps two decimals when it has any (34,838.20, not 34,838.2).
+    const v = row[i] ?? null;
+    const f = data?.formats?.[c.name];
+    const shown = !f && typeof v === "number" && !Number.isInteger(v)
+      ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : fmtValue(v, f);
+    const big = el("div", shown || "∅", "big");
     tile.append(big, el("div", humanize(c.name), "lbl"));
     if (subs.length) tile.append(el("div", subs.join(" · "), "sub"));
     box.append(tile);
@@ -284,9 +290,9 @@ function renderResult(): void {
   const step = answer === null;
   const open = !step || expanded;
   const m = data.metric;
-  const multi = (answer?.results.length ?? 0) > 1;
   $("title").textContent = resultTitle(data);
-  $("title").hidden = multi; // the tab already names it
+  // In the answer card the headline already says what the result is, and tabs name each one.
+  $("title").hidden = !step;
   const kpi = isKpi(data.columns, rows, data.row_count);
   const showKpi = kpi && !asTable;
   const meta = $("meta");

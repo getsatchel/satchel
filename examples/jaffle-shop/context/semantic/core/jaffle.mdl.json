@@ -98,7 +98,8 @@
           "name": "revenue",
           "expression": "SUM(amount) / 100.0",
           "type": "DOUBLE",
-          "description": "Sum of order amounts in AUD dollars (cents / 100) for valid orders."
+          "description": "Sum of order amounts in AUD dollars (cents / 100) for valid orders.",
+          "properties": {"currency": "AUD"}
         },
         {
           "name": "order_count",
@@ -110,7 +111,8 @@
           "name": "average_order_value",
           "expression": "SUM(amount) / 100.0 / COUNT(*)",
           "type": "DOUBLE",
-          "description": "Revenue divided by valid order count, in AUD dollars."
+          "description": "Revenue divided by valid order count, in AUD dollars.",
+          "properties": {"currency": "AUD"}
         }
       ],
       "dimensions": [

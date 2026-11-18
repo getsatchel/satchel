@@ -34,7 +34,7 @@ satchel doctor                     # checks everything and prints the fix for an
 ![Library](docs/screenshots/library-light.png)
 ![Session inspector](docs/screenshots/session-inspector-light.png)
 
-What a person sees in Claude or another MCP Apps client: the query cards collapse to one line, and the answer card shows the headline, the results and the facts Satchel worked out from them.
+What a person sees in Claude or another MCP Apps client: one answer card per question, with the headline, the results and the facts Satchel worked out from them.
 
 <img src="docs/screenshots/answer-card-light.png" width="560" alt="A question in the Jaffle Shop demo: two collapsed query cards, then the Satchel answer card">
 

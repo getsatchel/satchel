@@ -79,5 +79,19 @@ assert.match(glance("orders_by_customer_id"), /^customer_id \d+ has the most ord
 f = await open("customer_list");
 assert.equal(await f.locator("#chart").isVisible(), false);
 
+// The answer card: one card per question. The headline names the result, so no title repeats
+// it; a number with no unit keeps two decimals.
+const total = { ...results.net_revenue_total, formats: {} };
+await page.setContent(host);
+await page.evaluate(([p, doc]) => { window.__payload = p; document.getElementById("f").srcdoc = doc; }, [{
+  satchel: 1, kind: "answer", session_id: "S1", question: "What's our net revenue to date?",
+  headline: "Net revenue to date is A$36,033.95.", summary: null, points: [], caveats: [], confidence: "high",
+  results: [total], steps: [], ctx_items: [] }, html]);
+f = page.frameLocator("#f");
+await f.locator("#kpi .big").first().waitFor();
+assert.equal(await f.locator("#title").isVisible(), false, "no title under the headline");
+assert.equal(await f.locator("#toggle").isVisible(), false, "the answer card is never collapsed");
+assert.match(await f.locator("#kpi .big").first().innerText(), /^36,033\.95$/);
+
 await browser.close();
 console.log("charts e2e: ok");

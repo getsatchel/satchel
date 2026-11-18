@@ -90,9 +90,9 @@ D_DESCRIBE_METRIC = (
     "question (the user's original question, verbatim)."
 )
 _CARD = (
-    "Each call shows the user a result card, so pass a short title saying what it shows, put "
-    "related figures in one query rather than several, and check columns with describe_table "
-    "instead of trial queries. "
+    "The results you list in report_answer's result_ids show the user as tabs of the answer "
+    "card, so pass a short title saying what it shows, put related figures in one query rather "
+    "than several, and check columns with describe_table instead of trial queries. "
 )
 D_QUERY_METRICS = (
     "Run a governed metric query: metrics (e.g. revenue) by optional dimensions, filters, "
@@ -122,12 +122,12 @@ _NO_REPEAT = (
     "sentences, the definition and filters that applied, and any caveats."
 )
 RESULT_SHOWN = (
-    "The user already sees this result as an interactive table next to your reply, so "
-    + _NO_REPEAT
+    "The user will see this result in the Satchel answer card when you call report_answer "
+    "(list its result_id in result_ids), so " + _NO_REPEAT
 )
 RESULT_MAYBE_SHOWN = (
-    "If your client displays this result to the user as an interactive Satchel table, "
-    + _NO_REPEAT
+    "If your client shows Satchel answer cards, the user will see this result in the card when "
+    "you call report_answer (list its result_id in result_ids), so " + _NO_REPEAT
     + " Otherwise present the rows yourself."
 )
 

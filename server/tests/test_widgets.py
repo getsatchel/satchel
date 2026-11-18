@@ -70,8 +70,10 @@ def test_tool_meta_and_visibility(env: Env, ui_on: None) -> None:  # noqa: F811
         return {t.name: t.meta for t in (await c.list_tools()).tools}
 
     meta = with_client(env, fn)
-    for name in ("run_sql", "query_metrics", "get_result", "report_answer"):
-        assert meta[name]["ui"]["resourceUri"] == apps.result_uri()
+    # One card per question: report_answer's. Query results show as its tabs, not cards.
+    assert meta["report_answer"]["ui"]["resourceUri"] == apps.result_uri()
+    for name in ("run_sql", "query_metrics", "get_result"):
+        assert meta[name] is None, f"{name} draws no card of its own"
     assert meta["rate_result"]["ui"]["visibility"] == ["app"]
     assert meta["list_metrics"] is None
 
@@ -148,7 +150,8 @@ def test_query_metrics_payload_has_filters_pretty_sql_and_chips(env: Env, ui_on:
         {"dimension": "status", "operator": "neq", "value": "returned"},
     ]
     assert "2025-01-01" in sc["sql"] and sc["sql"].count("\n") > 3, "SQL is pretty-printed"
-    assert sc["formats"] == {}, "no unit metadata -> nothing invented"
+    # the demo model declares revenue's currency (properties.currency)
+    assert sc["formats"] == {"revenue": {"style": "currency", "currency": "AUD"}}
     items = sc["ctx_items"]
     assert items and sc["ctx"] == [i["tag"] for i in items]
     for i in items:

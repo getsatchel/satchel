@@ -59,9 +59,10 @@ agent instructions and the suggestion engine never drafts them.
 
 ### Cards in Claude and other MCP Apps hosts
 
-If the client negotiated `io.modelcontextprotocol/ui`, `run_sql`, `query_metrics`, `get_result` and
-`report_answer` also return `structuredContent` that the result widget shows as a Satchel card,
-with Satchel's mark, colours and type so it looks like the web UI. Clients without the extension get the same
+If the client negotiated `io.modelcontextprotocol/ui`, `report_answer` shows its answer as a Satchel card,
+with Satchel's mark, colours and type so it looks like the web UI. That is the only card a question gets:
+`run_sql`, `query_metrics` and `get_result` show as the client's ordinary tool steps, and their results appear
+as tabs of the answer card. They still return `structuredContent`, which the card uses for **Load more rows**. Clients without the extension get the same
 answer as text. The widget's URI is `ui://satchel/result/<hash>`, versioned by its content: hosts cache a
 widget by URI, so a new build gets a new URI and hosts load it. Start a new chat after an upgrade, because an
 open chat keeps the tool list it started with.
@@ -76,16 +77,16 @@ open chat keeps the tool list it started with.
   question, empty and failed queries included; click one to open its tab), the context used and 👍/👎 for the
   shown result. The tool's text then tells the agent the user sees the card, so its reply adds only what the
   card does not say.
-- **Query cards** (`run_sql`, `query_metrics`, `get_result`). One line each: the `title` (up to 120 characters,
-  for example "Signups by month, 2025"; it defaults to the metric or the question), the row count and the first
-  fact. **Show result** opens the chart, table, SQL, context and feedback. A result with no rows says "No rows
-  matched this query" instead of an empty table. The text ends with a note telling the agent not to repeat the
-  rows, because the user already sees them.
+- **Query results** (`run_sql`, `query_metrics`, `get_result`) have no card of their own. Pass a `title` (up to
+  120 characters, for example "Signups by month, 2025"; it defaults to the metric or the question): it names the
+  result's tab in the answer card. A result with no rows says "No rows matched this query" instead of an empty
+  table. The text ends with a note telling the agent not to repeat the rows, because the user sees them in the
+  answer card once it calls `report_answer`.
 
 **Facts.** Satchel computes facts from a result's rows, never with a model: the change from the first to the
 last period and on the previous one, the peak, low and average, the trend, an outlier, a last period that is not
 over yet, the top value's share of the total, and columns that are mostly empty. `run_sql` and `query_metrics`
-list them in their text so the agent can cite them, and the cards show them under **What Satchel noticed**,
+list them in their text so the agent can cite them, and the answer card shows them under **What Satchel noticed**,
 with the average as a dashed line and the peak and low labelled on the chart. Facts quote values from the data,
 so they are not stored with the tool call that other members may see in **Sessions**; the answer card computes
 them again from the stored result.
