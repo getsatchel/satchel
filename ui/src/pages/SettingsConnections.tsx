@@ -2,31 +2,10 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
-import type {
-  ConnectionKind,
-  ConnectionOut,
-  ConnectionPatch,
-  ConnectionTestOut,
-  ConnectionTestRequest,
-} from "@/api/types";
+import type { ConnectionKind, ConnectionOut, ConnectionPatch, ConnectionTestOut, ConnectionTestRequest } from "@/api/types";
 import { useToast } from "@/components/Toast";
 import { docsUrl } from "@/components/nav";
-import {
-  EmptyState,
-  ErrorBox,
-  ICONS,
-  Icon,
-  InfoTip,
-  Loading,
-  Modal,
-  Notice,
-  SectionHeading,
-  Segmented,
-  Sheet,
-  StatusDot,
-  TableCard,
-  useSheetParam,
-} from "@/components/ui";
+import { EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, SectionHeading, Segmented, Sheet, StatusDot, TableCard, useSheetParam } from "@/components/ui";
 import { errMsg } from "@/lib/format";
 
 /** Next to the Test button, so the outcome is visible without scrolling the form. */
@@ -34,16 +13,8 @@ function TestBadge({ r }: { r: ConnectionTestOut | null }) {
   if (!r) return null;
   return (
     <span role="status" className="truncate">
-      {r.ok ? (
-        <StatusDot tone="good">connected</StatusDot>
-      ) : (
-        <StatusDot tone="bad">failed</StatusDot>
-      )}
-      {r.ok && (
-        <span className="ml-1.5 font-mono text-xs text-muted">
-          {r.latency_ms} ms
-        </span>
-      )}
+      {r.ok ? <StatusDot tone="good">connected</StatusDot> : <StatusDot tone="bad">failed</StatusDot>}
+      {r.ok && <span className="ml-1.5 font-mono text-xs text-muted">{r.latency_ms} ms</span>}
     </span>
   );
 }
@@ -53,11 +24,7 @@ function TestLine({ r }: { r: ConnectionTestOut | null }) {
   if (!r?.error) return null;
   return (
     <div className="mt-3 text-sm">
-      {r.error && (
-        <p className="break-words font-mono text-xs text-bad [overflow-wrap:anywhere]">
-          {r.error}
-        </p>
-      )}
+      {r.error && <p className="break-words font-mono text-xs text-bad [overflow-wrap:anywhere]">{r.error}</p>}
     </div>
   );
 }
@@ -86,9 +53,7 @@ function ConnectionForm(props: {
   const [secret, setSecret] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [clearSecret, setClearSecret] = useState(false);
-  const [makeDefault, setMakeDefault] = useState(
-    e ? e.default_for_ai : props.first,
-  );
+  const [makeDefault, setMakeDefault] = useState(e ? e.default_for_ai : props.first);
   const [result, setResult] = useState<ConnectionTestOut | null>(null);
   const [error, setError] = useState<string | null>(null);
   // A connection that was just added: the dialog then offers to crawl it, the next thing to do.
@@ -103,10 +68,7 @@ function ConnectionForm(props: {
     },
   });
 
-  const config = () =>
-    Object.fromEntries(
-      Object.entries(values).filter(([, v]) => v.trim() !== ""),
-    );
+  const config = () => Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== ""));
 
   const test = useMutation({
     mutationFn: () => {
@@ -120,21 +82,13 @@ function ConnectionForm(props: {
     },
     onMutate: () => setResult(null),
     onSuccess: setResult,
-    onError: (err) =>
-      setResult({ ok: false, latency_ms: 0, error: errMsg(err) }),
+    onError: (err) => setResult({ ok: false, latency_ms: 0, error: errMsg(err) }),
   });
 
   const save = useMutation({
     mutationFn: () => {
       if (!e) {
-        return endpoints.createConnection({
-          name,
-          kind,
-          config: config(),
-          secret: secret || null,
-          passphrase: (secret && passphrase) || null,
-          default_for_ai: makeDefault,
-        });
+        return endpoints.createConnection({ name, kind, config: config(), secret: secret || null, passphrase: (secret && passphrase) || null, default_for_ai: makeDefault });
       }
       const patch: ConnectionPatch = { config: config() };
       if (name !== e.name) patch.name = name;
@@ -159,70 +113,37 @@ function ConnectionForm(props: {
 
   const blocked = Boolean(secret) && !props.encryption;
   const secretPlaceholder =
-    e?.secret === "stored"
-      ? "Stored. Leave empty to keep it."
-      : e?.secret === "env"
-        ? "Read from an environment variable (set with the CLI). Type to replace."
-        : "";
+    e?.secret === "stored" ? "Stored. Leave empty to keep it." : e?.secret === "env" ? "Read from an environment variable (set with the CLI). Type to replace." : "";
 
   const pickKind = (next: string) => {
     const k = props.kinds.find((x) => x.kind === next);
     setKind(next);
-    setValues(
-      Object.fromEntries(
-        (k?.fields ?? []).map((f) => [
-          f.name,
-          f.default == null ? "" : String(f.default),
-        ]),
-      ),
-    );
+    setValues(Object.fromEntries((k?.fields ?? []).map((f) => [f.name, f.default == null ? "" : String(f.default)])));
     setSecret("");
     setPassphrase("");
     setResult(null);
   };
   const initial = useState(() => JSON.stringify(values))[0];
-  const dirty =
-    !saved &&
-    (name !== (e?.name ?? "") ||
-      JSON.stringify(values) !== initial ||
-      secret !== "" ||
-      passphrase !== "" ||
-      clearSecret);
+  const dirty = !saved && (name !== (e?.name ?? "") || JSON.stringify(values) !== initial || secret !== "" || passphrase !== "" || clearSecret);
 
   return (
     <Sheet
       open
       onClose={props.onClose}
       dirty={dirty}
-      title={
-        saved ? `Added ${saved.name}` : e ? `Edit ${e.name}` : "Add connection"
-      }
+      title={saved ? `Added ${saved.name}` : e ? `Edit ${e.name}` : "Add connection"}
       footer={
         saved ? (
           crawl.isSuccess ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={props.onClose}
-            >
+            <button type="button" className="btn btn-primary" onClick={props.onClose}>
               Close
             </button>
           ) : (
             <>
-              <button
-                type="button"
-                className="btn"
-                onClick={props.onClose}
-                disabled={crawl.isPending}
-              >
+              <button type="button" className="btn" onClick={props.onClose} disabled={crawl.isPending}>
                 Not now
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => crawl.mutate()}
-                disabled={crawl.isPending}
-              >
+              <button type="button" className="btn btn-primary" onClick={() => crawl.mutate()} disabled={crawl.isPending}>
                 {crawl.isPending ? "Crawling..." : "Crawl"}
               </button>
             </>
@@ -230,12 +151,7 @@ function ConnectionForm(props: {
         ) : (
           <>
             <div className="mr-auto flex min-w-0 items-center gap-2">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => test.mutate()}
-                disabled={test.isPending || !spec?.available}
-              >
+              <button type="button" className="btn" onClick={() => test.mutate()} disabled={test.isPending || !spec?.available}>
                 {test.isPending ? "Testing..." : "Test"}
               </button>
               <TestBadge r={result} />
@@ -243,12 +159,7 @@ function ConnectionForm(props: {
             <button type="button" className="btn" onClick={props.onClose}>
               Cancel
             </button>
-            <button
-              type="submit"
-              form="conn-form"
-              className="btn btn-primary"
-              disabled={save.isPending || blocked || !spec?.available}
-            >
+            <button type="submit" form="conn-form" className="btn btn-primary" disabled={save.isPending || blocked || !spec?.available}>
               {save.isPending ? "Saving..." : "Save"}
             </button>
           </>
@@ -259,204 +170,140 @@ function ConnectionForm(props: {
         <div className="space-y-3 text-sm">
           {crawl.isSuccess ? (
             <p role="status">
-              {crawl.data.seen.toLocaleString()} objects found,{" "}
-              {crawl.data.created.toLocaleString()} new. See them in the{" "}
+              {crawl.data.seen.toLocaleString()} objects found, {crawl.data.created.toLocaleString()} new. See them in the{" "}
               <Link className="text-accent hover:underline" to="/catalog">
                 Catalog
               </Link>
               .
             </p>
           ) : (
-            <p>
-              Crawl it to list its schemas, tables and columns in the Catalog. A
-              crawl reads names and types, not rows.
-            </p>
+            <p>Crawl it to list its schemas, tables and columns in the Catalog. A crawl reads names and types, not rows.</p>
           )}
           {crawl.isError && <ErrorBox error={crawl.error} />}
         </div>
       ) : (
-        <form
-          id="conn-form"
-          className="space-y-4"
-          onSubmit={(ev) => {
-            ev.preventDefault();
-            setError(null);
-            save.mutate();
-          }}
-        >
-          <div>
-            <span className="label">Kind</span>
-            {e ? (
-              <span className="text-sm">{spec?.label ?? kind}</span>
-            ) : (
-              <Segmented
-                label="Kind"
-                value={kind}
-                onChange={pickKind}
-                options={props.kinds.map((k) => ({
-                  id: k.kind,
-                  label: k.label,
-                  disabled: k.available
-                    ? null
-                    : (k.note ?? "Not installed on this server"),
-                }))}
-              />
-            )}
-          </div>
-          <label className="block">
-            <span className="label">Name</span>
-            <input
-              className="input mono w-full"
-              value={name}
-              onChange={(ev) => setName(ev.target.value)}
-              placeholder="warehouse"
-              required
-              autoFocus
+      <form
+        id="conn-form"
+        className="space-y-4"
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          setError(null);
+          save.mutate();
+        }}
+      >
+        <div>
+          <span className="label">Kind</span>
+          {e ? (
+            <span className="text-sm">{spec?.label ?? kind}</span>
+          ) : (
+            <Segmented
+              label="Kind"
+              value={kind}
+              onChange={pickKind}
+              options={props.kinds.map((k) => ({ id: k.kind, label: k.label, disabled: k.available ? null : (k.note ?? "Not installed on this server") }))}
             />
-            <span className="mt-1 block text-xs text-muted">
-              Agents pass this name to run_sql when there is more than one
-              connection.
-            </span>
+          )}
+        </div>
+        <label className="block">
+          <span className="label">Name</span>
+          <input className="input mono w-full" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="warehouse" required autoFocus />
+          <span className="mt-1 block text-xs text-muted">Agents pass this name to run_sql when there is more than one connection.</span>
+        </label>
+        {spec?.fields.map((f) => (
+          <label key={f.name} className="block">
+            <span className="label">{f.label}</span>
+            <input
+              className={`input w-full ${f.type === "text" ? "" : "mono"}`}
+              inputMode={f.type === "number" ? "numeric" : undefined}
+              title={f.type === "number" ? `${f.min} to ${f.max}` : undefined}
+              value={values[f.name] ?? ""}
+              onChange={(ev) => setValues({ ...values, [f.name]: ev.target.value })}
+              placeholder={f.placeholder ?? (f.default != null ? String(f.default) : undefined)}
+              required={f.required}
+            />
+            {f.help && <span className="mt-1 block text-xs text-muted">{f.help}</span>}
           </label>
-          {spec?.fields.map((f) => (
-            <label key={f.name} className="block">
-              <span className="label">{f.label}</span>
-              <input
-                className={`input w-full ${f.type === "text" ? "" : "mono"}`}
-                inputMode={f.type === "number" ? "numeric" : undefined}
-                title={f.type === "number" ? `${f.min} to ${f.max}` : undefined}
-                value={values[f.name] ?? ""}
-                onChange={(ev) =>
-                  setValues({ ...values, [f.name]: ev.target.value })
-                }
-                placeholder={
-                  f.placeholder ??
-                  (f.default != null ? String(f.default) : undefined)
-                }
-                required={f.required}
-              />
-              {f.help && (
-                <span className="mt-1 block text-xs text-muted">{f.help}</span>
+        ))}
+        {spec?.secret_label && (
+          <div>
+            <label className="block">
+              <span className="label">{spec.secret_label}</span>
+              {spec.secret_multiline ? (
+                // A PEM or JSON key file: a password input would drop its newlines.
+                <textarea
+                  // Masked like a password field, so the key isn't readable on screen.
+                  className="input mono w-full text-xs [-webkit-text-security:disc]"
+                  rows={5}
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={secret}
+                  disabled={clearSecret}
+                  onChange={(ev) => setSecret(ev.target.value)}
+                  placeholder={secretPlaceholder}
+                />
+              ) : (
+                <input
+                  className="input mono w-full"
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={secret}
+                  disabled={clearSecret}
+                  onChange={(ev) => setSecret(ev.target.value)}
+                  placeholder={secretPlaceholder}
+                />
               )}
             </label>
-          ))}
-          {spec?.secret_label && (
-            <div>
-              <label className="block">
-                <span className="label">{spec.secret_label}</span>
-                {spec.secret_multiline ? (
-                  // A PEM or JSON key file: a password input would drop its newlines.
-                  <textarea
-                    // Masked like a password field, so the key isn't readable on screen.
-                    className="input mono w-full text-xs [-webkit-text-security:disc]"
-                    rows={5}
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={secret}
-                    disabled={clearSecret}
-                    onChange={(ev) => setSecret(ev.target.value)}
-                    placeholder={secretPlaceholder}
-                  />
-                ) : (
-                  <input
-                    className="input mono w-full"
-                    type="password"
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={secret}
-                    disabled={clearSecret}
-                    onChange={(ev) => setSecret(ev.target.value)}
-                    placeholder={secretPlaceholder}
-                  />
-                )}
+            <span className="mt-1 block text-xs text-muted">
+              {spec.secret_help ? `${spec.secret_help} ` : ""}Encrypted at rest and never shown again.
+            </span>
+            {spec.passphrase_label && secret && (
+              <label className="mt-3 block">
+                <span className="label">{spec.passphrase_label}</span>
+                <input className="input mono w-full" type="password" autoComplete="off" spellCheck={false} value={passphrase} onChange={(ev) => setPassphrase(ev.target.value)} />
+                <span className="mt-1 block text-xs text-muted">For an encrypted key. It decrypts the key once, before it is encrypted with the server key, and is not stored.</span>
               </label>
-              <span className="mt-1 block text-xs text-muted">
-                {spec.secret_help ? `${spec.secret_help} ` : ""}Encrypted at
-                rest and never shown again.
-              </span>
-              {spec.passphrase_label && secret && (
-                <label className="mt-3 block">
-                  <span className="label">{spec.passphrase_label}</span>
-                  <input
-                    className="input mono w-full"
-                    type="password"
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={passphrase}
-                    onChange={(ev) => setPassphrase(ev.target.value)}
-                  />
-                  <span className="mt-1 block text-xs text-muted">
-                    For an encrypted key. It decrypts the key once, before it is
-                    encrypted with the server key, and is not stored.
-                  </span>
-                </label>
-              )}
-              {e?.secret && (
-                <label className="mt-2 flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={clearSecret}
-                    onChange={(ev) => {
-                      setClearSecret(ev.target.checked);
-                      if (ev.target.checked) setSecret("");
-                    }}
-                  />
-                  Remove the stored {spec.secret_label.toLowerCase()}
-                </label>
-              )}
-            </div>
-          )}
-          <p className="text-xs text-muted">
-            {spec?.note ? `${spec.note} ` : ""}
-            <a
-              className="text-accent hover:underline"
-              href={docsUrl("integrations/warehouses")}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Setup guide
-            </a>
-          </p>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={makeDefault}
-              disabled={Boolean(e?.default_for_ai)}
-              onChange={(ev) => setMakeDefault(ev.target.checked)}
-            />
-            Default for agents
-            <InfoTip text="run_sql and the other data tools use this connection when the agent does not name one." />
-          </label>
-          {blocked && (
-            <Notice tone="warn">
-              The {spec?.secret_label?.toLowerCase() ?? "secret"} can't be
-              saved: the server has no SATCHEL_ENCRYPTION_KEY. You can still
-              test.
-            </Notice>
-          )}
-          {error && <ErrorBox error={error} />}
-          <TestLine r={result} />
-        </form>
+            )}
+            {e?.secret && (
+              <label className="mt-2 flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={clearSecret}
+                  onChange={(ev) => {
+                    setClearSecret(ev.target.checked);
+                    if (ev.target.checked) setSecret("");
+                  }}
+                />
+                Remove the stored {spec.secret_label.toLowerCase()}
+              </label>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-muted">
+          {spec?.note ? `${spec.note} ` : ""}
+          <a className="text-accent hover:underline" href={docsUrl("integrations/warehouses")} target="_blank" rel="noreferrer">
+            Setup guide
+          </a>
+        </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={makeDefault} disabled={Boolean(e?.default_for_ai)} onChange={(ev) => setMakeDefault(ev.target.checked)} />
+          Default for agents
+          <InfoTip text="run_sql and the other data tools use this connection when the agent does not name one." />
+        </label>
+        {blocked && (
+          <Notice tone="warn">The {spec?.secret_label?.toLowerCase() ?? "secret"} can't be saved: the server has no SATCHEL_ENCRYPTION_KEY. You can still test.</Notice>
+        )}
+        {error && <ErrorBox error={error} />}
+        <TestLine r={result} />
+      </form>
       )}
     </Sheet>
   );
 }
 
-export function ConnectionsSection({
-  admin,
-  encryption,
-}: {
-  admin: boolean;
-  encryption: boolean;
-}) {
-  const conns = useQuery({
-    queryKey: ["connections"],
-    queryFn: endpoints.listConnections,
-  });
-  const kinds = useQuery({
-    queryKey: ["connection-kinds"],
-    queryFn: endpoints.listConnectionKinds,
-  });
+export function ConnectionsSection({ admin, encryption }: { admin: boolean; encryption: boolean }) {
+  const conns = useQuery({ queryKey: ["connections"], queryFn: endpoints.listConnections });
+  const kinds = useQuery({ queryKey: ["connection-kinds"], queryFn: endpoints.listConnectionKinds });
   // ?sheet=new adds a connection (the dashboard's Set up list links there); ?sheet=<id> edits one.
   const [sheet, openSheet, closeForm] = useSheetParam();
   const [removing, setRemoving] = useState<ConnectionOut | null>(null);
@@ -466,30 +313,19 @@ export function ConnectionsSection({
   const crawl = useMutation({
     mutationFn: (c: ConnectionOut) => endpoints.crawlConnection(c.id),
     onSuccess: (r) => {
-      toast(
-        "ok",
-        `Crawled ${r.connection}: ${r.seen} objects, ${r.created} new, ${r.dropped} dropped`,
-      );
+      toast("ok", `Crawled ${r.connection}: ${r.seen} objects, ${r.created} new, ${r.dropped} dropped`);
       void qc.invalidateQueries({ queryKey: ["connections"] });
       void qc.invalidateQueries({ queryKey: ["assets"] });
     },
     onError: (e) => toast("err", errMsg(e)),
   });
   const test = useMutation({
-    mutationFn: (c: ConnectionOut) =>
-      endpoints.testConnection({ connection_id: c.id }),
-    onSuccess: (r, c) =>
-      toast(
-        r.ok ? "ok" : "err",
-        r.ok
-          ? `${c.name}: connected (${r.latency_ms} ms)`
-          : `${c.name}: ${r.error ?? "failed"}`,
-      ),
+    mutationFn: (c: ConnectionOut) => endpoints.testConnection({ connection_id: c.id }),
+    onSuccess: (r, c) => toast(r.ok ? "ok" : "err", r.ok ? `${c.name}: connected (${r.latency_ms} ms)` : `${c.name}: ${r.error ?? "failed"}`),
     onError: (e) => toast("err", errMsg(e)),
   });
   const makeDefault = useMutation({
-    mutationFn: (c: ConnectionOut) =>
-      endpoints.updateConnection(c.id, { default_for_ai: true }),
+    mutationFn: (c: ConnectionOut) => endpoints.updateConnection(c.id, { default_for_ai: true }),
     onSuccess: (c) => {
       toast("ok", `${c.name} is now the default for agents`);
       void qc.invalidateQueries({ queryKey: ["connections"] });
@@ -511,24 +347,15 @@ export function ConnectionsSection({
   if (conns.isError) return <ErrorBox error={conns.error} />;
   if (kinds.isError) return <ErrorBox error={kinds.error} />;
   const rows = conns.data;
-  const editing =
-    sheet && sheet !== "new" ? rows.find((c) => c.id === sheet) : undefined;
-  const form =
-    admin && (sheet === "new" || editing) ? { editing: editing ?? null } : null;
+  const editing = sheet && sheet !== "new" ? rows.find((c) => c.id === sheet) : undefined;
+  const form = admin && (sheet === "new" || editing) ? { editing: editing ?? null } : null;
   const label = (k: string) => kinds.data.find((x) => x.kind === k)?.label ?? k;
   const add = admin && (
-    <button
-      type="button"
-      className="btn btn-primary btn-sm"
-      onClick={() => openSheet("new")}
-    >
+    <button type="button" className="btn btn-primary btn-sm" onClick={() => openSheet("new")}>
       <Icon d={ICONS.plus} size={14} /> Add connection
     </button>
   );
-  const busy = (
-    m: { isPending: boolean; variables?: ConnectionOut },
-    c: ConnectionOut,
-  ) => m.isPending && m.variables?.id === c.id;
+  const busy = (m: { isPending: boolean; variables?: ConnectionOut }, c: ConnectionOut) => m.isPending && m.variables?.id === c.id;
 
   return (
     <section>
@@ -545,23 +372,16 @@ export function ConnectionsSection({
       />
       {rows.length === 0 ? (
         <EmptyState title="No warehouse connected" action={add || undefined}>
-          Connect a warehouse so agents can query it and Satchel can catalog its
-          tables. {admin ? "" : "An admin can add one here."}
+          Connect a warehouse so agents can query it and Satchel can catalog its tables. {admin ? "" : "An admin can add one here."}
         </EmptyState>
       ) : (
         <TableCard>
           <thead>
             <tr>
               <th className="th w-full">Name</th>
-              <th className="th hidden w-px whitespace-nowrap sm:table-cell">
-                Kind
-              </th>
-              <th className="th hidden w-px whitespace-nowrap text-right md:table-cell">
-                Assets
-              </th>
-              <th className="th hidden w-px whitespace-nowrap sm:table-cell">
-                Secret
-              </th>
+              <th className="th hidden w-px whitespace-nowrap sm:table-cell">Kind</th>
+              <th className="th hidden w-px whitespace-nowrap text-right md:table-cell">Assets</th>
+              <th className="th hidden w-px whitespace-nowrap sm:table-cell">Secret</th>
               {admin && (
                 <th className="th hidden w-px lg:table-cell">
                   <span className="sr-only">Actions</span>
@@ -584,44 +404,21 @@ export function ConnectionsSection({
               // Below `lg` the actions fold under the name, so the name and path keep the width.
               const actions = (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => test.mutate(c)}
-                    disabled={busy(test, c)}
-                  >
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => test.mutate(c)} disabled={busy(test, c)}>
                     {busy(test, c) ? "Testing..." : "Test"}
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => crawl.mutate(c)}
-                    disabled={busy(crawl, c)}
-                  >
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => crawl.mutate(c)} disabled={busy(crawl, c)}>
                     {busy(crawl, c) ? "Crawling..." : "Crawl"}
                   </button>
                   {!c.default_for_ai && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => makeDefault.mutate(c)}
-                    >
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => makeDefault.mutate(c)}>
                       Make default
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => openSheet(c.id)}
-                  >
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => openSheet(c.id)}>
                     Edit
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm text-bad"
-                    onClick={() => setRemoving(c)}
-                    aria-label={`Remove ${c.name}`}
-                  >
+                  <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => setRemoving(c)} aria-label={`Remove ${c.name}`}>
                     Remove
                   </button>
                 </>
@@ -630,46 +427,19 @@ export function ConnectionsSection({
                 <tr key={c.id} className="border-t border-line">
                   <td className="td">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        className="font-medium hover:underline"
-                        to={`/catalog?connection=${encodeURIComponent(c.name)}`}
-                      >
+                      <Link className="font-medium hover:underline" to={`/catalog?connection=${encodeURIComponent(c.name)}`}>
                         {c.name}
                       </Link>
-                      <span className="text-xs text-muted sm:hidden">
-                        {label(c.kind)}
-                      </span>
-                      {c.default_for_ai && (
-                        <span className="badge badge-good">default</span>
-                      )}
+                      <span className="text-xs text-muted sm:hidden">{label(c.kind)}</span>
+                      {c.default_for_ai && <span className="badge badge-good">default</span>}
                     </div>
-                    {where && (
-                      <div className="mt-0.5 font-mono text-xs text-muted [overflow-wrap:anywhere]">
-                        {where}
-                      </div>
-                    )}
-                    {admin && (
-                      <div className="-ml-2 mt-1.5 flex flex-wrap gap-1 lg:hidden">
-                        {actions}
-                      </div>
-                    )}
+                    {where && <div className="mt-0.5 font-mono text-xs text-muted [overflow-wrap:anywhere]">{where}</div>}
+                    {admin && <div className="-ml-2 mt-1.5 flex flex-wrap gap-1 lg:hidden">{actions}</div>}
                   </td>
-                  <td className="td hidden whitespace-nowrap sm:table-cell">
-                    {label(c.kind)}
-                  </td>
-                  <td className="td hidden whitespace-nowrap text-right tabular-nums md:table-cell">
-                    {c.asset_count}
-                  </td>
+                  <td className="td hidden whitespace-nowrap sm:table-cell">{label(c.kind)}</td>
+                  <td className="td hidden whitespace-nowrap text-right tabular-nums md:table-cell">{c.asset_count}</td>
                   <td className="td hidden whitespace-nowrap text-xs text-muted sm:table-cell">
-                    {c.secret === "stored" ? (
-                      "encrypted"
-                    ) : c.secret === "env" ? (
-                      <span title="An env:NAME reference set with the CLI">
-                        environment
-                      </span>
-                    ) : (
-                      "–"
-                    )}
+                    {c.secret === "stored" ? "encrypted" : c.secret === "env" ? <span title="An env:NAME reference set with the CLI">environment</span> : "–"}
                   </td>
                   {admin && (
                     <td className="td hidden whitespace-nowrap lg:table-cell">
@@ -682,45 +452,24 @@ export function ConnectionsSection({
           </tbody>
         </TableCard>
       )}
-      {form && (
-        <ConnectionForm
-          key={sheet}
-          kinds={kinds.data}
-          editing={form.editing}
-          encryption={encryption}
-          first={rows.length === 0}
-          onClose={closeForm}
-        />
-      )}
+      {form && <ConnectionForm key={sheet} kinds={kinds.data} editing={form.editing} encryption={encryption} first={rows.length === 0} onClose={closeForm} />}
       <Modal
         open={removing !== null}
         onClose={() => setRemoving(null)}
         title={`Remove ${removing?.name ?? ""}?`}
         footer={
           <>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setRemoving(null)}
-            >
+            <button type="button" className="btn" onClick={() => setRemoving(null)}>
               Cancel
             </button>
-            <button
-              type="button"
-              className="btn btn-danger"
-              disabled={remove.isPending}
-              onClick={() => removing && remove.mutate(removing)}
-            >
+            <button type="button" className="btn btn-danger" disabled={remove.isPending} onClick={() => removing && remove.mutate(removing)}>
               {remove.isPending ? "Removing..." : "Remove"}
             </button>
           </>
         }
       >
         <p className="text-sm">
-          Agents can no longer query it. Its {removing?.asset_count ?? 0}{" "}
-          catalogued tables and columns are marked dropped, so context that
-          mentions them is flagged for review. Context items and their history
-          are kept. A connection a source still uses can't be removed.
+          Agents can no longer query it. Its {removing?.asset_count ?? 0} catalogued tables and columns are marked dropped, so context that mentions them is flagged for review. Context items and their history are kept. A connection a source still uses can't be removed.
         </p>
       </Modal>
     </section>
