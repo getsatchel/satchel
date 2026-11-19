@@ -37,21 +37,36 @@ provider "aws" {
 # The Kubernetes and Helm providers are configured from the cluster the same apply creates. On
 # the very first run, create the cluster first (docs/deploy/eks.md step 3):
 #   terraform apply -target=module.eks.aws_eks_cluster.this
-data "aws_eks_cluster_auth" "this" {
-  name = module.eks.cluster_name
+# A fresh token on each call (aws eks get-token, so the AWS CLI must be installed): a token read
+# once at plan time expires after 15 minutes, and is invalid when the plan ran before the cluster
+# existed, which fails the first apply with "Unauthorized".
+locals {
+  eks_exec = {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.region]
+  }
 }
 
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
-  token                  = data.aws_eks_cluster_auth.this.token
   cluster_ca_certificate = base64decode(module.eks.cluster_ca_certificate)
+  exec {
+    api_version = local.eks_exec.api_version
+    command     = local.eks_exec.command
+    args        = local.eks_exec.args
+  }
 }
 
 provider "helm" {
   kubernetes {
     host                   = module.eks.cluster_endpoint
-    token                  = data.aws_eks_cluster_auth.this.token
     cluster_ca_certificate = base64decode(module.eks.cluster_ca_certificate)
+    exec {
+      api_version = local.eks_exec.api_version
+      command     = local.eks_exec.command
+      args        = local.eks_exec.args
+    }
   }
 }
 
@@ -67,12 +82,14 @@ module "foundation" {
   public_subnet_ids  = var.public_subnet_ids
   single_nat_gateway = var.single_nat_gateway
 
-  database_instance_class      = var.database_instance_class
-  database_multi_az            = var.database_multi_az
-  database_deletion_protection = var.database_deletion_protection
+  database_instance_class        = var.database_instance_class
+  database_multi_az              = var.database_multi_az
+  database_deletion_protection   = var.database_deletion_protection
+  database_backup_retention_days = var.database_backup_retention_days
 
-  oidc_client_secret  = var.oidc_client_secret
-  enable_chat_api_key = var.chat_api_key != null
+  oidc_client_secret = var.oidc_client_secret
+  # nonsensitive: only whether a key was given, which decides the secrets created (for_each).
+  enable_chat_api_key = nonsensitive(var.chat_api_key != null)
   chat_api_key        = var.chat_api_key
 
   result_ttl_days      = var.result_ttl_days
@@ -101,6 +118,7 @@ module "eks" {
   existing_cluster_name        = var.existing_cluster_name
   kubernetes_version           = var.kubernetes_version
   compute                      = var.compute
+  workload_identity            = var.workload_identity
   node_instance_types          = var.node_instance_types
   public_access_cidrs          = var.cluster_public_access_cidrs
   cluster_admin_principal_arns = var.cluster_admin_principal_arns

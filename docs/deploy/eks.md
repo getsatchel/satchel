@@ -11,7 +11,7 @@ Terraform builds the whole stack in your AWS account:
   - least-privilege IAM policies.
 - **Cluster** (`modules/eks`):
   - an EKS cluster on managed nodes or Fargate, with KMS envelope encryption for Secrets;
-  - IRSA roles for the runtime and the migrate Job;
+  - IAM roles for the runtime and the migrate Job, given to their service accounts with EKS Pod Identity (or IRSA);
   - the AWS Load Balancer Controller;
   - the Secrets Store CSI driver with the AWS provider;
   - an ACM certificate and an AWS WAF web ACL.
@@ -23,7 +23,7 @@ Claude / browser ──https──▶ ALB (ACM certificate, AWS WAF, 3600 s idle
                          EKS (private subnets, NAT) · managed nodes or Fargate
                          Deployment satchel (2-6 replicas, HPA, PDB) · CronJob satchel-worker
                          pre-upgrade hook Job satchel-migrate (db bootstrap + upgrade)
-                                   │ IRSA: SA satchel ⇒ satchel-runtime · SA satchel-migrate ⇒ satchel-migrate
+                                   │ Pod Identity: SA satchel ⇒ satchel-runtime · SA satchel-migrate ⇒ satchel-migrate
                                    ▼
    RDS PostgreSQL 17 (pgvector, private) · S3 results (s3://) + audit · Secrets Manager · KMS
 ```
@@ -35,10 +35,22 @@ Test locally: `scripts/floci-aws-e2e.sh` applies this stack against the floci AW
 ## 1. Prerequisites
 
 - An AWS account and an IAM principal that can create VPC, EKS, RDS, IAM, KMS, S3, Secrets Manager, ACM and WAF resources. `AdministratorAccess` works for the first apply.
-- Terraform 1.6 or newer, the AWS CLI v2 and `kubectl`.
+- Terraform 1.6 or newer, the AWS CLI v2 and `kubectl`. The example's Kubernetes and Helm providers get a fresh cluster token from `aws eks get-token` on every call, so the AWS CLI must be on the `PATH` of whatever runs Terraform, CI included.
 - An OIDC identity provider (Okta, Entra ID, Google, Cognito, ...) and a DNS name you control. A Route 53 public hosted zone for it lets Terraform validate the certificate automatically.
 - A private, versioned S3 bucket for Terraform state (see `examples/eks/backend.tf.example`). State holds the generated database passwords, so restrict access to it.
 - If you restrict the Kubernetes API (`cluster_public_access_cidrs`), include the address you run Terraform from. Terraform's Kubernetes and Helm providers reach the endpoint from there.
+
+**Pod identity.** Pods get their IAM roles through **EKS Pod Identity** by default (`workload_identity = "pod_identity"`): the module installs the `eks-pod-identity-agent` add-on and associates each role with its service account. It needs no IAM OIDC provider, which some organizations deny with a service control policy (AWS accounts created with the new sign-up experience are projects in an organization that does: `iam:CreateOpenIDConnectProvider` fails with "explicit deny in a service control policy"). `workload_identity = "irsa"` uses IAM Roles for Service Accounts instead, and Fargate always does, because Pod Identity's agent cannot run there. On an existing cluster (`existing_cluster_name`) with Pod Identity, the `eks-pod-identity-agent` add-on must already be installed.
+
+**AWS Free plan.** A new account on the Free plan can run this for a trial, paid from its credits, with three settings it otherwise refuses:
+
+```hcl
+node_instance_types            = ["m7i-flex.large"]   # Free-plan-eligible instance types only
+database_instance_class        = "db.t4g.micro"       # or db.t3.micro
+database_backup_retention_days = 1                    # "exceeds the maximum available to free tier customers"
+```
+
+AWS closes a Free-plan account when its credits run out, so destroy the stack when you are done (section 12). Upgrade to the Paid plan to lift the limits.
 
 The image defaults to `ghcr.io/getsatchel/satchel:<tag>`. Nodes pull it directly through the NAT gateway. To pull from your own ECR instead, set `helm_extra_values = { image = { repository = "ACCOUNT.dkr.ecr.REGION.amazonaws.com/satchel", tag = "0.5.4" } }`.
 
@@ -60,10 +72,11 @@ cp backend.tf.example backend.tf                # edit
 terraform init
 # the Kubernetes and Helm providers are configured from the cluster, so create it first
 terraform apply -target=module.eks.aws_eks_cluster.this -target=module.foundation
+# store the OIDC client secret now (section 4): the chart's pods mount it at start
 terraform apply
 ```
 
-The first apply takes 20 to 30 minutes, mostly RDS and the EKS control plane. The second apply installs the add-ons and the chart. Each `helm_release` runs with `atomic = true`, so a failed install is rolled back.
+The first apply takes 20 to 30 minutes, mostly RDS and the EKS control plane. Store the OIDC client secret before the second apply, which installs the add-ons and the chart: the migrate Job mounts every runtime secret, so it waits until the secret has a value, and the release gives up after `helm_timeout` (15 minutes). Each `helm_release` runs with `atomic = true`, so a failed install is rolled back.
 
 The certificate:
 
@@ -81,7 +94,7 @@ Terraform generates every database credential and writes it to Secrets Manager u
 | `satchel/database-url`, `satchel/admin-database-url`, `satchel/oidc-client-secret`, `satchel/chat-api-key` (optional) | web, worker, first-workspace Job (role `satchel-runtime`) |
 | `satchel/migration-database-url`, `satchel/owner-password`, `satchel/app-password`, `satchel/worker-password` | the migrate Job only (role `satchel-migrate`) |
 
-The OIDC client secret is the one value you supply. Leave `oidc_client_secret` unset so it never enters Terraform state, and store it after the apply:
+The OIDC client secret is the one value you supply. Leave `oidc_client_secret` unset so it never enters Terraform state, and store it after the first (targeted) apply, which creates the empty secret, and before the second:
 
 ```bash
 aws secretsmanager put-secret-value \
@@ -136,7 +149,7 @@ The ALB idle timeout is raised to an hour so MCP server-sent-event streams are n
   - on managed nodes, the chart's NetworkPolicy, enforced by the VPC CNI, admits only the VPC CIDR to the web port.
 - **Identity:**
   - no static AWS keys anywhere;
-  - pods get credentials through IRSA, and each role trusts exactly one Kubernetes service account;
+  - pods get credentials through EKS Pod Identity (each role is associated with exactly one Kubernetes service account) or, with `workload_identity = "irsa"` and on Fargate, through IRSA (each role trusts exactly one service account);
   - the Kubernetes API uses EKS access entries (`cluster_admin_principal_arns`).
 - **Encryption:**
   - one customer managed KMS key, rotated yearly, covers RDS storage, Performance Insights, Secrets Manager, S3 (SSE-KMS with bucket keys) and Kubernetes Secrets;
@@ -206,7 +219,7 @@ The values come from `modules/aws-helm-values` and use the chart's own keys (`de
 - `resultDir` (an `s3://` path);
 - `oidc.{issuer,clientId}`, `chat.*`;
 - `web.replicaCount`, `autoscaling.*`, `worker.mode = cronjob`;
-- `serviceAccount.{create,name,awsRoleArn}` and `serviceAccount.migration.{create,name,awsRoleArn}` (IRSA);
+- `serviceAccount.{create,name,awsRoleArn}` and `serviceAccount.migration.{create,name,awsRoleArn}` (the role ARN only with IRSA; with Pod Identity the association carries it), and `secretManager.aws.usePodIdentity`;
 - `secretManager.{enabled,provider=aws,secrets,migrationSecrets,bootstrapSecrets}` with CSI delivery, or `existingSecret` and `bootstrap.existingSecret` with Kubernetes Secrets;
 - `bootstrap.enabled`, `firstWorkspace.*`;
 - `aws.{enabled,region,alb.*}`;

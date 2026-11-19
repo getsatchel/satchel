@@ -61,8 +61,9 @@ module "foundation" {
   database_availability_type   = var.database_availability_type
   database_deletion_protection = var.database_deletion_protection
 
-  oidc_client_secret  = var.oidc_client_secret
-  enable_chat_api_key = var.chat_api_key != null
+  oidc_client_secret = var.oidc_client_secret
+  # nonsensitive: only whether a key was given, which decides the secrets created (for_each).
+  enable_chat_api_key = nonsensitive(var.chat_api_key != null)
   chat_api_key        = var.chat_api_key
 
   result_ttl_days      = var.result_ttl_days

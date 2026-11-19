@@ -28,15 +28,13 @@ resource "helm_release" "load_balancer_controller" {
     vpcId        = var.vpc_id
     replicaCount = 2
     serviceAccount = {
-      create = true
-      name   = "aws-load-balancer-controller"
-      annotations = {
-        "eks.amazonaws.com/role-arn" = aws_iam_role.irsa["lbc"].arn
-      }
+      create      = true
+      name        = "aws-load-balancer-controller"
+      annotations = local.irsa ? { "eks.amazonaws.com/role-arn" = aws_iam_role.irsa["lbc"].arn } : {}
     }
   })]
 
-  depends_on = [aws_iam_role_policy_attachment.irsa, aws_eks_addon.coredns, aws_eks_node_group.this, aws_eks_fargate_profile.this]
+  depends_on = [aws_iam_role_policy_attachment.irsa, aws_eks_pod_identity_association.this, aws_eks_addon.coredns, aws_eks_node_group.this, aws_eks_fargate_profile.this]
 }
 
 # The upstream Secrets Store CSI driver (a dependency of this chart) plus the AWS provider. The
@@ -122,6 +120,7 @@ module "values" {
   results_bucket         = var.results_bucket
   runtime_role_arn       = aws_iam_role.irsa["runtime"].arn
   migrate_role_arn       = aws_iam_role.irsa["migrate"].arn
+  use_pod_identity       = !local.irsa
   secrets_delivery       = local.secrets_delivery
   secret_names           = var.secret_names
   existing_secret_name   = try(kubernetes_secret_v1.satchel[0].metadata[0].name, null)
@@ -154,6 +153,7 @@ resource "helm_release" "satchel" {
 
   depends_on = [
     aws_iam_role_policy_attachment.irsa,
+    aws_eks_pod_identity_association.this,
     aws_vpc_security_group_ingress_rule.database_from_cluster,
     helm_release.load_balancer_controller,
     helm_release.secrets_store_csi,

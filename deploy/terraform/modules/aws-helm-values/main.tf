@@ -28,6 +28,7 @@ locals {
       secrets          = { for env, k in local.runtime_secret_keys : env => lookup(var.secret_names, k, "") }
       migrationSecrets = { SATCHEL_MIGRATION_DATABASE_URL = lookup(var.secret_names, "migration_database_url", "") }
       bootstrapSecrets = { for env, k in local.bootstrap_secret_keys : env => lookup(var.secret_names, k, "") }
+      aws              = { usePodIdentity = var.use_pod_identity }
     }
     bootstrap = {
       enabled = var.bootstrap_enabled
@@ -71,13 +72,15 @@ locals {
       }
 
       serviceAccount = {
-        create     = true
-        name       = "satchel"
-        awsRoleArn = var.runtime_role_arn
+        create = true
+        name   = "satchel"
+        # With Pod Identity the association, not an annotation, gives the account its role. An
+        # annotation would make the SDK try web identity first, which has no OIDC provider.
+        awsRoleArn = var.use_pod_identity ? "" : var.runtime_role_arn
         migration = {
           create     = true
           name       = "satchel-migrate"
-          awsRoleArn = var.migrate_role_arn
+          awsRoleArn = var.use_pod_identity ? "" : var.migrate_role_arn
         }
       }
 
