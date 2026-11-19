@@ -67,8 +67,8 @@ Each tone has a `-soft` background for badges and error boxes.
 
 - **Spacing.** Sections are `space-y-9` apart. Cards pad `px-4 py-3` to `p-4`; table cells are `.td` (`px-3 py-2.5`). Form fields are `space-y-4`. Use the Tailwind scale, not arbitrary pixel values.
 - **Radius.** `rounded` 6px for badges and small buttons, `rounded-md` 8px for buttons and inputs, `rounded-lg` 10px for menus, `rounded-xl` 12px for cards and dialogs, `rounded-2xl` 16px for the app panel, `rounded-full` for pills and dots.
-- **Depth.** Borders do the work; shadows are for things that float. `shadow-panel` on the app panel, `shadow-pop` on dialogs, menus and tooltips, and a shadow on the phone drawer and on toasts. Cards have no shadow. No gradients or glow; the only blur is the faint one behind the command palette.
-- **Motion.** Colour transitions on hover and focus, the drawer slide (200ms) and the skeleton pulse. Nothing else moves, and all of it stops under `prefers-reduced-motion`.
+- **Depth.** Borders do the work; shadows are for things that float. `shadow-panel` on the app panel, `shadow-pop` on dialogs, sheets, menus and tooltips, and a shadow on the phone drawer and on toasts. Cards have no shadow. No gradients or glow; the only blur is the faint one behind the command palette.
+- **Motion.** Colour transitions on hover and focus, the drawer and sheet slides (200ms) and the skeleton pulse. Nothing else moves, and all of it stops under `prefers-reduced-motion`.
 - **Icons.** `Icon` with a path from `ICONS`: 24px grid, 1.7 stroke, no fills. No emoji, no second icon set. An icon-only button has an `aria-label`.
 
 ## Frame and navigation
@@ -134,13 +134,21 @@ Put the layers from PRODUCT.md where they belong: state and the next action in t
 - **Errors** appear under the form in an `ErrorBox`; a check (Test) shows its result beside the button that ran it.
 - Group a long form with caps-label fieldsets separated by a hairline.
 
-### Dialogs
+### Overlays
 
-- `Modal`: title, body, footer. `max-w-md` for a short form, `wide` for a two-column one. Every dialog has the Close button in its header; on phones it is a bottom sheet.
-- **Footer order**, left to right: a secondary check (Test) on the far left, then Cancel, then the one ink button. Button words are the verb of the result: Save, Remove, Publish, Crawl. A destructive confirm uses `.btn-danger` and names the thing in its title ("Remove warehouse?").
-- **Steps are for length, not ceremony.** Split a dialog into steps only when one form would scroll for several screens (adding a source). Show "Step 2 of 3" under the title and nothing else: no step names, ticks or progress bar. Back keeps what was entered, Next validates the step, a stepped dialog does not close on an outside click, and focus moves to the first field of each step. Editing the same thing shows the whole form.
-- **After a create**, say what to do next once: a second state of the same dialog with one action (a new connection offers Crawl), or the new thing's own page (a new source). Not both, and no "success" step.
-- A flow that needs more than three steps, or that people come back to, is a page, not a dialog.
+Three kinds, one job each. Pick by what the person is doing, not by how much the form holds.
+
+| Kind | For | Component |
+| --- | --- | --- |
+| **Confirm** | one decision about one thing: remove, publish, roll back, reject | `Modal`, centred, `max-w-md` |
+| **Sheet** | creating, editing or inspecting one thing, with the page still in view | `Sheet`, on the right edge |
+| **Page** | a setup people come back to, or a flow longer than four steps | its own route |
+
+- **Confirm.** The title names the thing and ends in a question ("Remove warehouse?"); the body says what happens to what depends on it. A destructive confirm uses `.btn-danger`. A click outside closes it. On phones it is a bottom sheet.
+- **Sheet.** 512px, or `wide` (768px) when a guide, SQL or a two-column form sits beside the fields; full screen on phones. The header holds the title and Close, the body scrolls, the footer stays at the bottom. Its open state lives in the URL with `useSheetParam()` (`?sheet=new`, `?sheet=<id>`), so a reload or a link reopens it and Back closes it. Pass `dirty` once anything has been typed: Close, Esc and a click outside then ask "Discard your changes?" in the footer instead of closing.
+- **Footer order**, left to right: a secondary check (Test) on the far left, then Cancel, then the one ink button. Button words are the verb of the result: Save, Remove, Publish, Crawl.
+- **Steps are for length or for leaving.** Split a sheet into steps when one form would scroll for several screens (adding a source), or when the person has to do something outside Satchel between steps (running setup SQL in the warehouse). Steps that are separate tasks get short names (`steps={{ current, names: ["Warehouse", "Prepare", "Details", "Crawl"] }}`): the current one in accent, the others muted, no ticks or progress bar. Otherwise show only "Step 2 of 3". Back keeps what was entered, Next validates the step, and focus moves to the first field of each step. Editing the same thing shows the whole form.
+- **After a create**, say what to do next once: a second state of the same sheet with one action (a new connection offers Crawl), or the new thing's own page (a new source). Not both, and no "success" step.
 
 ### Feedback
 
@@ -171,7 +179,7 @@ Put the layers from PRODUCT.md where they belong: state and the next action in t
 - Menus (`Dropdown`): arrow keys move, Enter selects, Esc closes and returns focus. Tooltips (`InfoTip`) open on hover and on focus.
 - `Tabs` follow the ARIA tabs pattern: only the selected tab is in the Tab order, and the arrow keys, Home and End move between tabs.
 - The phone drawer is modal: opening it focuses Close, Tab stays inside it, and Esc closes it and returns focus to the menu button. The command palette has a Close button for touch.
-- Dialogs are native `<dialog>` elements labelled by their title; focus goes to the first field. Code editors and diffs (`CodeEditor`, `CodeDiff`) are labelled groups and pass the label to Monaco.
+- Confirms and sheets are native `<dialog>` elements labelled by their title; focus goes to the first field, and a stepped sheet's step list carries "Step N of M" as its label. Code editors and diffs (`CodeEditor`, `CodeDiff`) are labelled groups and pass the label to Monaco.
 - Colour is never the only signal: a state is a dot and a word, an error is a badge and a message.
 - Results that appear without a page change use `role="status"`; failures use `role="alert"`.
 - The shell has a "Skip to content" link; a page has one `h1` (the `PageHeader`) and `h2` section headings.
@@ -191,7 +199,8 @@ All in `src/components/ui.tsx` unless noted.
 | `FilterSelect`, `SearchInput`, `Segmented`, `Tabs` | filtering, switching views, choosing one of a few |
 | `StatusDot`, `StatusLine`, `StateBadge`, `.badge*`, `TypeBadge`, `GitBadge`, `SourceBadge` | states and flags |
 | `.btn`, `.btn-primary`, `.btn-ghost`, `.btn-danger`, `.btn-sm`, `.btn-pill`, `.input`, `.label` | buttons and fields |
-| `Modal` | dialogs, optionally stepped |
+| `Modal` | confirms |
+| `Sheet`, `useSheetParam` | create, edit and inspect panels on the right, optionally stepped; their URL state |
 | `Dropdown`, `MenuItem`, `InfoTip`, `Kbd` | menus, tooltips, key caps |
 | `EmptyState`, `Loading`, `ErrorBox`, `Notice` | page states and inline notices |
 | `PanelSection`, `DescList` | detail panels, key and value metadata |
