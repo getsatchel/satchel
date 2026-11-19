@@ -131,7 +131,13 @@ code, pre, .mono { @apply font-mono; font-size: 12.5px; }
 .recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line { stroke: rgb(var(--line)); }
 .recharts-default-tooltip { background: rgb(var(--surface)) !important; border: 1px solid rgb(var(--line)) !important; border-radius: 8px; font-size: 12px; }
 
-/* Motion is hover colour, the drawer slide and the skeleton pulse. Stop it all on request. */
+/* A Sheet slides in from the right edge; its scrim fades. */
+@keyframes sheet-in { from { transform: translateX(100%); } }
+@keyframes scrim-in { from { opacity: 0; } }
+.sheet[open] { animation: sheet-in 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.sheet[open]::backdrop { animation: scrim-in 200ms ease-out; }
+
+/* Motion is hover colour, the drawer and sheet slides and the skeleton pulse. Stop it all on request. */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { errMsg } from "@/lib/format";
 import { SatchelMark } from "@/components/Logo";
 import { MOD_KEY, useCommandPalette } from "@/components/paletteContext";
@@ -339,6 +339,144 @@ export function Modal(props: {
             {props.children}
           </div>
           {props.footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4">{props.footer}</div>}
+        </div>
+      )}
+    </dialog>
+  );
+}
+
+/**
+ * The open sheet, kept in the URL (`?sheet=new`, `?sheet=<id>`) so a reload or a shared link
+ * reopens it. Opening pushes a history entry, so Back closes the sheet; closing one opened in this
+ * visit goes back rather than adding another entry.
+ */
+export function useSheetParam(key = "sheet") {
+  const [sp, setSp] = useSearchParams();
+  const nav = useNavigate();
+  const loc = useLocation();
+  const value = sp.get(key);
+  const open = (v: string) =>
+    setSp(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.set(key, v);
+        return n;
+      },
+      { state: { sheet: true } },
+    );
+  const close = () => {
+    if ((loc.state as { sheet?: boolean } | null)?.sheet) nav(-1);
+    else
+      setSp(
+        (prev) => {
+          const n = new URLSearchParams(prev);
+          n.delete(key);
+          return n;
+        },
+        { replace: true },
+      );
+  };
+  return [value, open, close] as const;
+}
+
+/**
+ * A panel on the right for creating, editing or inspecting one thing, with the page still in view.
+ * Confirms stay a centred `Modal`. Closing with unsaved changes (`dirty`) asks first, in the footer.
+ */
+export function Sheet(props: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  /** 768px, for a guide or SQL beside the form. Default 512px. */
+  wide?: boolean;
+  /** Named steps when each is a separate task; otherwise only a count is shown. */
+  steps?: { current: number; names?: string[]; total?: number };
+  dirty?: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (props.open && !d.open) d.showModal();
+    if (!props.open && d.open) d.close();
+    setAsking(false);
+  }, [props.open]);
+  const step = props.steps?.current;
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!props.open || !body) return;
+    const field = body.querySelector<HTMLElement>('input:not([disabled]):not([type="radio"]):not([type="checkbox"]), input[type="radio"]:checked, select:not([disabled]), textarea:not([disabled])');
+    if (field) field.focus();
+    else body.focus();
+  }, [props.open, step]);
+  useEffect(() => {
+    if (asking) keepRef.current?.focus();
+  }, [asking]);
+  const request = () => (props.dirty ? setAsking(true) : props.onClose());
+  const total = props.steps ? (props.steps.names?.length ?? props.steps.total ?? 0) : 0;
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      onCancel={(e) => {
+        // Esc: the browser would close the dialog without asking.
+        e.preventDefault();
+        request();
+      }}
+      onClick={(e) => {
+        if (e.target === ref.current) request();
+      }}
+      className={`sheet m-0 ml-auto h-dvh max-h-none w-full max-w-none border-0 bg-surface p-0 text-ink shadow-pop backdrop:bg-black/30 sm:border-l sm:border-line md:my-3 md:mr-3 md:h-[calc(100dvh-1.5rem)] md:rounded-xl md:border ${props.wide ? "sm:max-w-3xl" : "sm:max-w-lg"}`}
+    >
+      {props.open && (
+        <div className="flex h-full flex-col">
+          <div className="flex items-start gap-3 border-b border-line px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <h2 id={titleId} className="text-base font-semibold">
+                {props.title}
+              </h2>
+              {props.steps &&
+                (props.steps.names ? (
+                  <ol className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label={`Step ${props.steps.current + 1} of ${total}`}>
+                    {props.steps.names.map((n, i) => (
+                      <li key={n} aria-current={i === props.steps?.current ? "step" : undefined} className={i === props.steps?.current ? "font-medium text-accent" : "text-muted"}>
+                        <span className="mr-1 font-mono tabular-nums">{i + 1}</span>
+                        {n}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="mt-0.5 text-xs text-muted">
+                    Step {props.steps.current + 1} of {total}
+                  </p>
+                ))}
+            </div>
+            <button type="button" className="btn btn-ghost -mr-2 -mt-1 shrink-0 px-2" aria-label="Close" onClick={request}>
+              <Icon d={ICONS.close} size={16} />
+            </button>
+          </div>
+          <div ref={bodyRef} tabIndex={-1} className="min-h-0 flex-1 overflow-auto px-5 py-5 outline-none">
+            {props.children}
+          </div>
+          {asking ? (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4" role="alert">
+              <p className="mr-auto text-sm">Discard your changes?</p>
+              <button ref={keepRef} type="button" className="btn" onClick={() => setAsking(false)}>
+                Keep editing
+              </button>
+              <button type="button" className="btn btn-danger" onClick={props.onClose}>
+                Discard
+              </button>
+            </div>
+          ) : (
+            props.footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4">{props.footer}</div>
+          )}
         </div>
       )}
     </dialog>

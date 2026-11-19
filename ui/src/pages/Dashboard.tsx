@@ -106,7 +106,7 @@ function GetStarted() {
       title: "Connect a warehouse",
       detail: "Agents query it read-only; its tables fill the Catalog.",
       done: conns.data.length > 0,
-      to: "/settings?tab=connections&add=1",
+      to: "/connections?sheet=new",
       action: "Add connection",
       adminOnly: true,
     },

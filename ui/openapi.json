@@ -918,6 +918,22 @@
             "title": "Fields",
             "type": "array"
           },
+          "generates": {
+            "anyOf": [
+              {
+                "enum": [
+                  "keypair",
+                  "password"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "keypair: the client makes an RSA key pair and sends the private key as the secret. password: the client makes a random password.",
+            "title": "Generates"
+          },
           "kind": {
             "title": "Kind",
             "type": "string"
@@ -977,6 +993,27 @@
             "description": "The secret is a multi-line key (PEM / JSON): keep its newlines.",
             "title": "Secret Multiline",
             "type": "boolean"
+          },
+          "setup": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Commands that create Satchel's read-only identity in the warehouse. {field} is a config field ({a|b}: a, else b), {public_key} / {password} the credential the client generates.",
+            "title": "Setup"
+          },
+          "setup_lang": {
+            "default": "sql",
+            "enum": [
+              "sql",
+              "shell"
+            ],
+            "title": "Setup Lang",
+            "type": "string"
           }
         },
         "required": [
