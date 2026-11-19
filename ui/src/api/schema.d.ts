@@ -632,6 +632,28 @@ export interface paths {
         patch: operations["update_member"];
         trace?: never;
     };
+    "/v1/observability/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Analytics
+         * @description The Observability page: headline numbers against the period before, answer quality,
+         *     adoption, grounding, performance and workflow adherence. Question and comment text is
+         *     redacted for everyone but admins, and left out for sensitive sessions.
+         */
+        get: operations["analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/observability/summary": {
         parameters: {
             query?: never;
@@ -1264,6 +1286,74 @@ export interface components {
              */
             status: "created" | "exists" | "failed";
         };
+        /** Adherence */
+        Adherence: {
+            /** By Client */
+            by_client: components["schemas"]["AdherenceClient"][];
+            /** Recent */
+            recent: components["schemas"]["AdherenceBreach"][];
+            /** Rules */
+            rules: components["schemas"]["AdherenceRule"][];
+        };
+        /** AdherenceBreach */
+        AdherenceBreach: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Client */
+            client: string;
+            /** Question */
+            question: string | null;
+            /** Rules */
+            rules: string[];
+            /** Seq */
+            seq: number;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+        };
+        /** AdherenceClient */
+        AdherenceClient: {
+            /** Client */
+            client: string;
+            /** Followed */
+            followed: number;
+            /** Questions */
+            questions: number;
+        };
+        /** AdherenceRule */
+        AdherenceRule: {
+            /**
+             * Applies
+             * @description Questions (sessions for started, calls for in_question) the rule applied to.
+             */
+            applies: number;
+            /** Followed */
+            followed: number;
+            /** Label */
+            label: string;
+            /** Rule */
+            rule: string;
+        };
+        /** Adoption */
+        Adoption: {
+            /** Clients */
+            clients: components["schemas"]["ClientCount"][];
+            /** New People */
+            new_people: number;
+            /** People */
+            people: components["schemas"]["PersonStat"][];
+            /** People Per Week */
+            people_per_week: components["schemas"]["WeekPeople"][];
+            /** Per Day */
+            per_day: components["schemas"]["DayClientQuestions"][];
+            /** Returning People */
+            returning_people: number;
+        };
         /** AgentInstructionsInfo */
         AgentInstructionsInfo: {
             /**
@@ -1278,6 +1368,17 @@ export interface components {
             key: string;
             /** Max Chars */
             max_chars: number;
+        };
+        /** Analytics */
+        Analytics: {
+            adherence: components["schemas"]["Adherence"];
+            adoption: components["schemas"]["Adoption"];
+            /** Days */
+            days: number;
+            grounding: components["schemas"]["Grounding"];
+            headline: components["schemas"]["Headline"];
+            performance: components["schemas"]["Performance"];
+            quality: components["schemas"]["Quality"];
         };
         /** AssetDetail */
         AssetDetail: {
@@ -1499,6 +1600,24 @@ export interface components {
             /** Changes */
             changes: components["schemas"]["ChangeOut"][];
         };
+        /** ClientCount */
+        ClientCount: {
+            /** Client */
+            client: string;
+            /** Questions */
+            questions: number;
+        };
+        /** ClientQuality */
+        ClientQuality: {
+            /** Client */
+            client: string;
+            /** Down */
+            down: number;
+            /** Questions */
+            questions: number;
+            /** Up */
+            up: number;
+        };
         /** CompareOut */
         CompareOut: {
             a: components["schemas"]["RunOut"];
@@ -1634,6 +1753,19 @@ export interface components {
              * @description Write-only; null removes the secret.
              */
             secret?: string | null;
+        };
+        /** ConnectionPerf */
+        ConnectionPerf: {
+            /** Avg Rows */
+            avg_rows: number | null;
+            /** Connection */
+            connection: string;
+            /** Errors */
+            errors: number;
+            /** Queries */
+            queries: number;
+            /** Truncated */
+            truncated: number;
         };
         /** ConnectionSavedOut */
         ConnectionSavedOut: {
@@ -1793,12 +1925,44 @@ export interface components {
             /** Sessions */
             sessions: number;
         };
+        /** DayClientQuestions */
+        DayClientQuestions: {
+            /** Client */
+            client: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Questions */
+            questions: number;
+        };
+        /** DayValue */
+        DayValue: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Value */
+            value: number | null;
+        };
         /** DbtParseOut */
         DbtParseOut: {
             /** Available */
             available: boolean;
             /** Message */
             message: string;
+        };
+        /** Delta */
+        Delta: {
+            /**
+             * Previous
+             * @description The same measure over the period before.
+             */
+            previous: number | null;
+            /** Value */
+            value: number | null;
         };
         /** DeploymentGroup */
         DeploymentGroup: {
@@ -2078,10 +2242,62 @@ export interface components {
             /** Warn Only */
             warn_only: boolean;
         };
+        /** Grounding */
+        Grounding: {
+            /** Answered */
+            answered: number;
+            /** Gaps Flagged */
+            gaps_flagged: number;
+            /**
+             * Governed
+             * @description Answers that used query_metrics.
+             */
+            governed: number;
+            /**
+             * No Data
+             * @description Answers that ran no query.
+             */
+            no_data: number;
+            /**
+             * Sql Only
+             * @description Answers that used run_sql but no governed metric.
+             */
+            sql_only: number;
+            /** Top Metrics */
+            top_metrics: components["schemas"]["NameCount"][];
+            /** Top Tables */
+            top_tables: components["schemas"]["NameCount"][];
+            /** Unserved */
+            unserved: components["schemas"]["UnservedItem"][];
+            /**
+             * Unserved Count
+             * @description Published items no agent was served this period.
+             */
+            unserved_count: number;
+            /**
+             * With Context
+             * @description Answers whose session read context before answering.
+             */
+            with_context: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Headline */
+        Headline: {
+            /** @description Questions that followed every workflow rule that applied to them. */
+            adherence_rate: components["schemas"]["Delta"];
+            /** @description Questions that ended with report_answer. */
+            answered_rate: components["schemas"]["Delta"];
+            /** @description Data answers that used a governed metric (query_metrics) rather than only raw SQL. */
+            governed_rate: components["schemas"]["Delta"];
+            p95_latency_ms: components["schemas"]["Delta"];
+            people: components["schemas"]["Delta"];
+            questions: components["schemas"]["Delta"];
+            /** @description Thumbs up / all thumbs, from people and agents. */
+            thumbs_up_rate: components["schemas"]["Delta"];
         };
         /** HookOut */
         HookOut: {
@@ -2607,6 +2823,32 @@ export interface components {
             provider?: string | null;
             sign_in: components["schemas"]["SignInPolicy"];
         };
+        /** NameCount */
+        NameCount: {
+            /** Count */
+            count: number;
+            /** Name */
+            name: string;
+        };
+        /** NegativeFeedback */
+        NegativeFeedback: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Client */
+            client: string | null;
+            /** Comment */
+            comment: string | null;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Source */
+            source: string;
+        };
         /** ObservabilitySummary */
         ObservabilitySummary: {
             /** Days */
@@ -2662,6 +2904,43 @@ export interface components {
             budget_tokens: number;
             /** Question */
             question: string;
+        };
+        /** Performance */
+        Performance: {
+            /** Connections */
+            connections: components["schemas"]["ConnectionPerf"][];
+            /** P95 Per Day */
+            p95_per_day: components["schemas"]["DayValue"][];
+            /** Slowest */
+            slowest: components["schemas"]["SlowCall"][];
+            /** Tools */
+            tools: components["schemas"]["ToolPerf"][];
+        };
+        /** PersonStat */
+        PersonStat: {
+            /** Down */
+            down: number;
+            /** Label */
+            label: string;
+            /**
+             * Last Active
+             * Format: date-time
+             */
+            last_active: string;
+            /**
+             * New
+             * @description Their first session is in this period.
+             */
+            new: boolean;
+            /** Questions */
+            questions: number;
+            /** Up */
+            up: number;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /** PreviewEvalsRequest */
         PreviewEvalsRequest: {
@@ -2783,6 +3062,24 @@ export interface components {
              * @description Admins only: publish despite a failing or missing eval gate
              */
             override_reason?: string | null;
+        };
+        /** Quality */
+        Quality: {
+            /** By Client */
+            by_client: components["schemas"]["ClientQuality"][];
+            /** Caveat Rate */
+            caveat_rate: number | null;
+            /**
+             * Doubt Rate
+             * @description Answered questions a person doubted or corrected (a user_doubt signal).
+             */
+            doubt_rate: number | null;
+            /** Low Confidence Rate */
+            low_confidence_rate: number | null;
+            /** Per Week */
+            per_week: components["schemas"]["WeekFeedback"][];
+            /** Recent Negative */
+            recent_negative: components["schemas"]["NegativeFeedback"][];
         };
         /** RejectChangeRequest */
         RejectChangeRequest: {
@@ -3271,6 +3568,23 @@ export interface components {
             count: number;
             /** Kind */
             kind: string;
+        };
+        /** SlowCall */
+        SlowCall: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Latency Ms */
+            latency_ms: number;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Tool */
+            tool: string;
         };
         /** SourceCreate */
         SourceCreate: {
@@ -3843,6 +4157,19 @@ export interface components {
             /** Turn Id */
             turn_id: number | null;
         };
+        /** ToolPerf */
+        ToolPerf: {
+            /** Calls */
+            calls: number;
+            /** Errors */
+            errors: number;
+            /** P50 Ms */
+            p50_ms: number | null;
+            /** P95 Ms */
+            p95_ms: number | null;
+            /** Tool */
+            tool: string;
+        };
         /** ToolStat */
         ToolStat: {
             /** Avg Latency Ms */
@@ -3940,6 +4267,13 @@ export interface components {
             user_id: string | null;
             /** User Label */
             user_label: string | null;
+        };
+        /** UnservedItem */
+        UnservedItem: {
+            /** Key */
+            key: string;
+            /** Type */
+            type: string;
         };
         /** UpdateItemRequest */
         UpdateItemRequest: {
@@ -4044,6 +4378,28 @@ export interface components {
             secret: string;
             /** Url */
             url: string;
+        };
+        /** WeekFeedback */
+        WeekFeedback: {
+            /** Down */
+            down: number;
+            /** Up */
+            up: number;
+            /**
+             * Week
+             * Format: date
+             */
+            week: string;
+        };
+        /** WeekPeople */
+        WeekPeople: {
+            /** People */
+            people: number;
+            /**
+             * Week
+             * Format: date
+             */
+            week: string;
         };
     };
     responses: never;
@@ -5698,6 +6054,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analytics: {
+        parameters: {
+            query?: {
+                days?: 7 | 30 | 90;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Analytics"];
                 };
             };
             /** @description Validation Error */

@@ -289,6 +289,186 @@ class ServedItemStat(BaseModel):
     thumbs_down: int
 
 
+class Delta(BaseModel):
+    value: float | None
+    previous: float | None = Field(description="The same measure over the period before.")
+
+
+class Headline(BaseModel):
+    questions: Delta
+    people: Delta
+    answered_rate: Delta = Field(description="Questions that ended with report_answer.")
+    thumbs_up_rate: Delta = Field(description="Thumbs up / all thumbs, from people and agents.")
+    governed_rate: Delta = Field(description="Data answers that used a governed metric "
+                                 "(query_metrics) rather than only raw SQL.")
+    adherence_rate: Delta = Field(description="Questions that followed every workflow rule "
+                                  "that applied to them.")
+    p95_latency_ms: Delta
+
+
+class WeekFeedback(BaseModel):
+    week: date
+    up: int
+    down: int
+
+
+class ClientQuality(BaseModel):
+    client: str
+    questions: int
+    up: int
+    down: int
+
+
+class NegativeFeedback(BaseModel):
+    session_id: uuid.UUID
+    client: str | None
+    source: str
+    at: datetime
+    comment: str | None
+
+
+class Quality(BaseModel):
+    per_week: list[WeekFeedback]
+    by_client: list[ClientQuality]
+    doubt_rate: float | None = Field(description="Answered questions a person doubted or "
+                                     "corrected (a user_doubt signal).")
+    low_confidence_rate: float | None
+    caveat_rate: float | None
+    recent_negative: list[NegativeFeedback]
+
+
+class DayClientQuestions(BaseModel):
+    day: date
+    client: str
+    questions: int
+
+
+class WeekPeople(BaseModel):
+    week: date
+    people: int
+
+
+class ClientCount(BaseModel):
+    client: str
+    questions: int
+
+
+class PersonStat(BaseModel):
+    user_id: uuid.UUID
+    label: str
+    questions: int
+    last_active: datetime
+    up: int
+    down: int
+    new: bool = Field(description="Their first session is in this period.")
+
+
+class Adoption(BaseModel):
+    per_day: list[DayClientQuestions]
+    people_per_week: list[WeekPeople]
+    clients: list[ClientCount]
+    new_people: int
+    returning_people: int
+    people: list[PersonStat]
+
+
+class NameCount(BaseModel):
+    name: str
+    count: int
+
+
+class UnservedItem(BaseModel):
+    key: str
+    type: str
+
+
+class Grounding(BaseModel):
+    answered: int
+    governed: int = Field(description="Answers that used query_metrics.")
+    sql_only: int = Field(description="Answers that used run_sql but no governed metric.")
+    no_data: int = Field(description="Answers that ran no query.")
+    with_context: int = Field(description="Answers whose session read context before answering.")
+    gaps_flagged: int
+    top_metrics: list[NameCount]
+    top_tables: list[NameCount]
+    unserved_count: int = Field(description="Published items no agent was served this period.")
+    unserved: list[UnservedItem]
+
+
+class ToolPerf(BaseModel):
+    tool: str
+    calls: int
+    errors: int
+    p50_ms: int | None
+    p95_ms: int | None
+
+
+class DayValue(BaseModel):
+    day: date
+    value: float | None
+
+
+class ConnectionPerf(BaseModel):
+    connection: str
+    queries: int
+    errors: int
+    truncated: int
+    avg_rows: float | None
+
+
+class SlowCall(BaseModel):
+    session_id: uuid.UUID
+    tool: str
+    latency_ms: int
+    at: datetime
+
+
+class Performance(BaseModel):
+    tools: list[ToolPerf]
+    p95_per_day: list[DayValue]
+    connections: list[ConnectionPerf]
+    slowest: list[SlowCall]
+
+
+class AdherenceRule(BaseModel):
+    rule: str
+    label: str
+    applies: int = Field(description="Questions (sessions for started, calls for in_question) "
+                         "the rule applied to.")
+    followed: int
+
+
+class AdherenceClient(BaseModel):
+    client: str
+    questions: int
+    followed: int
+
+
+class AdherenceBreach(BaseModel):
+    session_id: uuid.UUID
+    seq: int
+    client: str
+    at: datetime
+    question: str | None
+    rules: list[str]
+
+
+class Adherence(BaseModel):
+    rules: list[AdherenceRule]
+    by_client: list[AdherenceClient]
+    recent: list[AdherenceBreach]
+
+
+class Analytics(BaseModel):
+    days: int
+    headline: Headline
+    quality: Quality
+    adoption: Adoption
+    grounding: Grounding
+    performance: Performance
+    adherence: Adherence
+
+
 class ObservabilitySummary(BaseModel):
     days: int
     total_sessions: int

@@ -44,6 +44,7 @@ import type {
   SignInPolicy,
   LlmTestRequest,
   Me,
+  Analytics,
   ObservabilitySummary,
   PackOut,
   PreviewOut,
@@ -187,6 +188,7 @@ export const endpoints = {
     api.post<PackOut>(`/v1/previews/${id}/context-pack`, { question }),
 
   summary: (days: number) => api.get<ObservabilitySummary>("/v1/observability/summary", { days }),
+  analytics: (days: number) => api.get<Analytics>("/v1/observability/analytics", { days }),
   listSessions: (q: { client?: string; status?: string; user_id?: string; limit?: number; offset?: number }) =>
     api.get<SessionPage>("/v1/sessions", { limit: 50, ...q }),
   listTurns: (q: { client?: string; status?: string; user_id?: string; limit?: number; offset?: number }) =>

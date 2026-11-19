@@ -119,6 +119,190 @@
         "title": "AccountOut",
         "type": "object"
       },
+      "Adherence": {
+        "properties": {
+          "by_client": {
+            "items": {
+              "$ref": "#/components/schemas/AdherenceClient"
+            },
+            "title": "By Client",
+            "type": "array"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/AdherenceBreach"
+            },
+            "title": "Recent",
+            "type": "array"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/AdherenceRule"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules",
+          "by_client",
+          "recent"
+        ],
+        "title": "Adherence",
+        "type": "object"
+      },
+      "AdherenceBreach": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "client": {
+            "title": "Client",
+            "type": "string"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "seq",
+          "client",
+          "at",
+          "question",
+          "rules"
+        ],
+        "title": "AdherenceBreach",
+        "type": "object"
+      },
+      "AdherenceClient": {
+        "properties": {
+          "client": {
+            "title": "Client",
+            "type": "string"
+          },
+          "followed": {
+            "title": "Followed",
+            "type": "integer"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "client",
+          "questions",
+          "followed"
+        ],
+        "title": "AdherenceClient",
+        "type": "object"
+      },
+      "AdherenceRule": {
+        "properties": {
+          "applies": {
+            "description": "Questions (sessions for started, calls for in_question) the rule applied to.",
+            "title": "Applies",
+            "type": "integer"
+          },
+          "followed": {
+            "title": "Followed",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "label",
+          "applies",
+          "followed"
+        ],
+        "title": "AdherenceRule",
+        "type": "object"
+      },
+      "Adoption": {
+        "properties": {
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/ClientCount"
+            },
+            "title": "Clients",
+            "type": "array"
+          },
+          "new_people": {
+            "title": "New People",
+            "type": "integer"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonStat"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "people_per_week": {
+            "items": {
+              "$ref": "#/components/schemas/WeekPeople"
+            },
+            "title": "People Per Week",
+            "type": "array"
+          },
+          "per_day": {
+            "items": {
+              "$ref": "#/components/schemas/DayClientQuestions"
+            },
+            "title": "Per Day",
+            "type": "array"
+          },
+          "returning_people": {
+            "title": "Returning People",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "per_day",
+          "people_per_week",
+          "clients",
+          "new_people",
+          "returning_people",
+          "people"
+        ],
+        "title": "Adoption",
+        "type": "object"
+      },
       "AgentInstructionsInfo": {
         "properties": {
           "base": {
@@ -142,6 +326,43 @@
           "max_chars"
         ],
         "title": "AgentInstructionsInfo",
+        "type": "object"
+      },
+      "Analytics": {
+        "properties": {
+          "adherence": {
+            "$ref": "#/components/schemas/Adherence"
+          },
+          "adoption": {
+            "$ref": "#/components/schemas/Adoption"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "grounding": {
+            "$ref": "#/components/schemas/Grounding"
+          },
+          "headline": {
+            "$ref": "#/components/schemas/Headline"
+          },
+          "performance": {
+            "$ref": "#/components/schemas/Performance"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/Quality"
+          }
+        },
+        "required": [
+          "days",
+          "headline",
+          "quality",
+          "adoption",
+          "grounding",
+          "performance",
+          "adherence"
+        ],
+        "title": "Analytics",
         "type": "object"
       },
       "AssetDetail": {
@@ -791,6 +1012,52 @@
         "title": "ChangesOut",
         "type": "object"
       },
+      "ClientCount": {
+        "properties": {
+          "client": {
+            "title": "Client",
+            "type": "string"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "client",
+          "questions"
+        ],
+        "title": "ClientCount",
+        "type": "object"
+      },
+      "ClientQuality": {
+        "properties": {
+          "client": {
+            "title": "Client",
+            "type": "string"
+          },
+          "down": {
+            "title": "Down",
+            "type": "integer"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          },
+          "up": {
+            "title": "Up",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "client",
+          "questions",
+          "up",
+          "down"
+        ],
+        "title": "ClientQuality",
+        "type": "object"
+      },
       "CompareOut": {
         "properties": {
           "a": {
@@ -1155,6 +1422,46 @@
           }
         },
         "title": "ConnectionPatch",
+        "type": "object"
+      },
+      "ConnectionPerf": {
+        "properties": {
+          "avg_rows": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Rows"
+          },
+          "connection": {
+            "title": "Connection",
+            "type": "string"
+          },
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          },
+          "queries": {
+            "title": "Queries",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connection",
+          "queries",
+          "errors",
+          "truncated",
+          "avg_rows"
+        ],
+        "title": "ConnectionPerf",
         "type": "object"
       },
       "ConnectionSavedOut": {
@@ -1542,6 +1849,56 @@
         "title": "DayClientCount",
         "type": "object"
       },
+      "DayClientQuestions": {
+        "properties": {
+          "client": {
+            "title": "Client",
+            "type": "string"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "client",
+          "questions"
+        ],
+        "title": "DayClientQuestions",
+        "type": "object"
+      },
+      "DayValue": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "day",
+          "value"
+        ],
+        "title": "DayValue",
+        "type": "object"
+      },
       "DbtParseOut": {
         "properties": {
           "available": {
@@ -1558,6 +1915,39 @@
           "message"
         ],
         "title": "DbtParseOut",
+        "type": "object"
+      },
+      "Delta": {
+        "properties": {
+          "previous": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The same measure over the period before.",
+            "title": "Previous"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "previous"
+        ],
+        "title": "Delta",
         "type": "object"
       },
       "DeploymentGroup": {
@@ -2312,6 +2702,78 @@
         "title": "GradeOut",
         "type": "object"
       },
+      "Grounding": {
+        "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "integer"
+          },
+          "gaps_flagged": {
+            "title": "Gaps Flagged",
+            "type": "integer"
+          },
+          "governed": {
+            "description": "Answers that used query_metrics.",
+            "title": "Governed",
+            "type": "integer"
+          },
+          "no_data": {
+            "description": "Answers that ran no query.",
+            "title": "No Data",
+            "type": "integer"
+          },
+          "sql_only": {
+            "description": "Answers that used run_sql but no governed metric.",
+            "title": "Sql Only",
+            "type": "integer"
+          },
+          "top_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/NameCount"
+            },
+            "title": "Top Metrics",
+            "type": "array"
+          },
+          "top_tables": {
+            "items": {
+              "$ref": "#/components/schemas/NameCount"
+            },
+            "title": "Top Tables",
+            "type": "array"
+          },
+          "unserved": {
+            "items": {
+              "$ref": "#/components/schemas/UnservedItem"
+            },
+            "title": "Unserved",
+            "type": "array"
+          },
+          "unserved_count": {
+            "description": "Published items no agent was served this period.",
+            "title": "Unserved Count",
+            "type": "integer"
+          },
+          "with_context": {
+            "description": "Answers whose session read context before answering.",
+            "title": "With Context",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "answered",
+          "governed",
+          "sql_only",
+          "no_data",
+          "with_context",
+          "gaps_flagged",
+          "top_metrics",
+          "top_tables",
+          "unserved_count",
+          "unserved"
+        ],
+        "title": "Grounding",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2323,6 +2785,46 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Headline": {
+        "properties": {
+          "adherence_rate": {
+            "$ref": "#/components/schemas/Delta",
+            "description": "Questions that followed every workflow rule that applied to them."
+          },
+          "answered_rate": {
+            "$ref": "#/components/schemas/Delta",
+            "description": "Questions that ended with report_answer."
+          },
+          "governed_rate": {
+            "$ref": "#/components/schemas/Delta",
+            "description": "Data answers that used a governed metric (query_metrics) rather than only raw SQL."
+          },
+          "p95_latency_ms": {
+            "$ref": "#/components/schemas/Delta"
+          },
+          "people": {
+            "$ref": "#/components/schemas/Delta"
+          },
+          "questions": {
+            "$ref": "#/components/schemas/Delta"
+          },
+          "thumbs_up_rate": {
+            "$ref": "#/components/schemas/Delta",
+            "description": "Thumbs up / all thumbs, from people and agents."
+          }
+        },
+        "required": [
+          "questions",
+          "people",
+          "answered_rate",
+          "thumbs_up_rate",
+          "governed_rate",
+          "adherence_rate",
+          "p95_latency_ms"
+        ],
+        "title": "Headline",
         "type": "object"
       },
       "HookOut": {
@@ -3818,6 +4320,73 @@
         "title": "MembersOut",
         "type": "object"
       },
+      "NameCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "NameCount",
+        "type": "object"
+      },
+      "NegativeFeedback": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "client",
+          "source",
+          "at",
+          "comment"
+        ],
+        "title": "NegativeFeedback",
+        "type": "object"
+      },
       "ObservabilitySummary": {
         "properties": {
           "days": {
@@ -3985,6 +4554,92 @@
           "question"
         ],
         "title": "PackRequest",
+        "type": "object"
+      },
+      "Performance": {
+        "properties": {
+          "connections": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectionPerf"
+            },
+            "title": "Connections",
+            "type": "array"
+          },
+          "p95_per_day": {
+            "items": {
+              "$ref": "#/components/schemas/DayValue"
+            },
+            "title": "P95 Per Day",
+            "type": "array"
+          },
+          "slowest": {
+            "items": {
+              "$ref": "#/components/schemas/SlowCall"
+            },
+            "title": "Slowest",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/ToolPerf"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tools",
+          "p95_per_day",
+          "connections",
+          "slowest"
+        ],
+        "title": "Performance",
+        "type": "object"
+      },
+      "PersonStat": {
+        "properties": {
+          "down": {
+            "title": "Down",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_active": {
+            "format": "date-time",
+            "title": "Last Active",
+            "type": "string"
+          },
+          "new": {
+            "description": "Their first session is in this period.",
+            "title": "New",
+            "type": "boolean"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          },
+          "up": {
+            "title": "Up",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "label",
+          "questions",
+          "last_active",
+          "up",
+          "down",
+          "new"
+        ],
+        "title": "PersonStat",
         "type": "object"
       },
       "PreviewEvalsRequest": {
@@ -4362,6 +5017,75 @@
           }
         },
         "title": "PublishRequest",
+        "type": "object"
+      },
+      "Quality": {
+        "properties": {
+          "by_client": {
+            "items": {
+              "$ref": "#/components/schemas/ClientQuality"
+            },
+            "title": "By Client",
+            "type": "array"
+          },
+          "caveat_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caveat Rate"
+          },
+          "doubt_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Answered questions a person doubted or corrected (a user_doubt signal).",
+            "title": "Doubt Rate"
+          },
+          "low_confidence_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Confidence Rate"
+          },
+          "per_week": {
+            "items": {
+              "$ref": "#/components/schemas/WeekFeedback"
+            },
+            "title": "Per Week",
+            "type": "array"
+          },
+          "recent_negative": {
+            "items": {
+              "$ref": "#/components/schemas/NegativeFeedback"
+            },
+            "title": "Recent Negative",
+            "type": "array"
+          }
+        },
+        "required": [
+          "per_week",
+          "by_client",
+          "doubt_rate",
+          "low_confidence_rate",
+          "caveat_rate",
+          "recent_negative"
+        ],
+        "title": "Quality",
         "type": "object"
       },
       "RejectChangeRequest": {
@@ -5580,6 +6304,36 @@
           "count"
         ],
         "title": "SignalStat",
+        "type": "object"
+      },
+      "SlowCall": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "tool",
+          "latency_ms",
+          "at"
+        ],
+        "title": "SlowCall",
         "type": "object"
       },
       "SourceCreate": {
@@ -7154,6 +7908,53 @@
         "title": "ToolCallOut",
         "type": "object"
       },
+      "ToolPerf": {
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          },
+          "p50_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P50 Ms"
+          },
+          "p95_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 Ms"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool",
+          "calls",
+          "errors",
+          "p50_ms",
+          "p95_ms"
+        ],
+        "title": "ToolPerf",
+        "type": "object"
+      },
       "ToolStat": {
         "properties": {
           "avg_latency_ms": {
@@ -7417,6 +8218,24 @@
         "title": "TurnRowOut",
         "type": "object"
       },
+      "UnservedItem": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type"
+        ],
+        "title": "UnservedItem",
+        "type": "object"
+      },
       "UpdateItemRequest": {
         "properties": {
           "body": {
@@ -7648,6 +8467,49 @@
           "rotated"
         ],
         "title": "WebhookSecretOut",
+        "type": "object"
+      },
+      "WeekFeedback": {
+        "properties": {
+          "down": {
+            "title": "Down",
+            "type": "integer"
+          },
+          "up": {
+            "title": "Up",
+            "type": "integer"
+          },
+          "week": {
+            "format": "date",
+            "title": "Week",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week",
+          "up",
+          "down"
+        ],
+        "title": "WeekFeedback",
+        "type": "object"
+      },
+      "WeekPeople": {
+        "properties": {
+          "people": {
+            "title": "People",
+            "type": "integer"
+          },
+          "week": {
+            "format": "date",
+            "title": "Week",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week",
+          "people"
+        ],
+        "title": "WeekPeople",
         "type": "object"
       }
     }
@@ -12026,6 +12888,103 @@
         "summary": "Update Member",
         "tags": [
           "members"
+        ]
+      }
+    },
+    "/v1/observability/analytics": {
+      "get": {
+        "description": "The Observability page: headline numbers against the period before, answer quality,\nadoption, grounding, performance and workflow adherence. Question and comment text is\nredacted for everyone but admins, and left out for sensitive sessions.",
+        "operationId": "analytics",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "enum": [
+                7,
+                30,
+                90
+              ],
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Analytics"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analytics",
+        "tags": [
+          "observability"
         ]
       }
     },

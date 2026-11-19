@@ -779,3 +779,94 @@ def test_openapi_contract(env: Env, tmp_path: Path) -> None:
     assert json.loads(res.output)["paths"].keys() == doc["paths"].keys()
     committed = Path(__file__).resolve().parents[2] / "ui" / "openapi.json"
     assert committed.read_text() == res.output, "run `satchel openapi -o ../ui/openapi.json`"
+
+
+def seed_turn(
+    env: Env, user: str, tools: list[str], *, client: str = "claude-desktop",
+    answered: bool = True, days_ago: float = 0, latency: int = 100, rating: int | None = None,
+    comment: str | None = None, report: dict[str, Any] | None = None,
+) -> uuid.UUID:
+    """A one-question session whose tool calls happen in ``tools`` order."""
+    when = datetime.now(UTC) - timedelta(days=days_ago)
+    with admin_session(engine=env.engine) as s:
+        sess = SessionRow(workspace_id=env.ws_id, user_id=env.users[user], client=client,
+                          question="q", started_at=when)
+        s.add(sess)
+        s.flush()
+        turn = SessionTurn(session_id=sess.id, seq=1, question="how much revenue?",
+                           status="answered" if answered else "active", started_at=when)
+        s.add(turn)
+        s.flush()
+        for i, tool in enumerate(tools):
+            args: dict[str, Any] = {}
+            if tool == "report_answer":
+                args = report or {"confidence": "high", "caveats": [], "tables_used": ["orders"]}
+            if tool == "query_metrics":
+                args = {"metrics": ["revenue"]}
+            meta = {"connection": "warehouse", "rows": 4, "truncated": False} if tool in (
+                "run_sql", "query_metrics") else {}
+            s.add(ToolCall(session_id=sess.id, turn_id=turn.id, tool=tool, args=args,
+                           result_meta=meta, latency_ms=latency + i,
+                           created_at=when + timedelta(seconds=i)))
+        if rating:
+            s.add(Feedback(session_id=sess.id, user_id=env.users[user], rating=rating,
+                           comment=comment, created_at=when, source="human", client=client))
+        return sess.id
+
+
+def test_observability_analytics(env: Env) -> None:
+    full = ["start_analysis", "get_context_pack", "query_metrics", "report_answer"]
+    seed_turn(env, "analyst", full, rating=1)
+    seed_turn(env, "analyst", full, client="cursor")
+    # Raw SQL without reading context or checking metrics first, and a low-confidence answer.
+    seed_turn(env, "analyst2", ["run_sql", "report_answer"], rating=-1, comment="wrong total " * 30,
+              report={"confidence": "low", "caveats": ["no refunds"], "tables_used": ["orders"]},
+              latency=900)
+    seed_turn(env, "analyst2", ["start_analysis", "get_context_pack"], answered=False)
+    seed_turn(env, "admin", full, days_ago=40)  # the period before, for 30 days
+    cur = env.h("curator")
+    a = env.client.get("/v1/observability/analytics", params={"days": 30}, headers=cur).json()
+    h = a["headline"]
+    assert h["questions"] == {"value": 4, "previous": 1}
+    assert h["people"]["value"] == 2 and h["answered_rate"]["value"] == 0.75
+    assert h["thumbs_up_rate"]["value"] == 0.5
+    assert h["governed_rate"] == {"value": round(2 / 3, 4), "previous": 1.0}
+    # All four questions did work a rule covers; only the two full workflows followed every rule
+    # (the raw-SQL one skipped context and metrics, the last never reported an answer).
+    assert h["adherence_rate"]["value"] == 0.5
+    rules = {r["rule"]: (r["applies"], r["followed"]) for r in a["adherence"]["rules"]}
+    assert rules["context_first"] == (3, 2) and rules["metrics_first"] == (1, 0)
+    assert rules["reported"] == (4, 3) and rules["started"] == (4, 3)
+    assert rules["in_question"][0] == rules["in_question"][1]
+    assert sorted(sorted(b["rules"]) for b in a["adherence"]["recent"]) == [
+        ["context_first", "metrics_first"], ["reported"]]
+
+    q = a["quality"]
+    assert q["low_confidence_rate"] == round(1 / 3, 4) and q["caveat_rate"] == round(1 / 3, 4)
+    neg = q["recent_negative"][0]
+    assert neg["comment"].endswith("…") and len(neg["comment"]) <= 120  # redacted for a curator
+    full_comment = env.client.get("/v1/observability/analytics", params={"days": 30},
+                                  headers=env.h("admin")).json()["quality"]["recent_negative"][0]
+    assert full_comment["comment"] == "wrong total " * 30
+
+    g = a["grounding"]
+    assert (g["answered"], g["governed"], g["sql_only"], g["no_data"]) == (3, 2, 1, 0)
+    assert g["with_context"] == 2 and g["top_metrics"] == [{"name": "revenue", "count": 2}]
+    assert g["top_tables"] == [{"name": "orders", "count": 3}]
+
+    ad = a["adoption"]
+    assert {c["client"]: c["questions"] for c in ad["clients"]} == {
+        "claude-desktop": 3, "cursor": 1}
+    assert ad["new_people"] == 2 and ad["returning_people"] == 0
+    assert [p["questions"] for p in ad["people"]] == [2, 2]
+
+    p = a["performance"]
+    assert p["slowest"][0]["latency_ms"] == 901  # report_answer, one after run_sql
+    assert p["connections"] == [{"connection": "warehouse", "queries": 3, "errors": 0,
+                                 "truncated": 0, "avg_rows": 4.0}]
+    run_sql = next(t for t in p["tools"] if t["tool"] == "run_sql")
+    assert run_sql["calls"] == 1 and run_sql["p95_ms"] == 900
+    assert env.client.get("/v1/observability/analytics", params={"days": 5},
+                          headers=cur).status_code == 422
+    assert env.client.get("/v1/observability/analytics",
+                          headers=env.h("analyst")).status_code == 403

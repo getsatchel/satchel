@@ -46,7 +46,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Observe",
     dash: "bg-info/55",
     items: [
-      { to: "/sessions", label: "Sessions", icon: "M4 6h16M4 12h10M4 18h13", keywords: "agents runs replay questions conversations usage observability" },
+      { to: "/sessions", label: "Sessions", icon: "M4 6h16M4 12h10M4 18h13", keywords: "agents runs replay questions conversations" },
+      { to: "/observability", label: "Observability", icon: "M4 20V10m6 10V4m6 16v-7m4 7H2", keywords: "usage analytics charts feedback quality adoption grounding performance latency adherence workflow people", min: "curator" },
       { to: "/evals", label: "Evals", icon: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9", keywords: "suites runs tests", min: "curator" },
     ],
   },
@@ -96,7 +97,6 @@ export function pagesFor(role: string | null | undefined): NavItem[] {
 export const SUB_PAGES: NavItem[] = [
   { to: "/releases", label: "Changes", icon: "M6 3v12m0 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm12-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 0c0 5-6 3-6 9", keywords: "releases preview publish unpublished drafts", min: "curator" },
   { to: "/releases?tab=history", label: "Release history", icon: ICONS.tag, keywords: "releases rollback versions published", min: "curator" },
-  { to: "/sessions?tab=usage", label: "Usage", icon: "M4 20V10m6 10V4m6 16v-7m4 7H2", keywords: "observability sessions charts feedback tools served", min: "curator" },
   { to: "/settings?tab=jobs", label: "Jobs", icon: ICONS.clock, keywords: "settings queue background sync crawl curation retry worker", min: "curator" },
 ];
 

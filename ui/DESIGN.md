@@ -43,7 +43,7 @@ Each tone has a `-soft` background for badges and error boxes.
 - **Never fill a card, header or row with a tone.** The exceptions are the selected list row (`bg-accent-soft/70`) and error boxes.
 - **Neutrals stay neutral.** The greys sit a hair warm of pure grey so they never read cold; no cream, sand or brown tint.
 - Text contrast on `bg`, `surface` and the tone's own `-soft` badge background is at least 4.5:1 for `ink`, `muted`, `accent`, `good`, `warn`, `bad` and `info` in both themes. Text and icons that carry meaning are full `text-muted`, never `text-muted/70` or `/80` (under 3.5:1 in light); a translucent muted is only for separators and decorative chevrons.
-- Charts use `PALETTE` in `src/pages/Usage.tsx`: cobalt first, then teal, amber, violet, slate and rose, with lighter variants for dark.
+- Charts use `PALETTE` in `src/pages/Observability.tsx`: cobalt first, then teal, amber, violet, slate and rose, with lighter variants for dark.
 
 ### Type
 
@@ -81,7 +81,7 @@ Each tone has a `-soft` background for badges and error boxes.
 | --- | --- |
 | (top) | Dashboard (`/dashboard`, the default route) |
 | CURATE | Inbox, Library, Agent instructions, Releases (Changes, History) |
-| OBSERVE | Sessions (Sessions, Usage), Evals |
+| OBSERVE | Sessions, Observability (Overview, Quality, Adoption, Grounding, Performance, Adherence), Evals |
 | DATA | Catalog, Sources |
 | ADMIN | Settings (Models, Connections, Members, Jobs, Limits, Deployment) |
 
@@ -95,7 +95,7 @@ Every page is a `PageHeader` (title, one-line description, actions on the right)
 
 | Kind | Built from | Examples |
 | --- | --- | --- |
-| Overview | `StatGrid` in a card, cards in a `CardGrid`, a `PillButton` in a `CardFooter` to go deeper | Dashboard, Sessions → Usage |
+| Overview | `StatGrid` in a card, cards in a `CardGrid`, a `PillButton` in a `CardFooter` to go deeper | Dashboard, Observability → Overview |
 | List | filters, `TableCard`, paging in its footer | Sessions, Releases → History, Settings → Jobs |
 | List and detail | `ListDetail`: side by side from `lg` or `xl`, one pane with Back below | Inbox, Catalog |
 | Detail | `Crumb`, `PageHeader`, sections; a narrow sticky column on the right for secondary lists | a session, a source, an item |
