@@ -11,7 +11,7 @@ database and on existing ones, so upgrades are in place.
 | Helm | `helm upgrade satchel oci://ghcr.io/getsatchel/charts/satchel --version <new>`; the pre-upgrade hook Job runs migrations before new pods start. |
 | Cloud Run | Roll the image, then run the migrate Job. See [Cloud Run §8](../deploy/cloud-run.md). |
 | Container | Run `satchel db upgrade` with the owner URL, then roll the replicas. |
-| One VM (Compose) | Set `SATCHEL_IMAGE_TAG` in `.env`, then `docker compose pull && docker compose up -d`; the `db-upgrade` step migrates first. See [One VM](../deploy/vm.md). |
+| One VM (Compose) | Set `SATCHEL_IMAGE_TAG` in `.env`, then `docker compose pull && docker compose up -d`; the `db-upgrade` step migrates first. Then `docker image prune -a -f`, or old images fill the disk. See [One VM](../deploy/vm.md#6-operate). |
 
 Read the [release notes](https://github.com/getsatchel/satchel/releases) for each version you skip. Back up first. Roll web and worker to the same version. `satchel status` shows the schema revision against head.
 

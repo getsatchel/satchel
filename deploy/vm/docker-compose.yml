@@ -4,6 +4,7 @@
 #   docker compose up -d          # first run: bootstrap roles, migrate, create the workspace, start
 #   docker compose logs -f web    # follow the server
 #   docker compose pull && docker compose up -d   # after changing SATCHEL_IMAGE_TAG
+#   docker image prune -a -f                       # then drop the old image (about 1.2 GiB)
 
 x-satchel: &satchel
   image: ghcr.io/getsatchel/satchel:${SATCHEL_IMAGE_TAG:?set SATCHEL_IMAGE_TAG in .env}
