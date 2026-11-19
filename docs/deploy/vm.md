@@ -26,7 +26,8 @@ On EC2 (Ubuntu 24.04 LTS, x86-64):
 - Instance type `t3.medium` (2 vCPU, 4 GiB). The web server and worker each load the local
   embedding model (about 1.3 GiB). A `t3.small` (2 GiB) works if you set
   `SATCHEL_EMBEDDING_PROVIDER` to `openai_compat` or `hash` (section 4).
-- A 30 GiB gp3 root volume.
+- A 30 GiB gp3 root volume. Not the 8 GiB default: each Satchel image is about 1.2 GiB, and an
+  upgrade pulls the new one while the old one is still on disk (section 6).
 - A security group allowing 22 from your IP only, and 80 and 443 from anywhere. Caddy needs 80 to
   get the certificate.
 - An Elastic IP, so the address survives a stop and start.
@@ -123,8 +124,21 @@ claude mcp add --transport http satchel https://<domain>/mcp    # then /mcp to s
 
 ## 6. Operate
 
-- **Upgrade:** set `SATCHEL_IMAGE_TAG` in `.env` to the new release, then
-  `docker compose pull && docker compose up -d`. The migration step runs before the server restarts.
+- **Upgrade:** set `SATCHEL_IMAGE_TAG` in `.env` to the new release, then pull, restart and remove
+  the old image. The migration step runs before the server restarts.
+
+  ```bash
+  docker compose pull && docker compose up -d
+  docker compose images | grep satchel   # every satchel row shows the new tag
+  docker image prune -a -f               # removes images no container uses; volumes are untouched
+  ```
+
+  Start a new chat in Claude afterwards: an open chat keeps the tool list it started with.
+- **"no space left on device" during a pull:** the disk is full of old images, and Compose keeps
+  running the old version. Run `docker image prune -a -f`, check `df -h /`, and pull again. Never
+  add `--volumes` or run `docker system prune --volumes`: the database lives in a volume. If the
+  disk is still nearly full, grow the EBS volume in the EC2 console, then
+  `sudo growpart /dev/nvme0n1 1 && sudo resize2fs /dev/nvme0n1p1` (`lsblk` shows the device names).
 - **Back up the database:**
   `docker compose exec -T postgres pg_dump -U satchel -Fc satchel > satchel-$(date +%F).dump`.
   Copy the dump off the machine (for example to S3). An EBS snapshot schedule is a simple second layer.
