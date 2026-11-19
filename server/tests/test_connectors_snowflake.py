@@ -79,6 +79,12 @@ def test_private_key_normalization(key: rsa.RSAPrivateKey) -> None:
     assert sf.normalize_private_key(_pem(key, PASS), PASS) == plain
     pkcs1 = _pem(key, fmt=serialization.PrivateFormat.TraditionalOpenSSL)
     assert sf.normalize_private_key(pkcs1 + "\r\n") == plain
+    # Encrypted with an empty passphrase (Enter at openssl's prompt; a throwaway test key):
+    # no passphrase needed.
+    empty = (Path(__file__).parent / "fixtures" / "snowflake_empty_passphrase.p8").read_text()
+    out = sf.normalize_private_key(empty)
+    assert out.startswith("-----BEGIN PRIVATE KEY-----")
+    assert isinstance(serialization.load_pem_private_key(out.encode(), None), rsa.RSAPrivateKey)
     for pem, pw, msg in [
         (_pem(key, PASS), None, "enter its passphrase"),
         (_pem(key, PASS), "wrong", "wrong passphrase"),
@@ -92,6 +98,8 @@ def test_private_key_normalization(key: rsa.RSAPrivateKey) -> None:
 
 def test_clean_config_and_secret(key: rsa.RSAPrivateKey) -> None:
     assert ca.clean_config("snowflake", CFG | {"schemas": " analytics "})["schemas"] == "analytics"
+    with pytest.raises(ValueError, match=r"one database name \(JAFFLE\); put the schema"):
+        ca.clean_config("snowflake", CFG | {"database": "JAFFLE.ANALYTICS"})
     for cfg, msg in [
         ({k: v for k, v in CFG.items() if k != "account"}, "Account is required"),
         (CFG | {"account": "myorg-myaccount.snowflakecomputing.com"}, "not the URL"),
@@ -283,3 +291,39 @@ def test_run_sql_and_query_metrics(
     assert "DATE_TRUNC" in metric_sql or "SUM(CAST" in metric_sql  # compiled for Snowflake
     assert not any(x.lower().startswith("drop") for x in sent)
     assert all(kw["session_parameters"]["QUERY_TAG"] == "satchel" for kw in mcp_fake.connects)
+
+
+def test_connection_test_checks_the_database(
+    monkeypatch: pytest.MonkeyPatch, key: rsa.RSAPrivateKey,
+) -> None:
+    # Signing in works but the Database is a schema name: Test fails and says which field.
+    seen: list[str] = []
+
+    class Stub:
+        def execute(self, sql: str, **_: Any) -> None:
+            seen.append(sql)
+            if "INFORMATION_SCHEMA" in sql:
+                raise RuntimeError("002003 (02000): SQL compilation error: Database 'ANALYTICS' "
+                                   "does not exist or not authorized.")
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(ca, "make_connector", lambda *a: Stub())
+    r = ca.test("snowflake", CFG | {"database": "ANALYTICS"}, _pem(key))
+    probe = "select count(*) from ANALYTICS.INFORMATION_SCHEMA.SCHEMATA"
+    assert not r.ok and seen == ["select 1", probe]
+    assert r.error and r.error.endswith("and the role needs USAGE on it.")
+    assert ca.test_hint("postgres", 'database "x" does not exist') == "Check Database."
+    assert ca.test_hint("snowflake", "something else") is None
+
+
+def test_setup_templates_name_real_fields() -> None:
+    # Every {placeholder} in a kind's setup is one of its fields or the generated credential.
+    import re as _re
+    for spec in ca.SPECS.values():
+        if not spec.setup:
+            continue
+        names = {f.name for f in spec.fields} | {"public_key", "password"}
+        for token in _re.findall(r"\{([a-z_|]+)\}", spec.setup):
+            assert set(token.split("|")) <= names, (spec.kind, token)

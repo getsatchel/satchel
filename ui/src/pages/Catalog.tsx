@@ -95,6 +95,7 @@ function findNode(nodes: AssetNode[], id: string): AssetNode | null {
 
 export function Catalog() {
   const curator = useRole().can("curator");
+  const admin = useRole().can("admin");
   const [params] = useSearchParams();
   const [conn, setConn] = useState(params.get("connection") ?? "");
   const [text, setText] = useState("");
@@ -142,7 +143,7 @@ export function Catalog() {
           count={conns.data?.length}
           actions={
             curator && (
-              <Link className="btn btn-sm" to="/settings?tab=connections">
+              <Link className="btn btn-sm" to="/connections">
                 Manage
               </Link>
             )
@@ -154,14 +155,14 @@ export function Catalog() {
           <EmptyState
             title="No connections"
             action={
-              curator && (
-                <Link className="btn btn-primary" to="/settings?tab=connections">
+              admin && (
+                <Link className="btn btn-primary" to="/connections?sheet=new">
                   Add a connection
                 </Link>
               )
             }
           >
-            Connect a warehouse in Settings, then crawl it to fill the catalog. The CLI works too: <code>satchel connection add</code>.
+            Connect a warehouse on the Connections page, then crawl it to fill the catalog. The CLI works too: <code>satchel connection add</code>.
           </EmptyState>
         )}
         {conns.data && conns.data.length > 0 && (

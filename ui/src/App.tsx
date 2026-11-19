@@ -20,6 +20,7 @@ import { Catalog } from "./pages/Catalog";
 import { SourceDetail } from "./pages/SourceDetail";
 import { Sources } from "./pages/Sources";
 import { Settings } from "./pages/Settings";
+import { Connections } from "./pages/Connections";
 import { EvalComparePage, EvalRunPage, Evals } from "./pages/Evals";
 
 /** An old page's URL: send it to where the page lives now, keeping its query string. */
@@ -130,6 +131,7 @@ export function App() {
           <Route path="agent" element={<AgentInstructions />} />
           <Route path="library/new" element={<ItemNew />} />
           <Route path="releases" element={<Releases />} />
+          <Route path="connections" element={<Connections />} />
           <Route path="sources" element={<Sources />} />
           <Route path="sources/:name" element={<SourceDetail />} />
           <Route path="settings" element={<Settings />} />

@@ -80,7 +80,7 @@ that is already gone does not block deleting the row. The command exits 1 if any
 | `user.idp_account` | An invite created (or found) the person's account at the identity provider, or failed to (`SATCHEL_OIDC_CREATE_USERS`) |
 | `workspace.create`, `workspace.auth.update` | workspace bootstrap, `satchel workspace auth`, Settings → Members → Sign-in (`via: ui`) |
 | `source.add`, `source.update`, `source.remove` | `satchel source add/remove`, Sources page (changed field names, never secret values) |
-| `connection.add`, `connection.update`, `connection.remove` | `satchel connection add`, Settings → Connections (`secret_ref` for env references or `"stored"`, never a secret) |
+| `connection.add`, `connection.update`, `connection.remove` | `satchel connection add`, the Connections page (`secret_ref` for env references or `"stored"`, never a secret) |
 | `auth.login` | OIDC login (web and MCP flows) |
 | `oauth.consent.approve`, `oauth.consent.deny` | OAuth consent screen (client id, scope, redirect host) |
 | `llm_connection.create`, `llm_connection.update`, `llm_connection.delete` | Settings → Models (names of changed fields, never secret values) |
