@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
 import type { LlmConnection, LlmConnectionPatch, LlmDeployment, LlmTestOut, LlmTestRequest } from "@/api/types";
 import { ApiError } from "@/api/client";
 import { useToast } from "@/components/Toast";
 import { DescList, EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, PageHeader, SectionHeading, Segmented, StatusDot, TableCard, Tabs } from "@/components/ui";
-import { ConnectionsSection } from "@/pages/SettingsConnections";
 import { MembersSection } from "@/pages/SettingsMembers";
 import { JobsSection } from "@/pages/Jobs";
 import { DeploymentSection, LimitsSection } from "@/pages/SettingsLimits";
@@ -495,10 +494,9 @@ function ModelsSection({ admin }: { admin: boolean }) {
   );
 }
 
-type Tab = "models" | "connections" | "members" | "jobs" | "limits" | "deployment";
+type Tab = "models" | "members" | "jobs" | "limits" | "deployment";
 const TABS: { id: Tab; label: string; admin?: boolean; curator?: boolean }[] = [
   { id: "models", label: "Models" },
-  { id: "connections", label: "Connections" },
   { id: "members", label: "Members", admin: true },
   { id: "jobs", label: "Jobs", curator: true },
   { id: "limits", label: "Limits" },
@@ -507,13 +505,18 @@ const TABS: { id: Tab; label: string; admin?: boolean; curator?: boolean }[] = [
 
 export function Settings() {
   const me = useQuery({ queryKey: ["me"], queryFn: endpoints.me, retry: false });
-  // Whether secrets can be stored (shared by every tab).
-  const llm = useQuery({ queryKey: ["llm-connections"], queryFn: endpoints.listLlmConnections, retry: false });
   const [params, setParams] = useSearchParams();
   const admin = me.data?.role === "admin";
   const curator = admin || me.data?.role === "curator";
   const tabs = TABS.filter((t) => (!t.admin || admin) && (!t.curator || curator));
   const tab: Tab = tabs.find((t) => t.id === params.get("tab"))?.id ?? "models";
+  // Connections moved to their own page; old links (and an open sheet) follow them.
+  if (params.get("tab") === "connections") {
+    const q = new URLSearchParams(params);
+    q.delete("tab");
+    const rest = q.toString();
+    return <Navigate to={`/connections${rest ? `?${rest}` : ""}`} replace />;
+  }
   return (
     <>
       <PageHeader
@@ -528,7 +531,6 @@ export function Settings() {
       <Tabs tabs={tabs} value={tab} onChange={(t) => setParams(t === "models" ? {} : { tab: t }, { replace: true })} />
       <div className="mt-6 space-y-9">
         {tab === "models" && <ModelsSection admin={admin} />}
-        {tab === "connections" && <ConnectionsSection admin={admin} encryption={llm.data?.encryption_configured ?? true} />}
         {tab === "members" && <MembersSection />}
         {tab === "jobs" && <JobsSection />}
         {tab === "limits" && <LimitsSection admin={admin} />}

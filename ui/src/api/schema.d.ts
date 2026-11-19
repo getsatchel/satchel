@@ -1543,6 +1543,11 @@ export interface components {
             available: boolean;
             /** Fields */
             fields: components["schemas"]["KindFieldOut"][];
+            /**
+             * Generates
+             * @description keypair: the client makes an RSA key pair and sends the private key as the secret. password: the client makes a random password.
+             */
+            generates?: ("keypair" | "password") | null;
             /** Kind */
             kind: string;
             /** Label */
@@ -1567,6 +1572,17 @@ export interface components {
              * @default false
              */
             secret_multiline: boolean;
+            /**
+             * Setup
+             * @description Commands that create Satchel's read-only identity in the warehouse. {field} is a config field ({a|b}: a, else b), {public_key} / {password} the credential the client generates.
+             */
+            setup?: string | null;
+            /**
+             * Setup Lang
+             * @default sql
+             * @enum {string}
+             */
+            setup_lang: "sql" | "shell";
         };
         /** ConnectionOut */
         ConnectionOut: {

@@ -55,6 +55,14 @@ class ConnectionKindOut(BaseModel):
     passphrase_label: str | None = Field(
         None, description="Set when the secret may be an encrypted key that takes a passphrase.")
     note: str | None = None
+    setup: str | None = Field(
+        None, description="Commands that create Satchel's read-only identity in the warehouse. "
+        "{field} is a config field ({a|b}: a, else b), {public_key} / {password} the credential "
+        "the client generates.")
+    setup_lang: Literal["sql", "shell"] = "sql"
+    generates: Literal["keypair", "password"] | None = Field(
+        None, description="keypair: the client makes an RSA key pair and sends the private key as "
+        "the secret. password: the client makes a random password.")
 
 
 _PASSPHRASE = "Write-only: decrypts the private key given in secret; never stored."
@@ -154,7 +162,7 @@ def make_router(auth: Auth) -> APIRouter:
                 fields=[KindFieldOut(**f.__dict__) for f in k.fields],
                 secret_label=k.secret_label, secret_help=k.secret_help,
                 secret_multiline=k.secret_multiline, passphrase_label=k.passphrase_label,
-                note=k.note,
+                note=k.note, setup=k.setup, setup_lang=k.setup_lang, generates=k.generates,
             )
             for k in ca.kinds()
         ]

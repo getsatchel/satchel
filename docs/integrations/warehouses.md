@@ -3,10 +3,14 @@
 Satchel connects to a warehouse so agents can run guarded read-only SQL (`run_sql`), query
 metrics compiled from a semantic model (`query_metrics`), and so the crawler can catalog tables
 and columns. PostgreSQL and DuckDB are covered in
-[configuration.md](../deploy/configuration.md#settings--connections); this page covers BigQuery
+[configuration.md](../deploy/configuration.md#connections); this page covers BigQuery
 and Snowflake.
 
-Add a connection in **Settings → Connections** (admins), press **Test**, save, then **Crawl**.
+Add a connection on the **Connections** page (admins). The steps include the setup to run in the
+warehouse, with a generated key pair for Snowflake. Press **Test**, save, then **Crawl**. For
+Snowflake, Test also reads the database's `INFORMATION_SCHEMA`, so a wrong Database or a missing
+grant fails there rather than at the crawl. A failed test ends with a line that names the field to
+check.
 
 ## What every connection gets
 
@@ -96,7 +100,7 @@ warehouses.
 | User | The service user. |
 | Role | The read-only role below. Empty: the user's default role. |
 | Warehouse | The warehouse queries run on. |
-| Database | The database to query and catalog. |
+| Database | The one database to query and catalog. Not `DATABASE.SCHEMA`: schemas go in Schemas, and a dotted value is refused. |
 | Schemas | Comma-separated schemas to catalog. Empty: every schema except `INFORMATION_SCHEMA`. |
 
 ### Auth: key pair only
@@ -110,8 +114,11 @@ openssl genrsa 2048 | openssl pkcs8 -topk8 -v2 aes-256-cbc -out satchel_key.p8  
 openssl rsa -in satchel_key.p8 -pubout -out satchel_key.pub
 ```
 
-Paste `satchel_key.p8` (the whole file, BEGIN / END lines included) into **Private key** and its
-passphrase into **Key passphrase**. Satchel decrypts the key once, when it is saved or tested,
+The UI's **Add connection** makes the key pair for you in the browser and fills its public key
+into the setup SQL below, so the steps here are for **Use my own key** and the CLI. Paste
+`satchel_key.p8` (the whole file, BEGIN / END lines included) into **Private key** and its
+passphrase into **Key passphrase**. A key encrypted with an empty passphrase (Enter at the openssl
+prompt) needs no passphrase. Satchel decrypts the key once, when it is saved or tested,
 and seals the unencrypted PKCS#8 key with `SATCHEL_ENCRYPTION_KEY`; the passphrase is not stored
 (it would be sealed with the same key, so storing it adds nothing). With the CLI
 (`--secret-ref env:NAME`) the variable must hold an unencrypted key.
