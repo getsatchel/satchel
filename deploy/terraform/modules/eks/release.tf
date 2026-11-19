@@ -1,3 +1,8 @@
+# Stands for the network the releases need until they are gone (see var.network_dependencies).
+resource "terraform_data" "network" {
+  input = var.network_dependencies
+}
+
 resource "kubernetes_namespace_v1" "this" {
   metadata {
     name = var.namespace
@@ -34,7 +39,7 @@ resource "helm_release" "load_balancer_controller" {
     }
   })]
 
-  depends_on = [aws_iam_role_policy_attachment.irsa, aws_eks_pod_identity_association.this, aws_eks_addon.coredns, aws_eks_node_group.this, aws_eks_fargate_profile.this]
+  depends_on = [aws_iam_role_policy_attachment.irsa, aws_eks_pod_identity_association.this, aws_eks_addon.coredns, aws_eks_node_group.this, aws_eks_fargate_profile.this, terraform_data.network]
 }
 
 # The upstream Secrets Store CSI driver (a dependency of this chart) plus the AWS provider. The
@@ -152,6 +157,7 @@ resource "helm_release" "satchel" {
   values = [module.values.values_yaml]
 
   depends_on = [
+    terraform_data.network,
     aws_iam_role_policy_attachment.irsa,
     aws_eks_pod_identity_association.this,
     aws_vpc_security_group_ingress_rule.database_from_cluster,

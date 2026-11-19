@@ -104,6 +104,7 @@ module "eks" {
   vpc_id                     = module.foundation.vpc_id
   vpc_cidr                   = module.foundation.vpc_cidr != null ? module.foundation.vpc_cidr : var.vpc_cidr_for_network_policy
   private_subnet_ids         = module.foundation.private_subnet_ids
+  network_dependencies       = module.foundation.egress_dependencies
   kms_key_arn                = module.foundation.kms_key_arn
   database_security_group_id = module.foundation.database_security_group_id
   runtime_policy_arn         = module.foundation.runtime_policy_arn
