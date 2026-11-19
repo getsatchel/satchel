@@ -117,6 +117,8 @@ module "eks" {
   # CSI driver (they need IMDS/IRSA against real AWS), so Terraform writes Kubernetes Secrets.
   install_cluster_addons = false
   secrets_delivery       = "kubernetes"
+  # The emulator has no Pod Identity agent or associations; it stays on IRSA as before.
+  workload_identity = "irsa"
 
   domain             = var.domain
   image_tag          = var.image_tag

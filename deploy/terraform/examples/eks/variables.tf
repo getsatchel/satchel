@@ -137,6 +137,12 @@ variable "compute" {
   default     = "managed_nodes"
 }
 
+variable "workload_identity" {
+  description = "pod_identity (default: no IAM OIDC provider needed) or irsa (required on Fargate)."
+  type        = string
+  default     = "pod_identity"
+}
+
 variable "node_instance_types" {
   type    = list(string)
   default = ["m7i.large", "m6i.large"]
@@ -168,6 +174,12 @@ variable "database_instance_class" {
 variable "database_multi_az" {
   type    = bool
   default = false
+}
+
+variable "database_backup_retention_days" {
+  description = "Days of automated RDS backups (1-35). The AWS Free plan refuses the default: use 1."
+  type        = number
+  default     = 14
 }
 
 variable "database_deletion_protection" {

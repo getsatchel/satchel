@@ -15,9 +15,11 @@ locals {
 
   cluster_name = var.create_cluster ? aws_eks_cluster.this[0].name : data.aws_eks_cluster.existing[0].name
   cluster      = var.create_cluster ? aws_eks_cluster.this[0] : data.aws_eks_cluster.existing[0]
-  oidc_issuer  = local.cluster.identity[0].oidc[0].issuer
-  oidc_host    = replace(local.oidc_issuer, "https://", "")
-  oidc_provider_arn = coalesce(
+  # Fargate has no Pod Identity agent (a DaemonSet), so it always uses IRSA.
+  irsa        = var.workload_identity == "irsa" || local.fargate
+  oidc_issuer = local.cluster.identity[0].oidc[0].issuer
+  oidc_host   = replace(local.oidc_issuer, "https://", "")
+  oidc_provider_arn = !local.irsa ? null : coalesce(
     var.oidc_provider_arn,
     try(aws_iam_openid_connect_provider.this[0].arn, null),
     try(data.aws_iam_openid_connect_provider.existing[0].arn, null),
@@ -30,7 +32,7 @@ data "aws_eks_cluster" "existing" {
 }
 
 data "aws_iam_openid_connect_provider" "existing" {
-  count = !var.create_cluster && var.oidc_provider_arn == null ? 1 : 0
+  count = local.irsa && !var.create_cluster && var.oidc_provider_arn == null ? 1 : 0
   url   = data.aws_eks_cluster.existing[0].identity[0].oidc[0].issuer
 }
 
@@ -128,7 +130,7 @@ resource "aws_eks_access_policy_association" "admins" {
 
 # IRSA: pods exchange their projected service account token for role credentials.
 resource "aws_iam_openid_connect_provider" "this" {
-  count = var.create_cluster && var.oidc_provider_arn == null ? 1 : 0
+  count = local.irsa && var.create_cluster && var.oidc_provider_arn == null ? 1 : 0
 
   url            = aws_eks_cluster.this[0].identity[0].oidc[0].issuer
   client_id_list = ["sts.amazonaws.com"]
@@ -154,6 +156,18 @@ resource "aws_eks_addon" "vpc_cni" {
   addon_name   = "vpc-cni"
   # Network policy enforcement for the chart's NetworkPolicy (managed nodes only).
   configuration_values        = jsonencode({ enableNetworkPolicy = "true" })
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+  tags                        = local.tags
+}
+
+# Pod Identity: the agent on each node hands pods the credentials of their association's role.
+# On an existing cluster (create_cluster = false) it must already be installed.
+resource "aws_eks_addon" "pod_identity_agent" {
+  count = var.create_cluster && !local.irsa ? 1 : 0
+
+  cluster_name                = local.cluster_name
+  addon_name                  = "eks-pod-identity-agent"
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
   tags                        = local.tags

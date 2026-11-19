@@ -24,13 +24,19 @@ variable "results_bucket" {
 }
 
 variable "runtime_role_arn" {
-  description = "IRSA role for web, worker and the first-workspace Job."
+  description = "IAM role for web, worker and the first-workspace Job."
   type        = string
 }
 
 variable "migrate_role_arn" {
-  description = "IRSA role for the migrate Job (owner-level secrets)."
+  description = "IAM role for the migrate Job (owner-level secrets)."
   type        = string
+}
+
+variable "use_pod_identity" {
+  description = "true: EKS Pod Identity associations give the service accounts their roles, so they carry no eks.amazonaws.com/role-arn annotation. false: IRSA (the annotation)."
+  type        = bool
+  default     = false
 }
 
 variable "secrets_delivery" {

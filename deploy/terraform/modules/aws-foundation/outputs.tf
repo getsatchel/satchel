@@ -98,3 +98,11 @@ output "runtime_policy_arn" {
 output "migrate_policy_arn" {
   value = aws_iam_policy.migrate.arn
 }
+
+output "egress_dependencies" {
+  description = "IDs of the routes and associations that give the private subnets internet access (NAT) and the public ones theirs (internet gateway). Pass to the eks module's network_dependencies so its Helm releases are uninstalled before egress goes: the AWS Load Balancer Controller needs it to delete the ALB. Empty with an existing VPC."
+  value = concat(
+    aws_route.public_internet[*].id, aws_route.private_nat[*].id,
+    aws_route_table_association.public[*].id, aws_route_table_association.private[*].id,
+  )
+}

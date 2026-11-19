@@ -38,6 +38,7 @@ module "csi" {
   oidc_client_id         = local.common.oidc_client_id
   secrets_delivery       = "csi"
   secret_names           = local.secret_names
+  use_pod_identity       = true # the EKS default on managed nodes; the kubernetes case below is IRSA (Fargate)
   chat_provider          = "anthropic"
   chat_model             = "claude-sonnet-5-5"
   session_retention_days = 90

@@ -2,7 +2,7 @@
 
 > **Living document.** Update this file in the same PR as any change that adds, removes or renames a component, table, tool or data flow, or that changes a component's status. Status colours: **built** (green) · **in progress** (amber) · **planned** (grey).
 >
-> Last updated: 2026-11-18.
+> Last updated: 2026-11-19.
 
 ## 1. System overview
 
@@ -399,6 +399,6 @@ flowchart TB
     e1["web Deployment + HPA + PDB · ALB Ingress (AWS Load Balancer Controller, ACM, AWS WAF)"]:::built
     e2["worker CronJob · migrate hook Job as SA satchel-migrate · first-workspace Job · managed nodes or Fargate"]:::built
     e3["RDS PostgreSQL 17 (pgvector, force_ssl) · S3 results + audit (SSE-KMS) · Secrets Manager via CSI (ASCP) · KMS"]:::built
-    e4["IRSA: satchel ⇒ runtime role · satchel-migrate ⇒ migrate role (owner-level secrets only)"]:::built
+    e4["EKS Pod Identity (IRSA on Fargate): satchel ⇒ runtime role · satchel-migrate ⇒ migrate role (owner-level secrets only)"]:::built
   end
 ```

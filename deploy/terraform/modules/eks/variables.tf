@@ -139,8 +139,25 @@ variable "node_desired_size" {
   default = 2
 }
 
+variable "network_dependencies" {
+  description = "IDs the Helm releases must outlive, usually the foundation's egress_dependencies. On destroy, Terraform then uninstalls the releases (and the AWS Load Balancer Controller deletes the ALB) before it removes the NAT gateway and routes the controller needs to reach AWS."
+  type        = list(string)
+  default     = []
+}
+
+variable "workload_identity" {
+  description = "How pods get their IAM roles. pod_identity: EKS Pod Identity (no IAM OIDC provider, which some organizations' SCPs deny; managed nodes only). irsa: IAM Roles for Service Accounts (needed on Fargate)."
+  type        = string
+  default     = "pod_identity"
+
+  validation {
+    condition     = contains(["pod_identity", "irsa"], var.workload_identity)
+    error_message = "workload_identity must be pod_identity or irsa."
+  }
+}
+
 variable "oidc_provider_arn" {
-  description = "Existing IAM OIDC provider for the cluster. Null creates one (create_cluster) or looks it up (existing cluster)."
+  description = "IRSA only. Existing IAM OIDC provider for the cluster. Null creates one (create_cluster) or looks it up (existing cluster)."
   type        = string
   default     = null
 }
