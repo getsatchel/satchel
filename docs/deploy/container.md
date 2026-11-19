@@ -37,6 +37,10 @@ docker run -p 8080:8080 -e SATCHEL_DATABASE_URL=... -e SATCHEL_PUBLIC_URL=http:/
 | liveness | `GET /healthz` | Process is up; never touches the database. |
 | readiness / startup | `GET /readyz` | 200 when the database answers (checked on every call, 3 s timeout) and the alembic revision is at head (cached about 30 s). Otherwise 503 `{"status": "unavailable", "reason": "..."}`. |
 
+Both also return what is running, so you can check an upgrade took with one request:
+`{"status": "ok", "version": "0.5.5", "widget": "ui://satchel/result/<hash>"}`. The widget URI changes
+with every build.
+
 ## Production mode
 
 `SATCHEL_ENV=production` makes `satchel serve ...` and `satchel worker` refuse to start (exit 1, every problem listed) when:

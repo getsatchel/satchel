@@ -130,6 +130,7 @@ claude mcp add --transport http satchel https://<domain>/mcp    # then /mcp to s
   ```bash
   docker compose pull && docker compose up -d
   docker compose images | grep satchel   # every satchel row shows the new tag
+  curl -s https://<domain>/healthz       # "version" is the new release
   docker image prune -a -f               # removes images no container uses; volumes are untouched
   ```
 

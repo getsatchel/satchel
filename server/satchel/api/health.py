@@ -1,4 +1,5 @@
-"""``/readyz``: database reachable and schema at head (liveness is ``/healthz``, no DB)."""
+"""``/readyz``: database reachable and schema at head (liveness is ``/healthz``, no DB). Both
+return the running version and widget URI (:mod:`satchel.build_info`)."""
 
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from satchel.build_info import build_info
 from satchel.store.schema import schema_status
 
 AT_HEAD_TTL_S = 30.0
@@ -57,5 +59,6 @@ def mount_readyz(app: FastAPI, engine: Engine) -> None:
     async def readyz() -> JSONResponse:
         reason = await ready.reason()
         if reason is None:
-            return JSONResponse({"status": "ok"})
-        return JSONResponse({"status": "unavailable", "reason": reason}, status_code=503)
+            return JSONResponse({"status": "ok", **build_info()})
+        return JSONResponse({"status": "unavailable", "reason": reason, **build_info()},
+                            status_code=503)

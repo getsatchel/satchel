@@ -31,7 +31,7 @@ def client_ctx(
 
 def test_health_and_auth(client_ctx: tuple[TestClient, str, uuid.UUID]) -> None:
     c, slug, uid = client_ctx
-    assert c.get("/healthz").json() == {"status": "ok"}
+    assert c.get("/healthz").json()["status"] == "ok"
     assert c.get("/v1/items").status_code == 401
     assert c.get("/v1/items", headers={"X-Satchel-Workspace": "nope"}).status_code == 404
     h = {"X-Satchel-Workspace": slug, "X-Satchel-User": str(uuid.uuid4())}

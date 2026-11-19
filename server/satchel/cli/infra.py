@@ -16,6 +16,7 @@ import urllib.request
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
@@ -224,11 +225,19 @@ def read_server() -> ServerInfo | None:
 
 
 def healthy(url: str, timeout: float = 2) -> bool:
+    return health(url, timeout) is not None
+
+
+def health(url: str, timeout: float = 2) -> dict[str, Any] | None:
+    """The server's ``/healthz`` body (status, version, widget), or None when it is down."""
     try:
         with urllib.request.urlopen(f"{url}/healthz", timeout=timeout) as r:  # noqa: S310
-            return bool(r.status == 200)
+            if r.status != 200:
+                return None
+            body = json.loads(r.read() or b"{}")
+            return body if isinstance(body, dict) else {}
     except Exception:
-        return False
+        return None
 
 
 def start_detached(host: str, port: int) -> ServerInfo:

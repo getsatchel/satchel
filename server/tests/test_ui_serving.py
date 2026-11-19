@@ -54,7 +54,7 @@ def test_serves_index_assets_and_spa_fallback(app_engine: Engine, dist: Path) ->
 
 def test_does_not_shadow_api_routes(app_engine: Engine, dist: Path) -> None:
     c = _client(app_engine, dist)
-    assert c.get("/healthz").json() == {"status": "ok"}
+    assert c.get("/healthz").json()["status"] == "ok"
     assert c.get("/openapi.json").json()["info"]["title"] == "satchel"
     # API paths keep their own behaviour (401 unauthenticated, JSON 404 for unknown)
     r = c.get("/v1/me")

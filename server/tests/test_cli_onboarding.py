@@ -578,6 +578,8 @@ def test_up_detach_and_down(
         assert "already running" in again.output
         st = json.loads(runner.invoke(app, ["status", "--json"]).output)
         assert st["server"]["healthy"] or st["server"]["pid"] == info.pid
+        if st["server"]["healthy"]:
+            assert st["server"]["version"] == st["version"], "the server reports its version"
     finally:
         runner.invoke(app, ["down"])
     assert infra.read_server() is None
