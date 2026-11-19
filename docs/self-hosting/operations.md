@@ -13,7 +13,7 @@ database and on existing ones, so upgrades are in place.
 | Container | Run `satchel db upgrade` with the owner URL, then roll the replicas. |
 | One VM (Compose) | Set `SATCHEL_IMAGE_TAG` in `.env`, then `docker compose pull && docker compose up -d`; the `db-upgrade` step migrates first. Then `docker image prune -a -f`, or old images fill the disk. See [One VM](../deploy/vm.md#6-operate). |
 
-Read the [release notes](https://github.com/getsatchel/satchel/releases) for each version you skip. Back up first. Roll web and worker to the same version. `satchel status` shows the schema revision against head.
+Read the [release notes](https://github.com/getsatchel/satchel/releases) for each version you skip. Back up first. Roll web and worker to the same version. `satchel status` shows the schema revision against head, and the local server's version next to the CLI's. After an upgrade, `curl https://<domain>/healthz` should show the new `version`.
 
 ## Backups
 
@@ -26,7 +26,7 @@ Read the [release notes](https://github.com/getsatchel/satchel/releases) for eac
 
 ## Health and logs
 
-- `/healthz` (liveness) and `/readyz` (readiness).
+- `/healthz` (liveness) and `/readyz` (readiness). Both return the running `version` and the result widget's URI: `curl https://<domain>/healthz` confirms an upgrade.
 - `SATCHEL_LOG_FORMAT=json` for structured logs.
 - `satchel doctor` checks the database, RLS role, schema, token, embedder, result dir, connections and client
   configs, and prints the fix for each failure. It exits 1 on failure, so it works in CI.

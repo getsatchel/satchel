@@ -44,6 +44,7 @@ from satchel.api.schemas import (
     SearchHitOut,
     SearchRequest,
 )
+from satchel.build_info import build_info
 from satchel.jobs.runner import WEB_KINDS, JobRunner, Runtime
 from satchel.llm.chat import ChatProvider
 from satchel.llm.embeddings import EmbeddingProvider, make_embedder
@@ -157,7 +158,7 @@ def create_app(
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", **build_info()}
 
     mount_readyz(app, eng)
 

@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
+from satchel.build_info import build_info
 from satchel.llm.embeddings import EmbeddingProvider, make_embedder
 from satchel.mcp.auth import Principal, authenticate_bearer
 from satchel.mcp.server import build_server
@@ -110,7 +111,7 @@ def create_standalone_app(
     mcp = McpHttp(eng, embedder or make_embedder(), st)
 
     async def healthz(_: Any) -> Response:
-        return JSONResponse({"status": "ok"})
+        return JSONResponse({"status": "ok", **build_info()})
 
     app = Starlette(routes=[Route("/healthz", healthz)])
     mount_mcp(app, mcp)

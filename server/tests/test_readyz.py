@@ -8,7 +8,9 @@ from sqlalchemy import Engine, create_engine
 
 from satchel.api import health
 from satchel.api.app import create_app
+from satchel.build_info import server_version
 from satchel.llm.embeddings import HashEmbedder
+from satchel.mcp.apps import result_uri
 from satchel.settings import Settings
 from satchel.store.schema import SchemaStatus
 
@@ -21,8 +23,11 @@ def _client(engine: Engine) -> TestClient:
 def test_ready_at_head_and_healthz_needs_no_db(app_engine: Engine) -> None:
     c = _client(app_engine)
     r = c.get("/readyz")
-    assert r.status_code == 200 and r.json() == {"status": "ok"}
-    assert c.get("/healthz").json() == {"status": "ok"}
+    running = {"version": server_version(), "widget": result_uri()}
+    assert r.status_code == 200 and r.json() == {"status": "ok", **running}
+    assert c.get("/healthz").json() == {"status": "ok", **running}
+    # the version an operator checks after an upgrade
+    assert running["version"] != "unknown" and running["widget"].startswith("ui://satchel/result/")
 
 
 def test_not_ready_when_schema_behind(
@@ -33,6 +38,7 @@ def test_not_ready_when_schema_behind(
     assert r.status_code == 503
     body = r.json()
     assert body["status"] == "unavailable" and "needs 0009" in body["reason"]
+    assert body["version"] == server_version(), "says which build is not ready"
 
 
 def test_not_ready_when_db_unreachable() -> None:

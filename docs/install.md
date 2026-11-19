@@ -57,7 +57,7 @@ Precedence is **environment variable > config file profile > built-in default**,
 ```bash
 satchel up              # starts Postgres if it is down, checks migrations, serves UI + REST + MCP on :8080
 satchel up --detach     # same in the background (pidfile and log under ~/.local/state/satchel/)
-satchel status          # version, config, database, schema vs head, server, token, workspace, connections
+satchel status          # version, config, database, schema vs head, server (and its version), token, workspace, connections
 satchel down            # stop the background server (Postgres keeps running)
 satchel down --all      # also stop satchel's Postgres (data is kept)
 satchel down --purge    # ... and delete its data volume, after asking

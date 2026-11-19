@@ -452,10 +452,12 @@ def status(
         rows["database_error"] = str(getattr(e, "orig", e)).strip().splitlines()[0]
     srv = infra.read_server()
     url = srv.url if srv else f"http://localhost:{make_url(s.public_url).port or 8080}"
+    h = infra.health(url)
     rows["server"] = {
         "pid": srv.pid if srv else None,
         "url": url,
-        "healthy": infra.healthy(url),
+        "healthy": h is not None,
+        "version": (h or {}).get("version"),
     }
     if reachable and rows["schema"]["state"] == "ok":
         if s.token:
@@ -486,8 +488,12 @@ def status(
     else:
         say(f"database    {rows['database']}  UNREACHABLE ({rows['database_error']})  -> satchel up")
     sv = rows["server"]
+    sver = sv["version"]
     say(f"server      {'running' if sv['healthy'] else 'not running'} at {sv['url']}"
-        + (f" (pid {sv['pid']})" if sv["pid"] else ""))
+        + (f" (pid {sv['pid']})" if sv["pid"] else "")
+        + (f", version {sver}" if sver else "")
+        + (f"  DIFFERS from this satchel ({rows['version']}): restart it"
+           if sver and sver != rows["version"] else ""))
     if "token" in rows:
         t = rows["token"]
         say("token       " + (f"valid for {t['email']} in '{t['workspace']}'"
