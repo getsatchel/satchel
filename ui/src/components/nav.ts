@@ -54,15 +54,16 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Data",
     dash: "bg-good/55",
     items: [
-      { to: "/connections", label: "Connections", icon: "M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0zM12 16v5", keywords: "warehouse snowflake postgres bigquery duckdb database crawl key", min: "curator" },
       { to: "/catalog", label: "Catalog", icon: "M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zm8 3v6c0 1.7-3.6 3-8 3s-8-1.3-8-3V6m16 6v6c0 1.7-3.6 3-8 3s-8-1.3-8-3v-6", keywords: "tables assets coverage warehouse" },
-      { to: "/sources", label: "Sources", icon: "M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zm0 0v5c0 1.7 3.6 3 8 3m-8 0v5c0 1.7 3.6 3 8 3m4-6h6m0 0-2.5-2.5M20 17l-2.5 2.5", keywords: "dbt sync import", min: "curator" },
     ],
   },
   {
-    label: "Admin",
+    // Where Satchel learns about the data (and its own settings); the pages above are what it knows.
+    label: "Setup",
     dash: "bg-muted/40",
     items: [
+      { to: "/connections", label: "Connections", icon: "M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0zM12 16v5", keywords: "warehouse snowflake postgres bigquery duckdb database crawl key", min: "curator" },
+      { to: "/sources", label: "Sources", icon: "M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zm0 0v5c0 1.7 3.6 3 8 3m-8 0v5c0 1.7 3.6 3 8 3m4-6h6m0 0-2.5-2.5M20 17l-2.5 2.5", keywords: "dbt sync import", min: "curator" },
       { to: "/settings", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L14.5 3h-5l-.4 2.6a7.5 7.5 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.6h5l.4-2.6a7.5 7.5 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z", keywords: "configuration models llm api keys anthropic openai admin members users invite roles access limits deployment", min: "curator" },
     ],
   },

@@ -89,7 +89,7 @@ workspace connections apply once it is removed. Existing installs keep working u
 ## Connections
 
 Warehouses agents query (`run_sql`, the semantic layer) and that Satchel crawls into the catalog.
-They have their own page under **Data** (`/connections`; the old `/settings?tab=connections`
+They have their own page under **Setup** (`/connections`; the old `/settings?tab=connections`
 redirects there). Admins add and change them; curators see the list.
 
 - **Adding one.** **Add connection** opens a panel in steps: **Kind** (the warehouse and a name),
