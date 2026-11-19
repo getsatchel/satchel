@@ -1,26 +1,12 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { errMsg } from "@/lib/format";
 import { SatchelMark } from "@/components/Logo";
 import { MOD_KEY, useCommandPalette } from "@/components/paletteContext";
 
 /** True when the viewport matches `query`. Defaults to the `lg` breakpoint used for list + detail. */
 export function useWide(query = "(min-width: 1024px)") {
-  const [wide, setWide] = useState(() =>
-    typeof window === "undefined" ? true : window.matchMedia(query).matches,
-  );
+  const [wide, setWide] = useState(() => (typeof window === "undefined" ? true : window.matchMedia(query).matches));
   useEffect(() => {
     const mq = window.matchMedia(query);
     const on = () => setWide(mq.matches);
@@ -32,16 +18,8 @@ export function useWide(query = "(min-width: 1024px)") {
 }
 
 const SPLIT = {
-  lg: {
-    grid: "lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)]",
-    show: "lg:block",
-    hide: "lg:hidden",
-  },
-  xl: {
-    grid: "xl:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)]",
-    show: "xl:block",
-    hide: "xl:hidden",
-  },
+  lg: { grid: "lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)]", show: "lg:block", hide: "lg:hidden" },
+  xl: { grid: "xl:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)]", show: "xl:block", hide: "xl:hidden" },
 } as const;
 
 /** List and detail side by side from `split` up; below that, the list hides while a detail is open. */
@@ -54,9 +32,7 @@ export function ListDetail(props: {
   split?: keyof typeof SPLIT;
 }) {
   const s = SPLIT[props.split ?? "lg"];
-  const wide = useWide(
-    props.split === "xl" ? "(min-width: 1280px)" : "(min-width: 1024px)",
-  );
+  const wide = useWide(props.split === "xl" ? "(min-width: 1280px)" : "(min-width: 1024px)");
   const backRef = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   // One pane at a time: opening a detail hides the list, so focus moves to Back; Back returns it
@@ -64,11 +40,7 @@ export function ListDetail(props: {
   useEffect(() => {
     if (wide) return;
     if (props.hasDetail) {
-      if (
-        document.activeElement instanceof HTMLElement &&
-        document.activeElement !== document.body
-      )
-        opener.current = document.activeElement;
+      if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) opener.current = document.activeElement;
       backRef.current?.focus();
     } else if (opener.current?.isConnected) {
       opener.current.focus();
@@ -77,17 +49,11 @@ export function ListDetail(props: {
   }, [props.hasDetail, wide]);
   return (
     <div className={`grid items-start gap-4 ${s.grid}`}>
-      <div className={props.hasDetail ? `hidden ${s.show}` : ""}>
-        {props.list}
-      </div>
+      <div className={props.hasDetail ? `hidden ${s.show}` : ""}>{props.list}</div>
       {props.hasDetail ? (
         <div className="min-w-0">
           {props.onBack && (
-            <button
-              ref={backRef}
-              className={`btn btn-ghost btn-sm mb-2 -ml-2 ${s.hide}`}
-              onClick={props.onBack}
-            >
+            <button ref={backRef} className={`btn btn-ghost btn-sm mb-2 -ml-2 ${s.hide}`} onClick={props.onBack}>
               <Icon d="M15 18l-6-6 6-6" size={14} />
               {props.backLabel ?? "Back"}
             </button>
@@ -102,37 +68,16 @@ export function ListDetail(props: {
 }
 
 /** Card grid that fills the width with as many `min`-wide columns as fit. `fit` stretches a short row to the full width (stat rows). */
-export function CardGrid({
-  min = "14rem",
-  gap = "gap-3",
-  fit,
-  children,
-}: {
-  min?: string;
-  gap?: string;
-  fit?: boolean;
-  children: ReactNode;
-}) {
+export function CardGrid({ min = "14rem", gap = "gap-3", fit, children }: { min?: string; gap?: string; fit?: boolean; children: ReactNode }) {
   return (
-    <div
-      className={`grid ${gap}`}
-      style={{
-        gridTemplateColumns: `repeat(${fit ? "auto-fit" : "auto-fill"},minmax(min(${min},100%),1fr))`,
-      }}
-    >
+    <div className={`grid ${gap}`} style={{ gridTemplateColumns: `repeat(${fit ? "auto-fit" : "auto-fill"},minmax(min(${min},100%),1fr))` }}>
       {children}
     </div>
   );
 }
 
 /** Card wrapper for a data table. Put `<thead className="border-b border-line">` and a `divide-y` tbody inside. */
-export function TableCard({
-  children,
-  footer,
-}: {
-  children: ReactNode;
-  footer?: ReactNode;
-}) {
+export function TableCard({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
@@ -144,15 +89,7 @@ export function TableCard({
 }
 
 /** A selectable row in a list that sits beside a detail pane. */
-export function ListRow({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
+export function ListRow({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <li>
       <button
@@ -167,15 +104,7 @@ export function ListRow({
 }
 
 /** "Library / folder/" line above a detail page title. */
-export function Crumb({
-  to,
-  label,
-  rest,
-}: {
-  to: string;
-  label: string;
-  rest?: ReactNode;
-}) {
+export function Crumb({ to, label, rest }: { to: string; label: string; rest?: ReactNode }) {
   return (
     <p className="mb-2 break-all text-xs text-muted">
       <Link to={to} className="hover:text-ink">
@@ -197,22 +126,13 @@ export function KeyLines({ itemKey }: { itemKey: string }) {
   if (i < 0) return <span className="font-mono">{itemKey}</span>;
   return (
     <>
-      <span className="font-mono [overflow-wrap:anywhere]">
-        {itemKey.slice(i + 1)}
-      </span>
-      <span className="block font-mono text-xs text-muted [overflow-wrap:anywhere]">
-        {itemKey.slice(0, i + 1)}
-      </span>
+      <span className="font-mono [overflow-wrap:anywhere]">{itemKey.slice(i + 1)}</span>
+      <span className="block font-mono text-xs text-muted [overflow-wrap:anywhere]">{itemKey.slice(0, i + 1)}</span>
     </>
   );
 }
 
-export function FilterSelect(props: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
+export function FilterSelect(props: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
   return (
     <select
       className={`input min-w-0 w-full sm:w-auto ${props.value ? "border-accent/60 bg-accent-soft/40" : "text-muted"}`}
@@ -231,30 +151,16 @@ export function FilterSelect(props: {
 }
 
 /** Page title and one-line description on the left; actions (buttons, ⌘K, "New") on the right. */
-export function PageHeader(props: {
-  title: string;
-  sub?: ReactNode;
-  actions?: ReactNode;
-}) {
+export function PageHeader(props: { title: string; sub?: ReactNode; actions?: ReactNode }) {
   const openPalette = useCommandPalette();
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="break-words text-[22px] font-light leading-tight tracking-[-0.03em] sm:text-[26px]">
-          {props.title}
-        </h1>
-        {props.sub && (
-          <div className="mt-1 max-w-3xl text-sm text-muted">{props.sub}</div>
-        )}
+        <h1 className="break-words text-[22px] font-light leading-tight tracking-[-0.03em] sm:text-[26px]">{props.title}</h1>
+        {props.sub && <div className="mt-1 max-w-3xl text-sm text-muted">{props.sub}</div>}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="btn btn-ghost hidden gap-1 font-mono text-xs sm:inline-flex"
-          onClick={openPalette}
-          aria-label="Open command palette"
-          aria-keyshortcuts="Meta+K Control+K"
-        >
+        <button type="button" className="btn btn-ghost hidden gap-1 font-mono text-xs sm:inline-flex" onClick={openPalette} aria-label="Open command palette" aria-keyshortcuts="Meta+K Control+K">
           <Icon d={ICONS.command} size={14} />
           {MOD_KEY === "⌘" ? "cmd+k" : "ctrl+k"}
         </button>
@@ -268,32 +174,17 @@ export function PageHeader(props: {
  * What fills an empty page and how. `icon` is the page's own icon (its sidebar icon), `muted` the
  * heading's second half in grey ("No sessions yet / connect an agent and ask a data question").
  */
-export function EmptyState(props: {
-  title: string;
-  muted?: string;
-  icon?: string;
-  children?: ReactNode;
-  action?: ReactNode;
-}) {
+export function EmptyState(props: { title: string; muted?: string; icon?: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="card flex flex-col items-center px-6 py-14 text-center">
-      <div
-        className="mb-5 grid h-11 w-11 place-items-center rounded-xl border border-line bg-surface text-ink"
-        aria-hidden
-      >
-        {props.icon ? (
-          <Icon d={props.icon} size={20} strokeWidth={1.5} />
-        ) : (
-          <SatchelMark size={20} />
-        )}
+      <div className="mb-5 grid h-11 w-11 place-items-center rounded-xl border border-line bg-surface text-ink" aria-hidden>
+        {props.icon ? <Icon d={props.icon} size={20} strokeWidth={1.5} /> : <SatchelMark size={20} />}
       </div>
       <h2 className="max-w-lg text-balance text-lg font-normal leading-snug tracking-[-0.02em]">
         {props.title}
         {props.muted && <span className="text-muted"> {props.muted}</span>}
       </h2>
-      {props.children && (
-        <p className="mt-2 max-w-md text-sm text-muted">{props.children}</p>
-      )}
+      {props.children && <p className="mt-2 max-w-md text-sm text-muted">{props.children}</p>}
       {props.action && <div className="mt-4">{props.action}</div>}
     </div>
   );
@@ -301,10 +192,7 @@ export function EmptyState(props: {
 
 export function Loading({ label = "Loading" }: { label?: string }) {
   return (
-    <div
-      role="status"
-      className="flex items-center gap-2 py-8 text-sm text-muted"
-    >
+    <div role="status" className="flex items-center gap-2 py-8 text-sm text-muted">
       <span className="h-3 w-3 animate-spin rounded-full border-2 border-line border-t-accent" />
       {label}...
     </div>
@@ -313,10 +201,7 @@ export function Loading({ label = "Loading" }: { label?: string }) {
 
 export function ErrorBox({ error }: { error: unknown }) {
   return (
-    <div
-      role="alert"
-      className="rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-sm text-bad"
-    >
+    <div role="alert" className="rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-sm text-bad">
       {errMsg(error)}
     </div>
   );
@@ -327,23 +212,14 @@ export function Notice(props: { tone?: "info" | "warn"; children: ReactNode }) {
     props.tone === "warn"
       ? "border-warn/30 bg-warn-soft text-warn"
       : "border-info/25 bg-info-soft text-ink";
-  return (
-    <div className={`rounded-md border px-3 py-2 text-sm ${cls}`}>
-      {props.children}
-    </div>
-  );
+  return <div className={`rounded-md border px-3 py-2 text-sm ${cls}`}>{props.children}</div>;
 }
 
 export function TypeBadge({ type }: { type: string }) {
   return <span className="badge font-mono">{type}</span>;
 }
 
-const STATE_TONE: Record<string, Tone> = {
-  published: "good",
-  draft: "warn",
-  proposed: "accent",
-  deprecated: "muted",
-};
+const STATE_TONE: Record<string, Tone> = { published: "good", draft: "warn", proposed: "accent", deprecated: "muted" };
 
 export function StateBadge({ state }: { state: string }) {
   return <StatusDot tone={STATE_TONE[state] ?? "muted"}>{state}</StatusDot>;
@@ -351,50 +227,25 @@ export function StateBadge({ state }: { state: string }) {
 
 export function GitBadge() {
   return (
-    <span
-      className="badge badge-accent"
-      title="Managed in the context git repository"
-    >
+    <span className="badge badge-accent" title="Managed in the context git repository">
       git
     </span>
   );
 }
 
 /** Flag for items synced from an upstream tool ("From dbt: model.jaffle_shop.orders"). */
-export function SourceBadge({
-  kind,
-  sourceKey,
-}: {
-  kind?: string | null;
-  sourceKey?: string | null;
-}) {
+export function SourceBadge({ kind, sourceKey }: { kind?: string | null; sourceKey?: string | null }) {
   return (
-    <span
-      className="badge badge-accent max-w-full"
-      title={`Synced from ${kind ?? "a source"}${sourceKey ? `: ${sourceKey}` : ""}. The source block is read-only.`}
-    >
+    <span className="badge badge-accent max-w-full" title={`Synced from ${kind ?? "a source"}${sourceKey ? `: ${sourceKey}` : ""}. The source block is read-only.`}>
       <span className="shrink-0">From {kind ?? "source"}</span>
-      {sourceKey && (
-        <span className="min-w-0 truncate font-mono font-normal opacity-80">
-          {sourceKey}
-        </span>
-      )}
+      {sourceKey && <span className="min-w-0 truncate font-mono font-normal opacity-80">{sourceKey}</span>}
     </span>
   );
 }
 
-export function ItemLink({
-  itemKey,
-  seq,
-}: {
-  itemKey: string;
-  seq?: number | null;
-}) {
+export function ItemLink({ itemKey, seq }: { itemKey: string; seq?: number | null }) {
   return (
-    <Link
-      to={`/library/item/${itemKey.split("/").map(encodeURIComponent).join("/")}`}
-      className="font-mono text-accent [overflow-wrap:anywhere] hover:underline"
-    >
+    <Link to={`/library/item/${itemKey.split("/").map(encodeURIComponent).join("/")}`} className="font-mono text-accent [overflow-wrap:anywhere] hover:underline">
       <ItemKey itemKey={itemKey} />
       {seq != null && <span className="text-muted">@v{seq}</span>}
     </Link>
@@ -404,16 +255,13 @@ export function ItemLink({
 /** An item key with its folder dimmed so the name reads first. `fit` truncates the folder before the name. */
 export function ItemKey({ itemKey, fit }: { itemKey: string; fit?: boolean }) {
   const i = itemKey.lastIndexOf("/");
-  if (i < 0)
-    return fit ? <span className="truncate">{itemKey}</span> : <>{itemKey}</>;
+  if (i < 0) return fit ? <span className="truncate">{itemKey}</span> : <>{itemKey}</>;
   const dir = itemKey.slice(0, i + 1);
   const name = itemKey.slice(i + 1);
   if (fit) {
     return (
       <span className="flex min-w-0" title={itemKey}>
-        <span className="min-w-[2ch] shrink-[1000] truncate opacity-60">
-          {dir}
-        </span>
+        <span className="min-w-[2ch] shrink-[1000] truncate opacity-60">{dir}</span>
         <span className="min-w-0 truncate">{name}</span>
       </span>
     );
@@ -454,9 +302,7 @@ export function Modal(props: {
   useEffect(() => {
     const body = bodyRef.current;
     if (!props.open || !body) return;
-    const field = body.querySelector<HTMLElement>(
-      'input:not([disabled]):not([type="radio"]), input[type="radio"]:checked, select:not([disabled]), textarea:not([disabled])',
-    );
+    const field = body.querySelector<HTMLElement>('input:not([disabled]):not([type="radio"]), input[type="radio"]:checked, select:not([disabled]), textarea:not([disabled])');
     if (field) field.focus();
     else if (step !== undefined) body.focus();
   }, [props.open, step]);
@@ -485,27 +331,14 @@ export function Modal(props: {
                 </p>
               )}
             </div>
-            <button
-              type="button"
-              className="btn btn-ghost -mr-2 -mt-1 shrink-0 px-2"
-              aria-label="Close"
-              onClick={props.onClose}
-            >
+            <button type="button" className="btn btn-ghost -mr-2 -mt-1 shrink-0 px-2" aria-label="Close" onClick={props.onClose}>
               <Icon d={ICONS.close} size={16} />
             </button>
           </div>
-          <div
-            ref={bodyRef}
-            tabIndex={-1}
-            className="overflow-auto px-5 py-5 outline-none"
-          >
+          <div ref={bodyRef} tabIndex={-1} className="overflow-auto px-5 py-5 outline-none">
             {props.children}
           </div>
-          {props.footer && (
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4">
-              {props.footer}
-            </div>
-          )}
+          {props.footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4">{props.footer}</div>}
         </div>
       )}
     </dialog>
@@ -578,9 +411,7 @@ export function Sheet(props: {
   useEffect(() => {
     const body = bodyRef.current;
     if (!props.open || !body) return;
-    const field = body.querySelector<HTMLElement>(
-      'input:not([disabled]):not([type="radio"]):not([type="checkbox"]), input[type="radio"]:checked, select:not([disabled]), textarea:not([disabled])',
-    );
+    const field = body.querySelector<HTMLElement>('input:not([disabled]):not([type="radio"]):not([type="checkbox"]), input[type="radio"]:checked, select:not([disabled]), textarea:not([disabled])');
     if (field) field.focus();
     else body.focus();
   }, [props.open, step]);
@@ -588,9 +419,7 @@ export function Sheet(props: {
     if (asking) keepRef.current?.focus();
   }, [asking]);
   const request = () => (props.dirty ? setAsking(true) : props.onClose());
-  const total = props.steps
-    ? (props.steps.names?.length ?? props.steps.total ?? 0)
-    : 0;
+  const total = props.steps ? (props.steps.names?.length ?? props.steps.total ?? 0) : 0;
   return (
     <dialog
       ref={ref}
@@ -614,25 +443,10 @@ export function Sheet(props: {
               </h2>
               {props.steps &&
                 (props.steps.names ? (
-                  <ol
-                    className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs"
-                    aria-label={`Step ${props.steps.current + 1} of ${total}`}
-                  >
+                  <ol className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label={`Step ${props.steps.current + 1} of ${total}`}>
                     {props.steps.names.map((n, i) => (
-                      <li
-                        key={n}
-                        aria-current={
-                          i === props.steps?.current ? "step" : undefined
-                        }
-                        className={
-                          i === props.steps?.current
-                            ? "font-medium text-accent"
-                            : "text-muted"
-                        }
-                      >
-                        <span className="mr-1 font-mono tabular-nums">
-                          {i + 1}
-                        </span>
+                      <li key={n} aria-current={i === props.steps?.current ? "step" : undefined} className={i === props.steps?.current ? "font-medium text-accent" : "text-muted"}>
+                        <span className="mr-1 font-mono tabular-nums">{i + 1}</span>
                         {n}
                       </li>
                     ))}
@@ -643,50 +457,25 @@ export function Sheet(props: {
                   </p>
                 ))}
             </div>
-            <button
-              type="button"
-              className="btn btn-ghost -mr-2 -mt-1 shrink-0 px-2"
-              aria-label="Close"
-              onClick={request}
-            >
+            <button type="button" className="btn btn-ghost -mr-2 -mt-1 shrink-0 px-2" aria-label="Close" onClick={request}>
               <Icon d={ICONS.close} size={16} />
             </button>
           </div>
-          <div
-            ref={bodyRef}
-            tabIndex={-1}
-            className="min-h-0 flex-1 overflow-auto px-5 py-5 outline-none"
-          >
+          <div ref={bodyRef} tabIndex={-1} className="min-h-0 flex-1 overflow-auto px-5 py-5 outline-none">
             {props.children}
           </div>
           {asking ? (
-            <div
-              className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4"
-              role="alert"
-            >
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4" role="alert">
               <p className="mr-auto text-sm">Discard your changes?</p>
-              <button
-                ref={keepRef}
-                type="button"
-                className="btn"
-                onClick={() => setAsking(false)}
-              >
+              <button ref={keepRef} type="button" className="btn" onClick={() => setAsking(false)}>
                 Keep editing
               </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={props.onClose}
-              >
+              <button type="button" className="btn btn-danger" onClick={props.onClose}>
                 Discard
               </button>
             </div>
           ) : (
-            props.footer && (
-              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4">
-                {props.footer}
-              </div>
-            )
+            props.footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-4">{props.footer}</div>
           )}
         </div>
       )}
@@ -703,14 +492,7 @@ export function Tabs<T extends string>(props: {
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const i = props.tabs.findIndex((t) => t.id === props.value);
     const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    const to =
-      e.key === "Home"
-        ? 0
-        : e.key === "End"
-          ? props.tabs.length - 1
-          : step
-            ? (i + step + props.tabs.length) % props.tabs.length
-            : -1;
+    const to = e.key === "Home" ? 0 : e.key === "End" ? props.tabs.length - 1 : step ? (i + step + props.tabs.length) % props.tabs.length : -1;
     const tab = props.tabs[to];
     if (to < 0 || !tab) return;
     e.preventDefault();
@@ -718,11 +500,7 @@ export function Tabs<T extends string>(props: {
     e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[to]?.focus();
   };
   return (
-    <div
-      role="tablist"
-      className="mb-3 flex gap-1 overflow-x-auto border-b border-line"
-      onKeyDown={onKey}
-    >
+    <div role="tablist" className="mb-3 flex gap-1 overflow-x-auto border-b border-line" onKeyDown={onKey}>
       {props.tabs.map((t) => (
         <button
           key={t.id}
@@ -732,9 +510,7 @@ export function Tabs<T extends string>(props: {
           tabIndex={props.value === t.id ? 0 : -1}
           onClick={() => props.onChange(t.id)}
           className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium sm:py-2 ${
-            props.value === t.id
-              ? "border-accent text-ink"
-              : "border-transparent text-muted hover:text-ink"
+            props.value === t.id ? "border-accent text-ink" : "border-transparent text-muted hover:text-ink"
           }`}
         >
           {t.label}
@@ -752,11 +528,7 @@ export function Segmented<T extends string | number>(props: {
   label: string;
 }) {
   return (
-    <div
-      role="group"
-      aria-label={props.label}
-      className="inline-flex max-w-full overflow-x-auto rounded-md border border-line bg-surface p-0.5"
-    >
+    <div role="group" aria-label={props.label} className="inline-flex max-w-full overflow-x-auto rounded-md border border-line bg-surface p-0.5">
       {props.options.map((o) => (
         <button
           key={String(o.id)}
@@ -766,9 +538,7 @@ export function Segmented<T extends string | number>(props: {
           title={o.disabled ?? undefined}
           onClick={() => props.onChange(o.id)}
           className={`h-9 shrink-0 whitespace-nowrap rounded px-2.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 ${
-            props.value === o.id
-              ? "bg-primary text-primary-ink"
-              : "text-muted hover:text-ink"
+            props.value === o.id ? "bg-primary text-primary-ink" : "text-muted hover:text-ink"
           }`}
         >
           {o.label}
@@ -780,40 +550,22 @@ export function Segmented<T extends string | number>(props: {
 
 export type Tone = "good" | "warn" | "bad" | "info" | "accent" | "muted";
 
-const DOT: Record<Tone, string> = {
-  good: "bg-good",
-  warn: "bg-warn",
-  bad: "bg-bad",
-  info: "bg-info",
-  accent: "bg-accent",
-  muted: "bg-muted/50",
-};
-const TEXT: Record<Tone, string> = {
-  good: "text-good",
-  warn: "text-warn",
-  bad: "text-bad",
-  info: "text-info",
-  accent: "text-accent",
-  muted: "text-muted",
-};
+const DOT: Record<Tone, string> = { good: "bg-good", warn: "bg-warn", bad: "bg-bad", info: "bg-info", accent: "bg-accent", muted: "bg-muted/50" };
+const TEXT: Record<Tone, string> = { good: "text-good", warn: "text-warn", bad: "text-bad", info: "text-info", accent: "text-accent", muted: "text-muted" };
 
 export const ICONS = {
   chevron: "m9 6 6 6-6 6",
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zm9 2-3.5-3.5",
   close: "M6 6l12 12M18 6 6 18",
   check: "m5 12 5 5 9-10",
-  thumbUp:
-    "M7 10v10H4V10zm0 0 4-7a2 2 0 0 1 2 2v4h5.5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.3 20H7",
-  thumbDown:
-    "M7 14V4H4v10zm0 0 4 7a2 2 0 0 0 2-2v-4h5.5a2 2 0 0 0 2-2.3l-1.2-7A2 2 0 0 0 17.3 4H7",
+  thumbUp: "M7 10v10H4V10zm0 0 4-7a2 2 0 0 1 2 2v4h5.5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.3 20H7",
+  thumbDown: "M7 14V4H4v10zm0 0 4 7a2 2 0 0 0 2-2v-4h5.5a2 2 0 0 0 2-2.3l-1.2-7A2 2 0 0 0 17.3 4H7",
   info: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-5v-5m0-3h.01",
   plus: "M12 5v14M5 12h14",
   down: "m6 9 6 6 6-6",
   upDown: "m8 9 4-4 4 4M8 15l4 4 4-4",
-  external:
-    "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
-  command:
-    "M9 6v12M15 6v12M6 9h12M6 15h12M9 6a3 3 0 1 0-3 3M15 6a3 3 0 1 1 3 3M9 18a3 3 0 1 1-3-3M15 18a3 3 0 1 0 3-3",
+  external: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
+  command: "M9 6v12M15 6v12M6 9h12M6 15h12M9 6a3 3 0 1 0-3 3M15 6a3 3 0 1 1 3 3M9 18a3 3 0 1 1-3-3M15 18a3 3 0 1 0 3-3",
   sun: "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2m0 18v2M4.2 4.2l1.4 1.4m12.8 12.8 1.4 1.4M1 12h2m18 0h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",
   moon: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z",
   logout: "M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3",
@@ -826,10 +578,8 @@ export const ICONS = {
   list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
   edit: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
   tag: "M3 12V4h8l10 10-8 8zM7.5 8.5h.01",
-  database:
-    "M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3",
-  flask:
-    "M9 3h6M10 3v6l-5.5 9.5A1.5 1.5 0 0 0 5.8 21h12.4a1.5 1.5 0 0 0 1.3-2.5L14 9V3M7.5 15h9",
+  database: "M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3",
+  flask: "M9 3h6M10 3v6l-5.5 9.5A1.5 1.5 0 0 0 5.8 21h12.4a1.5 1.5 0 0 0 1.3-2.5L14 9V3M7.5 15h9",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
   alert: "M12 3 2 20h20zM12 10v4m0 3h.01",
   link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1",
@@ -840,129 +590,54 @@ export const ICONS = {
   doc: "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6",
 };
 
-export function Icon({
-  d,
-  size = 15,
-  className = "",
-  strokeWidth = 1.7,
-}: {
-  d: string;
-  size?: number;
-  className?: string;
-  strokeWidth?: number;
-}) {
+export function Icon({ d, size = 15, className = "", strokeWidth = 1.7 }: { d: string; size?: number; className?: string; strokeWidth?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`shrink-0 ${className}`}
-      aria-hidden
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${className}`} aria-hidden>
       <path d={d} />
     </svg>
   );
 }
 
 export function Chevron({ open }: { open: boolean }) {
-  return (
-    <Icon
-      d={ICONS.chevron}
-      size={12}
-      strokeWidth={2.4}
-      className={`text-muted transition-transform ${open ? "rotate-90" : ""}`}
-    />
-  );
+  return <Icon d={ICONS.chevron} size={12} strokeWidth={2.4} className={`text-muted transition-transform ${open ? "rotate-90" : ""}`} />;
 }
 
 /** A health signal: coloured dot plus a caps mono state word. Use for states, not for flags. */
-export function StatusDot({
-  tone,
-  children,
-}: {
-  tone: Tone;
-  children: ReactNode;
-}) {
+export function StatusDot({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-2xs font-medium uppercase tracking-[0.06em] ${TEXT[tone]}`}
-    >
-      <span
-        className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[tone]}`}
-        aria-hidden
-      />
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-2xs font-medium uppercase tracking-[0.06em] ${TEXT[tone]}`}>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[tone]}`} aria-hidden />
       {children}
     </span>
   );
 }
 
 /** Caps mono label (Geist Mono, 11px, uppercase, tracked). */
-export function Label({
-  children,
-  className = "",
-  as: As = "span",
-}: {
-  children: ReactNode;
-  className?: string;
-  as?: "span" | "div" | "h2" | "h3" | "dt";
-}) {
+export function Label({ children, className = "", as: As = "span" }: { children: ReactNode; className?: string; as?: "span" | "div" | "h2" | "h3" | "dt" }) {
   return <As className={`label-caps ${className}`}>{children}</As>;
 }
 
 /** Section heading: optional icon, caps label and count, a hairline rule filling the row, then actions. */
-export function SectionHeading(props: {
-  title: ReactNode;
-  count?: number;
-  actions?: ReactNode;
-  id?: string;
-  icon?: string;
-}) {
+export function SectionHeading(props: { title: ReactNode; count?: number; actions?: ReactNode; id?: string; icon?: string }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
       <h2 id={props.id} className="label-caps flex min-w-0 items-center gap-2">
         {props.icon && <Icon d={props.icon} size={14} className="text-muted" />}
         <span className="min-w-0">{props.title}</span>
-        {props.count != null && (
-          <span className="tabular-nums text-muted">{props.count}</span>
-        )}
+        {props.count != null && <span className="tabular-nums text-muted">{props.count}</span>}
       </h2>
       <span className="h-px min-w-6 flex-1 bg-line" aria-hidden />
-      {props.actions && (
-        <div className="flex flex-wrap items-center gap-2">{props.actions}</div>
-      )}
+      {props.actions && <div className="flex flex-wrap items-center gap-2">{props.actions}</div>}
     </div>
   );
 }
 
 /** "● SENDING · 2h ago": a state dot, caps state word and a muted timestamp. */
-export function StatusLine({
-  tone,
-  state,
-  time,
-  title,
-}: {
-  tone: Tone;
-  state: ReactNode;
-  time?: ReactNode;
-  title?: string;
-}) {
+export function StatusLine({ tone, state, time, title }: { tone: Tone; state: ReactNode; time?: ReactNode; title?: string }) {
   return (
-    <span
-      className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap"
-      title={title}
-    >
-      <span
-        className={`h-2 w-2 shrink-0 rounded-full ${DOT[tone]}`}
-        aria-hidden
-      />
-      <span className="font-mono text-2xs font-semibold uppercase tracking-[0.08em] text-ink">
-        {state}
-      </span>
+    <span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap" title={title}>
+      <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[tone]}`} aria-hidden />
+      <span className="font-mono text-2xs font-semibold uppercase tracking-[0.08em] text-ink">{state}</span>
       {time != null && (
         <>
           <span className="text-muted/60" aria-hidden>
@@ -981,18 +656,11 @@ export function Kbd({ children }: { children: ReactNode }) {
 }
 
 /** Outline caps pill with a trailing chevron ("VIEW SESSIONS >"). Renders a Link when `to` is set. */
-export function PillButton(props: {
-  to?: string;
-  onClick?: () => void;
-  children: ReactNode;
-  chevron?: boolean;
-}) {
+export function PillButton(props: { to?: string; onClick?: () => void; children: ReactNode; chevron?: boolean }) {
   const inner = (
     <>
       {props.children}
-      {props.chevron !== false && (
-        <Icon d={ICONS.chevron} size={12} strokeWidth={2.2} />
-      )}
+      {props.chevron !== false && <Icon d={ICONS.chevron} size={12} strokeWidth={2.2} />}
     </>
   );
   return props.to ? (
@@ -1007,23 +675,14 @@ export function PillButton(props: {
 }
 
 /** Small (i) with a tooltip on hover and focus. Positioned `fixed` so card overflow never clips it. */
-export function InfoTip({
-  text,
-  label = "More info",
-}: {
-  text: string;
-  label?: string;
-}) {
+export function InfoTip({ text, label = "More info" }: { text: string; label?: string }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const show = () => {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
     const w = Math.min(240, window.innerWidth - 16);
-    setPos({
-      top: r.bottom + 6,
-      left: Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)),
-    });
+    setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) });
   };
   const id = useId();
   return (
@@ -1058,81 +717,32 @@ export function InfoTip({
 export type Glyph = "dot" | "ring" | "square" | "triangle" | "diamond";
 
 /** Small coloured shape that marks a stat or status. Colour only lives in glyphs and dots. */
-export function StatGlyph({
-  tone,
-  shape = "dot",
-}: {
-  tone: Tone;
-  shape?: Glyph;
-}) {
+export function StatGlyph({ tone, shape = "dot" }: { tone: Tone; shape?: Glyph }) {
   const c = TEXT[tone];
   return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      className={`shrink-0 ${c}`}
-      aria-hidden
-    >
+    <svg width="12" height="12" viewBox="0 0 12 12" className={`shrink-0 ${c}`} aria-hidden>
       {shape === "dot" && <circle cx="6" cy="6" r="5" fill="currentColor" />}
-      {shape === "ring" && (
-        <circle
-          cx="6"
-          cy="6"
-          r="4.2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-        />
-      )}
-      {shape === "square" && (
-        <rect x="1.5" y="1.5" width="9" height="9" rx="2" fill="currentColor" />
-      )}
-      {shape === "triangle" && (
-        <path d="M6 1.2 11 10.5H1z" fill="currentColor" />
-      )}
-      {shape === "diamond" && (
-        <path d="M6 .8 11.2 6 6 11.2.8 6z" fill="currentColor" />
-      )}
+      {shape === "ring" && <circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.6" />}
+      {shape === "square" && <rect x="1.5" y="1.5" width="9" height="9" rx="2" fill="currentColor" />}
+      {shape === "triangle" && <path d="M6 1.2 11 10.5H1z" fill="currentColor" />}
+      {shape === "diamond" && <path d="M6 .8 11.2 6 6 11.2.8 6z" fill="currentColor" />}
     </svg>
   );
 }
 
 /** Grid of stat cells divided by hairlines. `cols` is the column count from `sm` up (two columns on phones). */
-export function StatGrid({
-  cols = 4,
-  children,
-}: {
-  cols?: 2 | 3 | 4;
-  children: ReactNode;
-}) {
-  const c = {
-    2: "sm:grid-cols-2",
-    3: "sm:grid-cols-3",
-    4: "sm:grid-cols-2 lg:grid-cols-4",
-  }[cols];
-  return (
-    <div className={`grid grid-cols-2 gap-px bg-line ${c}`}>{children}</div>
-  );
+export function StatGrid({ cols = 4, children }: { cols?: 2 | 3 | 4; children: ReactNode }) {
+  const c = { 2: "sm:grid-cols-2", 3: "sm:grid-cols-3", 4: "sm:grid-cols-2 lg:grid-cols-4" }[cols];
+  return <div className={`grid grid-cols-2 gap-px bg-line ${c}`}>{children}</div>;
 }
 
 /** One cell in a StatGrid: glyph, caps label, optional info tooltip, big value and a muted secondary value. */
-export function StatCell(props: {
-  label: string;
-  value: ReactNode;
-  secondary?: ReactNode;
-  tone?: Tone;
-  glyph?: Glyph;
-  info?: string;
-  to?: string;
-}) {
+export function StatCell(props: { label: string; value: ReactNode; secondary?: ReactNode; tone?: Tone; glyph?: Glyph; info?: string; to?: string }) {
   const body = (
     <>
       <div className="flex min-w-0 items-center gap-2">
         <StatGlyph tone={props.tone ?? "muted"} shape={props.glyph} />
-        <span className="label-caps min-w-0 font-semibold leading-tight text-ink/80 [overflow-wrap:anywhere]">
-          {props.label}
-        </span>
+        <span className="label-caps min-w-0 font-semibold leading-tight text-ink/80 [overflow-wrap:anywhere]">{props.label}</span>
         {props.info && (
           <span className="ml-auto">
             <InfoTip text={props.info} label={`About ${props.label}`} />
@@ -1140,14 +750,8 @@ export function StatCell(props: {
         )}
       </div>
       <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2">
-        <span className="text-lg font-semibold tabular-nums tracking-tight">
-          {props.value}
-        </span>
-        {props.secondary != null && (
-          <span className="min-w-0 truncate font-mono text-xs tabular-nums text-muted">
-            {props.secondary}
-          </span>
-        )}
+        <span className="text-lg font-semibold tabular-nums tracking-tight">{props.value}</span>
+        {props.secondary != null && <span className="min-w-0 truncate font-mono text-xs tabular-nums text-muted">{props.secondary}</span>}
       </div>
     </>
   );
@@ -1155,13 +759,7 @@ export function StatCell(props: {
 }
 
 /** Card section header with a sentence-case lead and actions on the right. */
-export function CardHeader({
-  children,
-  actions,
-}: {
-  children: ReactNode;
-  actions?: ReactNode;
-}) {
+export function CardHeader({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 sm:px-5">
       <div className="min-w-0 text-sm text-ink/80">{children}</div>
@@ -1172,11 +770,7 @@ export function CardHeader({
 
 /** Centred footer for pill buttons at the bottom of a card. */
 export function CardFooter({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex flex-wrap justify-center gap-2 border-t border-line px-4 py-3">
-      {children}
-    </div>
-  );
+  return <div className="flex flex-wrap justify-center gap-2 border-t border-line px-4 py-3">{children}</div>;
 }
 
 export interface MenuItem {
@@ -1211,16 +805,12 @@ export function Dropdown(props: {
       if (!root.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
-    root.current
-      ?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')
-      ?.focus();
+    root.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus();
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
   const close = () => {
     setOpen(false);
-    root.current
-      ?.querySelector<HTMLButtonElement>("button[aria-haspopup]")
-      ?.focus();
+    root.current?.querySelector<HTMLButtonElement>("button[aria-haspopup]")?.focus();
   };
   const choose = (it: MenuItem) => {
     if (it.disabled) return;
@@ -1244,11 +834,7 @@ export function Dropdown(props: {
     } else if (e.key === "Tab") setOpen(false);
   };
   return (
-    <div
-      ref={root}
-      className={`relative ${props.className ?? ""}`}
-      onKeyDown={open ? onKey : undefined}
-    >
+    <div ref={root} className={`relative ${props.className ?? ""}`} onKeyDown={open ? onKey : undefined}>
       <button
         type="button"
         aria-haspopup="menu"
@@ -1275,9 +861,7 @@ export function Dropdown(props: {
             props.align === "left" ? "left-0" : "right-0"
           } ${props.up ? "bottom-full mb-1.5" : "top-full mt-1.5"}`}
         >
-          {props.header && (
-            <div className="border-b border-line px-3 py-2">{props.header}</div>
-          )}
+          {props.header && <div className="border-b border-line px-3 py-2">{props.header}</div>}
           {props.items.map((it, n) => (
             <button
               key={it.label}
@@ -1301,41 +885,17 @@ export function Dropdown(props: {
   );
 }
 
-export function SearchInput(props: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  label: string;
-  className?: string;
-}) {
+export function SearchInput(props: { value: string; onChange: (v: string) => void; placeholder: string; label: string; className?: string }) {
   return (
     <label className={`relative block ${props.className ?? "w-full sm:w-64"}`}>
-      <Icon
-        d={ICONS.search}
-        size={14}
-        strokeWidth={2}
-        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
-      />
-      <input
-        className="input w-full pl-8"
-        type="search"
-        placeholder={props.placeholder}
-        aria-label={props.label}
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-      />
+      <Icon d={ICONS.search} size={14} strokeWidth={2} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+      <input className="input w-full pl-8" type="search" placeholder={props.placeholder} aria-label={props.label} value={props.value} onChange={(e) => props.onChange(e.target.value)} />
     </label>
   );
 }
 
 /** Key/value metadata. Pass pairs; null values are skipped. */
-export function DescList({
-  rows,
-  labelWidth = "7rem",
-}: {
-  rows: [string, ReactNode][];
-  labelWidth?: string;
-}) {
+export function DescList({ rows, labelWidth = "7rem" }: { rows: [string, ReactNode][]; labelWidth?: string }) {
   return (
     <dl
       className="grid grid-cols-1 gap-y-2 text-sm sm:grid-cols-[minmax(5rem,var(--dl-label))_minmax(0,1fr)] sm:gap-x-3 sm:gap-y-1.5"
@@ -1353,13 +913,7 @@ export function DescList({
   );
 }
 
-export function PanelSection({
-  title,
-  children,
-}: {
-  title: ReactNode;
-  children: ReactNode;
-}) {
+export function PanelSection({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <div className="border-t border-line px-4 py-3 first:border-t-0">
       <h3 className="label-caps mb-2">{title}</h3>
@@ -1371,17 +925,11 @@ export function PanelSection({
 export function Feedback({ up, down }: { up: number; down: number }) {
   return (
     <span className="inline-flex items-center gap-2.5 whitespace-nowrap tabular-nums">
-      <span
-        className={`inline-flex items-center gap-1 ${up ? "text-good" : "text-muted"}`}
-        aria-label={`${up} positive`}
-      >
+      <span className={`inline-flex items-center gap-1 ${up ? "text-good" : "text-muted"}`} aria-label={`${up} positive`}>
         <Icon d={ICONS.thumbUp} size={13} />
         {up}
       </span>
-      <span
-        className={`inline-flex items-center gap-1 ${down ? "text-bad" : "text-muted"}`}
-        aria-label={`${down} negative`}
-      >
+      <span className={`inline-flex items-center gap-1 ${down ? "text-bad" : "text-muted"}`} aria-label={`${down} negative`}>
         <Icon d={ICONS.thumbDown} size={13} />
         {down}
       </span>
@@ -1389,44 +937,20 @@ export function Feedback({ up, down }: { up: number; down: number }) {
   );
 }
 
-export function Meter({
-  value,
-  label,
-  tone = "accent",
-}: {
-  value: number;
-  label: string;
-  tone?: Tone;
-}) {
+export function Meter({ value, label, tone = "accent" }: { value: number; label: string; tone?: Tone }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   return (
-    <div
-      className="h-1.5 overflow-hidden rounded-full bg-sunken"
-      role="progressbar"
-      aria-valuenow={pct}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={label}
-    >
-      <div
-        className={`h-full rounded-full ${DOT[tone]}`}
-        style={{ width: `${pct}%` }}
-      />
+    <div className="h-1.5 overflow-hidden rounded-full bg-sunken" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+      <div className={`h-full rounded-full ${DOT[tone]}`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
-export function Stat(props: {
-  label: string;
-  value: ReactNode;
-  sub?: ReactNode;
-}) {
+export function Stat(props: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
     <div className="card px-4 py-3">
       <div className="label-caps">{props.label}</div>
-      <div className="mt-0.5 text-xl font-semibold tabular-nums">
-        {props.value}
-      </div>
+      <div className="mt-0.5 text-xl font-semibold tabular-nums">{props.value}</div>
       {props.sub && <div className="text-xs text-muted">{props.sub}</div>}
     </div>
   );
@@ -1439,13 +963,7 @@ export interface DocRef {
 }
 
 /** Other docs describing the same table: "dbt, cube", each linking to its item. Renders nothing when empty. */
-export function DescribedBy({
-  refs,
-  label = "Also described by",
-}: {
-  refs: DocRef[] | undefined;
-  label?: string;
-}) {
+export function DescribedBy({ refs, label = "Also described by" }: { refs: DocRef[] | undefined; label?: string }) {
   if (!refs?.length) return null;
   return (
     <p className="text-xs text-muted">
@@ -1453,11 +971,7 @@ export function DescribedBy({
       {refs.map((r, i) => (
         <span key={r.key}>
           {i > 0 && ", "}
-          <Link
-            to={`/library/item/${r.key.split("/").map(encodeURIComponent).join("/")}`}
-            className="text-accent hover:underline"
-            title={r.key}
-          >
+          <Link to={`/library/item/${r.key.split("/").map(encodeURIComponent).join("/")}`} className="text-accent hover:underline" title={r.key}>
             {r.source}
           </Link>
         </span>
