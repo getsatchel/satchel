@@ -25,6 +25,7 @@ from satchel.data.connectors import make_connector
 from satchel.data.connectors.bigquery_conn import DEFAULT_MAX_GIB_BILLED, parse_service_account
 from satchel.data.connectors.bigquery_conn import check_config as check_bigquery
 from satchel.data.connectors.snowflake_conn import check_config as check_snowflake
+from satchel.data.connectors.snowflake_conn import ident as snowflake_ident
 from satchel.data.connectors.snowflake_conn import normalize_private_key
 from satchel.install_hints import extra_hint
 from satchel.secrets import connection_aad
@@ -58,6 +59,12 @@ class KindSpec:
     note: str | None = None
     secret_multiline: bool = False  # a PEM / JSON key: a textarea, newlines kept
     passphrase_label: str | None = None  # decrypts the secret when it is saved; never stored
+    # Commands an admin runs in the warehouse to create Satchel's read-only identity. ``{field}``
+    # is a config field (``{a|b}``: a, else b; the UI falls back to the field's placeholder),
+    # ``{public_key}`` / ``{password}`` the credential the browser generates (``generates``).
+    setup: str | None = None
+    setup_lang: Literal["sql", "shell"] = "sql"
+    generates: Literal["keypair", "password"] | None = None
     requires: tuple[str, ...] = ()  # importable modules the connector needs
     extra: str | None = None  # the satchel extra that installs them
 
@@ -87,26 +94,68 @@ def kinds() -> list[KindSpec]:
     return [kind_status(k) for k in SPECS.values()]
 
 
+POSTGRES_SETUP = """\
+-- As a superuser or the database owner. Repeat the GRANTs for each schema agents may read.
+CREATE ROLE {user} LOGIN PASSWORD '{password}';
+GRANT CONNECT ON DATABASE {database} TO {user};
+GRANT USAGE ON SCHEMA public TO {user};
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO {user};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {user};
+"""
+
+BIGQUERY_SETUP = """\
+# A service account that can run query jobs and read the data, nothing else.
+gcloud iam service-accounts create satchel-reader --project={project}
+gcloud projects add-iam-policy-binding {project} \\
+  --member=serviceAccount:satchel-reader@{project}.iam.gserviceaccount.com \\
+  --role=roles/bigquery.jobUser
+gcloud projects add-iam-policy-binding {data_project|project} \\
+  --member=serviceAccount:satchel-reader@{project}.iam.gserviceaccount.com \\
+  --role=roles/bigquery.dataViewer
+# Then run Satchel as that account (workload identity), or create a JSON key for it.
+"""
+
+SNOWFLAKE_SETUP = """\
+USE ROLE SECURITYADMIN;
+CREATE ROLE IF NOT EXISTS {role};
+GRANT USAGE ON WAREHOUSE {warehouse} TO ROLE {role};
+GRANT USAGE ON DATABASE {database} TO ROLE {role};
+GRANT USAGE ON ALL SCHEMAS IN DATABASE {database} TO ROLE {role};
+GRANT USAGE ON FUTURE SCHEMAS IN DATABASE {database} TO ROLE {role};
+GRANT SELECT ON ALL TABLES IN DATABASE {database} TO ROLE {role};
+GRANT SELECT ON FUTURE TABLES IN DATABASE {database} TO ROLE {role};
+GRANT SELECT ON ALL VIEWS IN DATABASE {database} TO ROLE {role};
+GRANT SELECT ON FUTURE VIEWS IN DATABASE {database} TO ROLE {role};
+
+CREATE USER IF NOT EXISTS {user}
+  TYPE = SERVICE
+  DEFAULT_ROLE = {role}
+  DEFAULT_WAREHOUSE = {warehouse};
+ALTER USER {user} SET RSA_PUBLIC_KEY = '{public_key}';
+GRANT ROLE {role} TO USER {user};
+"""
+
 SPECS: dict[str, KindSpec] = {
     "postgres": KindSpec(
         "postgres", "PostgreSQL", True,
         (
-            KindField("host", "Host", required=True, placeholder="warehouse.internal"),
+            KindField("host", "Host", required=True, placeholder="e.g. warehouse.internal"),
             KindField("port", "Port", "number", default=5432),
-            KindField("database", "Database", required=True, placeholder="analytics"),
-            KindField("user", "User", required=True, placeholder="satchel_reader"),
+            KindField("database", "Database", required=True, placeholder="e.g. analytics"),
+            KindField("user", "User", required=True, default="satchel_reader"),
             KindField("role", "Role (optional)", help="Run every query as this role "
                       "(SET ROLE). Use a role that can only read what agents may see."),
         ),
         secret_label="Password",
         secret_help="Or a full postgresql:// URL, which then overrides the fields above.",
         note="Sessions are read-only with a statement timeout. Grant the user SELECT only.",
+        setup=POSTGRES_SETUP, generates="password",
     ),
     "duckdb": KindSpec(
         "duckdb", "DuckDB", True,
         (
             KindField("path", "Database file", "path", required=True,
-                      placeholder="/data/warehouse.duckdb",
+                      placeholder="e.g. /data/warehouse.duckdb",
                       help="A DuckDB file on the server, opened read-only."),
         ),
         note="For local use and demos. Parquet-backed views are configured with the CLI.",
@@ -114,14 +163,14 @@ SPECS: dict[str, KindSpec] = {
     "bigquery": KindSpec(
         "bigquery", "BigQuery", True,
         (
-            KindField("project", "Project", required=True, placeholder="my-project",
+            KindField("project", "Project", required=True, placeholder="e.g. my-project",
                       help="Runs and bills the query jobs. The identity needs "
                       "roles/bigquery.jobUser here."),
-            KindField("data_project", "Data project (optional)", placeholder="my-project",
+            KindField("data_project", "Data project (optional)",
                       help="Holds the datasets, when it is not the job project."),
-            KindField("location", "Location (optional)", placeholder="US",
+            KindField("location", "Location (optional)", placeholder="e.g. US",
                       help="The datasets' location, e.g. US, EU or europe-west1."),
-            KindField("datasets", "Datasets (optional)", placeholder="analytics, marts",
+            KindField("datasets", "Datasets (optional)", placeholder="e.g. analytics, marts",
                       help="Comma-separated dataset IDs to catalog. Empty: every dataset the "
                       "identity can see. With exactly one, unqualified table names resolve "
                       "in it."),
@@ -136,29 +185,34 @@ SPECS: dict[str, KindSpec] = {
         note="Read-only is enforced by the SQL guardrail and IAM: grant "
         "roles/bigquery.dataViewer on the data and roles/bigquery.jobUser on the project, "
         "nothing else.",
+        setup=BIGQUERY_SETUP, setup_lang="shell",
         requires=("google.cloud.bigquery",), extra="bigquery",
     ),
     "snowflake": KindSpec(
         "snowflake", "Snowflake", True,
         (
-            KindField("account", "Account", required=True, placeholder="myorg-myaccount",
+            KindField("account", "Account", required=True, placeholder="e.g. myorg-myaccount",
                       help="The account identifier (orgname-accountname), not the URL."),
-            KindField("user", "User", required=True, placeholder="SATCHEL_READER"),
-            KindField("role", "Role", placeholder="SATCHEL_READ",
+            KindField("user", "User", required=True, default="SATCHEL_READER"),
+            KindField("role", "Role", default="SATCHEL_READ",
                       help="A role with only USAGE and SELECT grants. Empty: the user's "
                       "default role."),
-            KindField("warehouse", "Warehouse", placeholder="SATCHEL_WH"),
-            KindField("database", "Database", required=True, placeholder="ANALYTICS"),
-            KindField("schemas", "Schemas (optional)", placeholder="MARTS, STAGING",
-                      help="Comma-separated schemas to catalog. Empty: every schema."),
+            KindField("warehouse", "Warehouse", default="SATCHEL_WH",
+                      help="The Snowflake warehouse (compute) queries run on."),
+            KindField("database", "Database", required=True, placeholder="e.g. ANALYTICS",
+                      help="One database. The schemas inside it go in Schemas."),
+            KindField("schemas", "Schemas (optional)", placeholder="e.g. MARTS, STAGING",
+                      help="Comma-separated schemas in that database to catalog. Empty: every "
+                      "schema."),
         ),
         secret_label="Private key",
-        secret_help="Key-pair auth: paste the PEM private key whose public key is set on the "
-        "user (ALTER USER ... SET RSA_PUBLIC_KEY).",
+        secret_help="Key-pair auth: the PEM private key whose public key is set on the user "
+        "(RSA_PUBLIC_KEY).",
         secret_multiline=True,
         passphrase_label="Key passphrase (optional)",
         note="Queries are tagged 'satchel' and time out with the SQL timeout limit. Use a "
         "role that can only read.",
+        setup=SNOWFLAKE_SETUP, generates="keypair",
         requires=("snowflake.connector",), extra="snowflake",
     ),
 }
@@ -363,12 +417,50 @@ def test(
         connector = make_connector(kind, cfg, clean_secret(kind, secret, passphrase))
         try:
             connector.execute("select 1", limit=1, timeout_s=10.0)
+            # Signing in is not enough: the crawl reads the database's INFORMATION_SCHEMA, so a
+            # wrong Database (often a schema name) or a missing grant should fail here, not there.
+            if kind == "snowflake" and cfg.get("database"):
+                db = snowflake_ident(str(cfg["database"]))
+                connector.execute(f"select count(*) from {db}.INFORMATION_SCHEMA.SCHEMATA",
+                                  limit=1, timeout_s=10.0)
         finally:
             connector.close()
     except Exception as e:  # noqa: BLE001 - every failure is reported to the admin
         msg = scrub(f"{type(e).__name__}: {e}", secret, passphrase)
-        return TestResult(False, int((time.monotonic() - t0) * 1000), msg[:1000])
+        hint = test_hint(kind, msg)
+        return TestResult(False, int((time.monotonic() - t0) * 1000),
+                          (msg[:900] + (f"\n{hint}" if hint else "")))
     return TestResult(True, int((time.monotonic() - t0) * 1000))
+
+
+_HINTS: dict[str, tuple[tuple[str, str], ...]] = {
+    "snowflake": (
+        (r"Database '[^']*' does not exist",
+         "Check Database: it names one database (schemas go in Schemas), and the role needs "
+         "USAGE on it."),
+        (r"JWT token is invalid|Failed to auth.*JWT",
+         "The public key set on the user does not match this private key: run the "
+         "ALTER USER ... SET RSA_PUBLIC_KEY line again."),
+        (r"No active warehouse|warehouse.*does not exist",
+         "Check Warehouse, and that the role has USAGE on it."),
+        (r"Incorrect username or password|User .* does not exist|404 Not Found",
+         "Check Account (orgname-accountname) and User."),
+    ),
+    "postgres": (
+        (r"password authentication failed", "Check User and the password."),
+        (r'database "[^"]*" does not exist', "Check Database."),
+        (r"could not translate host name|Connection refused|timeout expired",
+         "Check Host and Port, and that the server can reach the database."),
+    ),
+}
+
+
+def test_hint(kind: str, msg: str) -> str | None:
+    """What to check for a known failure, in the form's own field names."""
+    for pattern, hint in _HINTS.get(kind, ()):
+        if re.search(pattern, msg, re.IGNORECASE):
+            return hint
+    return None
 
 
 def scrub(msg: str, *secrets: str | None) -> str:

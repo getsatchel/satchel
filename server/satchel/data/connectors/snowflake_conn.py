@@ -13,14 +13,18 @@ guardrail and by a role that only has USAGE / SELECT (docs/integrations/warehous
 
 from __future__ import annotations
 
+import base64
+import binascii
 import importlib.util
 import math
 import re
 from typing import Any
 
 import pyarrow as pa
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, padding, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from satchel.data.connectors.base import AssetSpec, SqlTimeout, split_list
 from satchel.install_hints import extra_hint
@@ -47,7 +51,13 @@ def normalize_private_key(pem: str, passphrase: str | None = None) -> str:
         if passphrase:
             raise ValueError("this private key is not encrypted; leave the passphrase "
                              "empty") from None
-        raise ValueError("this private key is encrypted: enter its passphrase") from None
+        # Encrypted with an empty passphrase (Enter at openssl's prompt): cryptography treats
+        # b"" as no password, so decrypt it here.
+        der = _decrypt_empty_passphrase(text)
+        try:
+            key = serialization.load_der_private_key(der or b"", password=None)
+        except ValueError:
+            raise ValueError("this private key is encrypted: enter its passphrase") from None
     except ValueError:
         raise ValueError("cannot read the private key: wrong passphrase, or not a valid PEM "
                          "(paste the whole file, including the BEGIN / END lines)") from None
@@ -56,6 +66,72 @@ def normalize_private_key(pem: str, passphrase: str | None = None) -> str:
     return key.private_bytes(
         serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
         serialization.NoEncryption()).decode()
+
+
+_OIDS: dict[str, type[hashes.SHA1 | hashes.SHA256 | hashes.SHA384 | hashes.SHA512]] = {
+    "1.2.840.113549.2.7": hashes.SHA1, "1.2.840.113549.2.9": hashes.SHA256,
+    "1.2.840.113549.2.10": hashes.SHA384, "1.2.840.113549.2.11": hashes.SHA512,
+}
+_AES_CBC = {"2.16.840.1.101.3.4.1.2": 16, "2.16.840.1.101.3.4.1.22": 24,
+            "2.16.840.1.101.3.4.1.42": 32}
+
+
+def _der(buf: bytes, i: int = 0) -> tuple[int, bytes, int]:
+    """One DER element at ``i``: (tag, content, index after it)."""
+    tag, n = buf[i], buf[i + 1]
+    i += 2
+    if n & 0x80:
+        width = n & 0x7F
+        n = int.from_bytes(buf[i:i + width], "big")
+        i += width
+    return tag, buf[i:i + n], i + n
+
+
+def _seq(buf: bytes) -> list[tuple[int, bytes]]:
+    out, i = [], 0
+    while i < len(buf):
+        tag, body, i = _der(buf, i)
+        out.append((tag, body))
+    return out
+
+
+def _oid(body: bytes) -> str:
+    parts, v = [body[0] // 40, body[0] % 40], 0
+    for b in body[1:]:
+        v = (v << 7) | (b & 0x7F)
+        if not b & 0x80:
+            parts.append(v)
+            v = 0
+    return ".".join(map(str, parts))
+
+
+def _decrypt_empty_passphrase(pem: str) -> bytes | None:
+    """The PKCS#8 DER of a PBES2 (PBKDF2 + AES-CBC) key encrypted with an empty passphrase, or
+    None when it is not one."""
+    try:
+        b64 = "".join(ln for ln in pem.splitlines() if ln and not ln.startswith("-----"))
+        _, outer, _ = _der(base64.b64decode(b64))
+        (_, alg), (_, data) = _seq(outer)
+        (_, pbes2_oid), (_, params) = _seq(alg)
+        (_, kdf), (_, enc) = _seq(params)
+        (_, kdf_oid), (_, kdf_params) = _seq(kdf)
+        (_, cipher_oid), (_, iv) = _seq(enc)
+        if (_oid(pbes2_oid), _oid(kdf_oid)) != ("1.2.840.113549.1.5.13", "1.2.840.113549.1.5.12"):
+            return None
+        width = _AES_CBC.get(_oid(cipher_oid))
+        items = _seq(kdf_params)
+        salt, rounds = items[0][1], int.from_bytes(items[1][1], "big")
+        prf = next((_oid(_seq(body)[0][1]) for tag, body in items[2:] if tag == 0x30),
+                   "1.2.840.113549.2.7")
+        algo = _OIDS.get(prf)
+        if width is None or algo is None:
+            return None
+        k = PBKDF2HMAC(algorithm=algo(), length=width, salt=salt, iterations=rounds).derive(b"")
+        dec = Cipher(algorithms.AES(k), modes.CBC(iv)).decryptor()
+        unpad = padding.PKCS7(128).unpadder()
+        return unpad.update(dec.update(data) + dec.finalize()) + unpad.finalize()
+    except (ValueError, IndexError, binascii.Error):
+        return None
 
 
 def private_key_der(pem: str) -> bytes:
@@ -75,6 +151,11 @@ def check_config(config: dict[str, Any]) -> None:
     if acct and (not _ACCOUNT.match(str(acct)) or "snowflakecomputing.com" in str(acct)):
         raise ValueError("account: the account identifier (orgname-accountname, or the "
                          "account locator), not the URL")
+    db = str(config.get("database") or "")
+    if "." in db and not db.startswith('"'):
+        name, _, schema = db.partition(".")
+        raise ValueError(f"database: one database name ({name}); put the schema ({schema}) in "
+                         "Schemas")
 
 
 def session_parameters(timeout_s: float) -> dict[str, Any]:

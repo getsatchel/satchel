@@ -86,12 +86,25 @@ If the deployment sets `SATCHEL_CHAT_PROVIDER` (plus `_MODEL`, `_BASE_URL`, `_AP
 provider is used for every workspace. Settings shows it read-only with a Test button, and the
 workspace connections apply once it is removed. Existing installs keep working unchanged.
 
-## Settings → Connections
+## Connections
 
 Warehouses agents query (`run_sql`, the semantic layer) and that Satchel crawls into the catalog.
+They have their own page under **Data** (`/connections`; the old `/settings?tab=connections`
+redirects there). Admins add and change them; curators see the list.
 
-- **Adding one.** **Add connection** is one form: the kind, a name and the connection details, with
-  **Test** beside Save. After saving, the dialog offers to crawl the connection into the Catalog.
+- **Adding one.** **Add connection** opens a panel in steps: **Kind** (the warehouse and a name),
+  **Details**, **Prepare** and **Crawl**.
+  - **Prepare** shows the setup to run in the warehouse (SQL for PostgreSQL and Snowflake, `gcloud`
+    commands for BigQuery), filled in with the names from Details, with Copy.
+  - For Snowflake, the browser generates an RSA key pair (Web Crypto, no network). The public key
+    is written into the SQL, and the private key is sent to Satchel and sealed. Nobody sees it or
+    downloads it. For PostgreSQL it generates the password the same way.
+  - **Use my own key** (or password) takes a pasted one instead. Generating needs HTTPS or
+    `localhost`, since browsers only offer Web Crypto there.
+  - **Test** sits beside **Save**. After saving, the panel offers to crawl the connection into the
+    Catalog. DuckDB has no Prepare step.
+- **Editing one** shows the whole form at once. The panel has its own URL (`?sheet=<id>`), so a
+  reload or Back works as expected.
 
 - **Kinds.** PostgreSQL (host, port, database, user, optional role for `SET ROLE`, password or a full
   `postgresql://` URL) and DuckDB (a database file on the server). Sessions are read-only with a
