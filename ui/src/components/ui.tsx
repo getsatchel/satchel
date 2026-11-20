@@ -284,8 +284,8 @@ export function Modal(props: {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
-  wide?: boolean;
-  step?: { current: number; total: number };
+  /** Something typed (a reason): Esc and a click outside no longer close it, only its buttons. */
+  dirty?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -296,27 +296,26 @@ export function Modal(props: {
     if (props.open && !d.open) d.showModal();
     if (!props.open && d.open) d.close();
   }, [props.open]);
-  // Opening, and each new step, puts focus on the first field (the browser would pick the Close
-  // button). A step without fields focuses the body, so a screen reader reads what it says.
-  const step = props.step?.current;
+  // Opening puts focus on the first field (a reason), not the Close button the browser would pick.
   useEffect(() => {
     const body = bodyRef.current;
     if (!props.open || !body) return;
     const field = body.querySelector<HTMLElement>('input:not([disabled]):not([type="radio"]), input[type="radio"]:checked, select:not([disabled]), textarea:not([disabled])');
     if (field) field.focus();
-    else if (step !== undefined) body.focus();
-  }, [props.open, step]);
+  }, [props.open]);
   return (
     <dialog
       ref={ref}
       aria-labelledby={titleId}
       onClose={props.onClose}
-      onClick={(e) => {
-        // A click outside closes a simple dialog, but not a stepped one: it would throw away
-        // what was filled in on earlier steps.
-        if (e.target === ref.current && !props.step) props.onClose();
+      onCancel={(e) => {
+        if (props.dirty) e.preventDefault();
       }}
-      className={`w-[calc(100%-1.5rem)] rounded-xl border border-line bg-surface p-0 text-ink shadow-pop backdrop:bg-black/40 max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 ${props.wide ? "sm:max-w-4xl" : "sm:max-w-md"}`}
+      onClick={(e) => {
+        // A click outside closes it, unless something typed in it would be thrown away.
+        if (e.target === ref.current && !props.dirty) props.onClose();
+      }}
+      className={`w-[calc(100%-1.5rem)] rounded-xl border border-line bg-surface p-0 text-ink shadow-pop backdrop:bg-black/40 max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:max-w-md`}
     >
       {props.open && (
         <div className="flex max-h-[85vh] flex-col max-sm:max-h-[92dvh]">
@@ -325,11 +324,6 @@ export function Modal(props: {
               <h2 id={titleId} className="text-base font-semibold">
                 {props.title}
               </h2>
-              {props.step && (
-                <p className="mt-0.5 text-xs text-muted">
-                  Step {props.step.current + 1} of {props.step.total}
-                </p>
-              )}
             </div>
             <button type="button" className="btn btn-ghost -mr-2 -mt-1 shrink-0 px-2" aria-label="Close" onClick={props.onClose}>
               <Icon d={ICONS.close} size={16} />

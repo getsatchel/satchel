@@ -112,7 +112,7 @@ function GetStarted() {
       title: "Add context",
       detail: "A dbt, Cube or SQLMesh source, or items written in the Library.",
       done: sources.data.length > 0 || items.data.total > 0,
-      to: "/sources?add=1",
+      to: "/sources?sheet=new",
       action: "Add source",
       adminOnly: true,
     },

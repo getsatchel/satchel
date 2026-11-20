@@ -6,7 +6,7 @@ import type { EvidenceSession, SuggestionChange, SuggestionDetail, SuggestionSum
 import { CodeDiff, Pre } from "@/components/Code";
 import { ItemEditor, metaToText, parseMeta, type EditorValue } from "@/components/ItemEditor";
 import { useToast } from "@/components/Toast";
-import { EmptyState, ErrorBox, GitBadge, ICONS, ItemLink, ListDetail, ListRow, Loading, Modal, Notice, PanelSection, Segmented, SectionHeading, StatusDot, StatusLine, Tabs, TypeBadge, useWide } from "@/components/ui";
+import { EmptyState, ErrorBox, GitBadge, ICONS, ItemLink, ListDetail, ListRow, Loading, Modal, Notice, PanelSection, Segmented, SectionHeading, Sheet, StatusDot, StatusLine, Tabs, TypeBadge, useWide } from "@/components/ui";
 import { pageIcon } from "@/components/nav";
 import { errMsg, fullTime, isYamlType, timeAgo } from "@/lib/format";
 
@@ -296,7 +296,8 @@ function SuggestionPanel({ id, onClosed }: { id: string; onClosed: () => void })
       <Modal
         open={dismissing}
         onClose={() => setDismissing(false)}
-        title="Dismiss suggestion"
+        dirty={reason.trim() !== ""}
+        title="Dismiss this suggestion?"
         footer={
           <>
             <button className="btn" onClick={() => setDismissing(false)}>
@@ -325,7 +326,8 @@ function ChangeCard({ suggestionId, c, open }: { suggestionId: string; c: Sugges
   const [editing, setEditing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
-  const [key, setKey] = useState(c.proposed_key ?? "");
+  const keyStart = c.proposed_key ?? "";
+  const [key, setKey] = useState(keyStart);
   const [ev, setEv] = useState<EditorValue>({ body: c.proposed_body, metaText: metaToText(c.proposed_meta) });
   const isNew = c.target_key === null;
   const gitTarget = c.target_managed_by === "git";
@@ -428,10 +430,11 @@ function ChangeCard({ suggestionId, c, open }: { suggestionId: string; c: Sugges
         )}
       </div>
 
-      <Modal
+      <Sheet
         wide
         open={editing}
         onClose={() => setEditing(false)}
+        dirty={ev.body !== c.proposed_body || ev.metaText !== metaToText(c.proposed_meta) || key !== keyStart}
         title={`Edit before accepting: ${c.target_key ?? c.proposed_key ?? "new item"}`}
         footer={
           <>
@@ -451,11 +454,12 @@ function ChangeCard({ suggestionId, c, open }: { suggestionId: string; c: Sugges
           </label>
         )}
         <ItemEditor type={itemType} value={ev} onChange={setEv} />
-      </Modal>
+      </Sheet>
       <Modal
         open={rejecting}
         onClose={() => setRejecting(false)}
-        title="Reject change"
+        dirty={reason.trim() !== ""}
+        title="Reject this change?"
         footer={
           <>
             <button className="btn" onClick={() => setRejecting(false)}>

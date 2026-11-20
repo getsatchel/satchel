@@ -5,7 +5,7 @@ import { endpoints } from "@/api/endpoints";
 import type { EvalCase, EvalRun, EvalSuite } from "@/api/types";
 import { CaseMoves, DeltaTable, MeasureChips, OutcomeBadge } from "@/components/EvalBits";
 import { useToast } from "@/components/Toast";
-import { Chevron, Crumb, EmptyState, ErrorBox, GitBadge, ICONS, KeyLines, Loading, Modal, Notice, PageHeader, SectionHeading, StatCell, StatGrid, TableCard, Tabs } from "@/components/ui";
+import { Chevron, Crumb, EmptyState, ErrorBox, GitBadge, ICONS, KeyLines, Loading, Notice, PageHeader, SectionHeading, Sheet, StatCell, StatGrid, TableCard, Tabs } from "@/components/ui";
 import { errMsg, fullTime, timeAgo, timeUntil } from "@/lib/format";
 
 type Tab = "suites" | "runs";
@@ -44,7 +44,8 @@ function Suites() {
   const q = useQuery({ queryKey: ["eval-suites"], queryFn: endpoints.listEvalSuites });
   const role = useRole();
   const [view, setView] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
+  // The YAML being edited: "" for a new suite, null when the editor is closed.
+  const [editing, setEditing] = useState<string | null>(null);
   const [running, setRunning] = useState<EvalSuite | null>(null);
   return (
     <>
@@ -54,7 +55,7 @@ function Suites() {
         count={q.data?.length}
         actions={
           role >= RANK.curator ? (
-            <button className="btn btn-sm" onClick={() => setEditing(true)}>
+            <button className="btn btn-sm" onClick={() => setEditing("")}>
               New suite
             </button>
           ) : undefined
@@ -133,33 +134,55 @@ function Suites() {
           </tbody>
         </TableCard>
       )}
-      <SuiteViewer suiteKey={view} onClose={() => setView(null)} canEdit={role >= RANK.curator} />
-      <SuiteEditor open={editing} onClose={() => setEditing(false)} />
+      <SuiteViewer
+        suiteKey={view}
+        onClose={() => setView(null)}
+        canEdit={role >= RANK.curator}
+        onEdit={(yaml) => {
+          setView(null);
+          setEditing(yaml);
+        }}
+      />
+      {editing !== null && <SuiteEditor initial={editing} onClose={() => setEditing(null)} />}
       {running && <RunDialog suite={running} onClose={() => setRunning(null)} />}
     </>
   );
 }
 
-function SuiteViewer(props: { suiteKey: string | null; onClose: () => void; canEdit: boolean }) {
+function SuiteViewer(props: { suiteKey: string | null; onClose: () => void; canEdit: boolean; onEdit: (yaml: string) => void }) {
   const q = useQuery({
     queryKey: ["eval-suite", props.suiteKey],
     queryFn: () => endpoints.getEvalSuite(props.suiteKey ?? ""),
     enabled: props.suiteKey !== null,
   });
   return (
-    <Modal open={props.suiteKey !== null} onClose={props.onClose} title={`Suite ${props.suiteKey ?? ""}`} wide>
+    <Sheet
+      open={props.suiteKey !== null}
+      onClose={props.onClose}
+      title={`Suite ${props.suiteKey ?? ""}`}
+      wide
+      footer={
+        q.data &&
+        q.data.managed_by !== "git" &&
+        props.canEdit && (
+          <button type="button" className="btn btn-primary" onClick={() => q.data && props.onEdit(q.data.yaml)}>
+            Edit
+          </button>
+        )
+      }
+    >
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && (
         <>
           <p className="mb-2 text-xs text-muted">
             Version {q.data.version_seq} of {q.data.versions.length}.{" "}
-            {q.data.managed_by === "git" ? "Managed by git: change it in the context repo." : props.canEdit ? "Edit by saving a new version from New suite." : ""}
+            {q.data.managed_by === "git" ? "Managed by git: change it in the context repo." : props.canEdit ? "Edit saves a new version." : ""}
           </p>
-          <pre className="max-h-[60vh] overflow-auto rounded border border-line bg-sunken p-3 font-mono text-xs">{q.data.yaml}</pre>
+          <pre className="overflow-auto rounded border border-line bg-sunken p-3 font-mono text-xs">{q.data.yaml}</pre>
         </>
       )}
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -181,8 +204,11 @@ cases:
       - { grader: context_used, items: [glossary/business-terms.yaml#revenue], top_n: 5, measure: retrieval }
 `;
 
-function SuiteEditor({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [text, setText] = useState(TEMPLATE);
+/** A new suite (from a template), or a new version of an existing one. */
+function SuiteEditor({ initial, onClose }: { initial: string; onClose: () => void }) {
+  const start = initial || TEMPLATE;
+  const [text, setText] = useState(start);
+  const [error, setError] = useState<string | null>(null);
   const qc = useQueryClient();
   const toast = useToast();
   const save = useMutation({
@@ -192,27 +218,31 @@ function SuiteEditor({ open, onClose }: { open: boolean; onClose: () => void }) 
       void qc.invalidateQueries({ queryKey: ["eval-suites"] });
       onClose();
     },
-    onError: (e) => toast("err", errMsg(e)),
+    onError: (e) => setError(errMsg(e)),
   });
   return (
-    <Modal
-      open={open}
+    <Sheet
+      open
       onClose={onClose}
-      title="New eval suite"
+      dirty={text !== start}
+      title={initial ? "Edit eval suite" : "New eval suite"}
       wide
       footer={
         <>
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>
-            Save
+          <button className="btn btn-primary" disabled={save.isPending || text === start} onClick={() => save.mutate()}>
+            {save.isPending ? "Saving..." : "Save"}
           </button>
         </>
       }
     >
-      <textarea className="input mono w-full" rows={18} value={text} onChange={(e) => setText(e.target.value)} aria-label="Suite YAML" spellCheck={false} />
-    </Modal>
+      <div className="space-y-4">
+        <textarea className="input mono w-full" rows={24} value={text} onChange={(e) => setText(e.target.value)} aria-label="Suite YAML" spellCheck={false} />
+        {error && <ErrorBox error={error} />}
+      </div>
+    </Sheet>
   );
 }
 
@@ -236,9 +266,10 @@ function RunDialog({ suite, onClose }: { suite: EvalSuite; onClose: () => void }
     onError: (e) => toast("err", errMsg(e)),
   });
   return (
-    <Modal
+    <Sheet
       open
       onClose={onClose}
+      dirty={model.trim() !== ""}
       title={`Run ${suite.key}`}
       footer={
         <>
@@ -274,7 +305,7 @@ function RunDialog({ suite, onClose }: { suite: EvalSuite; onClose: () => void }
       ) : (
         <Notice>This suite only checks retrieval, so it runs without an LLM.</Notice>
       )}
-    </Modal>
+    </Sheet>
   );
 }
 
