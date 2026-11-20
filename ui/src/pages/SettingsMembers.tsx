@@ -5,7 +5,7 @@ import { endpoints } from "@/api/endpoints";
 import type { InviteOut, Member, MemberRole, SignInPolicy } from "@/api/types";
 import { CopyField } from "@/components/CopyField";
 import { useToast } from "@/components/Toast";
-import { EmptyState, ErrorBox, ICONS, Icon, Loading, Modal, Notice, SearchInput, SectionHeading, Segmented, StatusDot, TableCard } from "@/components/ui";
+import { EmptyState, ErrorBox, ICONS, Icon, Loading, Modal, Notice, SearchInput, SectionHeading, Segmented, Sheet, StatusDot, TableCard } from "@/components/ui";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
 import { useRole } from "@/lib/role";
 
@@ -287,20 +287,26 @@ function InviteDialog({ onClose, provider, createsAccounts }: { onClose: () => v
         n === 1 ? `Invited ${r.invited[0]?.email ?? "1 person"} as ${aRole(role)}` : n > 1 ? `Invited ${n} people as ${role}s` : null,
         r.existing.length ? `${r.existing.join(", ")} ${r.existing.length === 1 ? "is already a member" : "are already members"}` : null,
       ];
-      toast(n ? "ok" : "err", parts.filter(Boolean).join(". "));
       void qc.invalidateQueries({ queryKey: ["members"] });
-      // Show the links to send (and what the provider did); nothing to show when nobody new was invited.
-      if (n || r.accounts?.length) setDone(r);
-      else onClose();
+      // Show the links to send (and what the provider did); nothing to show when nobody new was
+      // invited. The result screen says who was invited, so a toast only adds who already was.
+      if (n || r.accounts?.length) {
+        setDone(r);
+        if (parts[1]) toast("err", parts[1]);
+      } else {
+        toast(n ? "ok" : "err", parts.filter(Boolean).join(". "));
+        onClose();
+      }
     },
     onError: (e) => setError(errMsg(e)),
   });
   if (done) return <InviteDone r={done} provider={provider} onClose={onClose} />;
   const idp = provider ?? "your identity provider";
   return (
-    <Modal
+    <Sheet
       open
       onClose={onClose}
+      dirty={text.trim() !== ""}
       title="Invite members"
       footer={
         <>
@@ -345,7 +351,7 @@ function InviteDialog({ onClose, provider, createsAccounts }: { onClose: () => v
         </p>
         {error && <ErrorBox error={error} />}
       </form>
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -363,7 +369,7 @@ function InviteDone({ r, provider, onClose }: { r: InviteOut; provider: string |
   const emails = [...new Set([...r.invited.map((m) => m.email ?? ""), ...accounts.keys()])].filter(Boolean);
   const failed = (r.accounts ?? []).some((a) => a.status === "failed");
   return (
-    <Modal
+    <Sheet
       open
       onClose={onClose}
       title={r.invited.length === 1 ? "Invited" : `Invited ${r.invited.length}`}
@@ -391,7 +397,7 @@ function InviteDone({ r, provider, onClose }: { r: InviteOut; provider: string |
         })}
         {failed && <Notice tone="warn">Create the account yourself, or invite the same email again to retry.</Notice>}
       </div>
-    </Modal>
+    </Sheet>
   );
 }
 

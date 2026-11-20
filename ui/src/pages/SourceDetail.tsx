@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
 import type { JobOut, SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { Chevron, Crumb, DescList, ErrorBox, ICONS, Loading, Modal, Notice, PageHeader, SectionHeading, StatusDot, StatusLine, TableCard, type Tone } from "@/components/ui";
+import { Chevron, Crumb, DescList, ErrorBox, ICONS, Loading, Modal, Notice, PageHeader, SectionHeading, StatusDot, StatusLine, TableCard, useSheetParam, type Tone } from "@/components/ui";
 import { SourceForm, UploadSync } from "@/pages/SourceForm";
 import { AdapterTags, problemsOf, SyncStatus, useSourceSync, warningsOf, type Warning } from "@/pages/Sources";
 import { WebhookPanel } from "@/pages/SourceWebhook";
@@ -38,7 +38,9 @@ function SourcePage({ s, admin }: { s: SourceOut; admin: boolean }) {
   const nav = useNavigate();
   const kinds = useQuery({ queryKey: ["source-kinds"], queryFn: endpoints.listSourceKinds, enabled: admin });
   const llm = useQuery({ queryKey: ["llm-connections"], queryFn: endpoints.listLlmConnections, retry: false, enabled: admin });
-  const [editing, setEditing] = useState(false);
+  // ?sheet=edit opens the edit sheet, so a reload or Back behaves.
+  const [sheet, openSheet, closeSheet] = useSheetParam();
+  const editing = sheet === "edit";
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [fresh, setFresh] = useState<SyncReportOut | null>(null);
@@ -203,7 +205,7 @@ function SourcePage({ s, admin }: { s: SourceOut; admin: boolean }) {
           actions={
             admin && (
               <>
-                <button type="button" className="btn btn-sm" disabled={!kinds.data} onClick={() => setEditing(true)}>
+                <button type="button" className="btn btn-sm" disabled={!kinds.data} onClick={() => openSheet("edit")}>
                   Edit
                 </button>
                 <button type="button" className="btn btn-sm btn-ghost text-bad" onClick={() => setRemoving(true)}>
@@ -228,7 +230,7 @@ function SourcePage({ s, admin }: { s: SourceOut; admin: boolean }) {
 
       <Diagnostics s={s} />
 
-      {editing && kinds.data && <SourceForm kinds={kinds.data} editing={s} encryption={llm.data?.encryption_configured ?? true} onClose={() => setEditing(false)} />}
+      {editing && kinds.data && <SourceForm kinds={kinds.data} editing={s} encryption={llm.data?.encryption_configured ?? true} onClose={closeSheet} />}
       {uploading && (
         <UploadSync
           source={s}

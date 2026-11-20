@@ -5,7 +5,7 @@ import { endpoints } from "@/api/endpoints";
 import type { LlmConnection, LlmConnectionPatch, LlmDeployment, LlmTestOut, LlmTestRequest } from "@/api/types";
 import { ApiError } from "@/api/client";
 import { useToast } from "@/components/Toast";
-import { DescList, EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, PageHeader, SectionHeading, Segmented, StatusDot, TableCard, Tabs } from "@/components/ui";
+import { DescList, EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, PageHeader, SectionHeading, Segmented, Sheet, StatusDot, TableCard, Tabs, useSheetParam } from "@/components/ui";
 import { MembersSection } from "@/pages/SettingsMembers";
 import { JobsSection } from "@/pages/Jobs";
 import { DeploymentSection, LimitsSection } from "@/pages/SettingsLimits";
@@ -156,12 +156,21 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
 
   const needsKey = Boolean(apiKey) || (replaceHeaders && headers.some((h) => h.value));
   const blocked = needsKey && !props.encryption;
+  const dirty =
+    name !== (e?.name ?? "") ||
+    baseUrl !== (e?.base_url ?? "") ||
+    model !== (e?.default_model ?? "") ||
+    apiKey !== "" ||
+    clearKey ||
+    headers.some((h) => h.name || h.value) ||
+    (!e && provider !== "anthropic");
 
   return (
-    <Modal
+    <Sheet
       open
       onClose={props.onClose}
-      title={e ? `Edit ${e.name}` : "Add LLM connection"}
+      dirty={dirty}
+      title={e ? `Edit ${e.name}` : "Add model"}
       footer={
         <>
           <div className="mr-auto flex min-w-0 items-center gap-2">
@@ -192,10 +201,6 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
           save.mutate();
         }}
       >
-        <label className="block">
-          <span className="label">Name</span>
-          <input className="input w-full" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="claude" required autoFocus />
-        </label>
         <div>
           <span className="label">Provider</span>
           {e ? (
@@ -204,6 +209,10 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
             <Segmented label="Provider" options={PROVIDERS} value={provider} onChange={setProvider} />
           )}
         </div>
+        <label className="block">
+          <span className="label">Name</span>
+          <input className="input w-full" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="e.g. claude" required />
+        </label>
         <label className="block">
           <span className="label">Base URL (optional)</span>
           <input className="input mono w-full" value={baseUrl} onChange={(ev) => setBaseUrl(ev.target.value)} placeholder={hint.url} inputMode="url" />
@@ -273,7 +282,7 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
         {error && <ErrorBox error={error} />}
         <TestResult r={result} />
       </form>
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -369,8 +378,8 @@ function ConnectionsTable(props: {
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => props.onEdit(c)}>
                 Edit
               </button>
-              <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => props.onDelete(c)} aria-label={`Delete ${c.name}`}>
-                Delete
+              <button type="button" className="btn btn-ghost btn-sm text-bad" onClick={() => props.onDelete(c)} aria-label={`Remove ${c.name}`}>
+                Remove
               </button>
             </>
           );
@@ -409,14 +418,15 @@ function ConnectionsTable(props: {
 
 function ModelsSection({ admin }: { admin: boolean }) {
   const q = useQuery({ queryKey: ["llm-connections"], queryFn: endpoints.listLlmConnections });
-  const [form, setForm] = useState<{ editing: LlmConnection | null } | null>(null);
+  // ?sheet=new adds a model; ?sheet=<id> edits one.
+  const [sheet, openSheet, closeSheet] = useSheetParam();
   const [deleting, setDeleting] = useState<LlmConnection | null>(null);
   const qc = useQueryClient();
   const toast = useToast();
   const del = useMutation({
     mutationFn: (c: LlmConnection) => endpoints.deleteLlmConnection(c.id),
     onSuccess: (_, c) => {
-      toast("ok", `Deleted ${c.name}`);
+      toast("ok", `Removed ${c.name}`);
       setDeleting(null);
       void qc.invalidateQueries({ queryKey: ["llm-connections"] });
     },
@@ -431,9 +441,11 @@ function ModelsSection({ admin }: { admin: boolean }) {
     return <ErrorBox error={q.error} />;
   }
   const d = q.data;
+  const editing = sheet && sheet !== "new" ? d.connections.find((c) => c.id === sheet) : undefined;
+  const form = admin && (sheet === "new" || editing) ? { editing: editing ?? null } : null;
   const add = admin && (
-    <button type="button" className="btn btn-primary btn-sm" onClick={() => setForm({ editing: null })}>
-      <Icon d={ICONS.plus} size={14} /> Add connection
+    <button type="button" className="btn btn-primary btn-sm" onClick={() => openSheet("new")}>
+      <Icon d={ICONS.plus} size={14} /> Add model
     </button>
   );
   return (
@@ -461,26 +473,26 @@ function ModelsSection({ admin }: { admin: boolean }) {
         )}
         {d.connections.length === 0 && !d.deployment ? (
           <EmptyState title="No model connected" action={add || undefined}>
-            Without an LLM, curation still clusters signals and runs hygiene checks but drafts no suggestions, and eval cases that need an agent are skipped. {admin ? "Add a connection to Anthropic or any OpenAI-compatible endpoint." : "An admin can add one here."}
+            Without an LLM, curation still clusters signals and runs hygiene checks but drafts no suggestions, and eval cases that need an agent are skipped. {admin ? "Add Anthropic or any OpenAI-compatible endpoint." : "An admin can add one here."}
           </EmptyState>
         ) : (
           d.connections.length > 0 && (
-            <ConnectionsTable rows={d.connections} admin={admin} overridden={Boolean(d.deployment)} onEdit={(c) => setForm({ editing: c })} onDelete={setDeleting} />
+            <ConnectionsTable rows={d.connections} admin={admin} overridden={Boolean(d.deployment)} onEdit={(c) => openSheet(c.id)} onDelete={setDeleting} />
           )
         )}
       </div>
-      {form && <ConnectionForm editing={form.editing} encryption={d.encryption_configured} first={d.connections.length === 0} onClose={() => setForm(null)} />}
+      {form && <ConnectionForm key={sheet} editing={form.editing} encryption={d.encryption_configured} first={d.connections.length === 0} onClose={closeSheet} />}
       <Modal
         open={deleting !== null}
         onClose={() => setDeleting(null)}
-        title={`Delete ${deleting?.name ?? ""}?`}
+        title={`Remove ${deleting?.name ?? ""}?`}
         footer={
           <>
             <button type="button" className="btn" onClick={() => setDeleting(null)}>
               Cancel
             </button>
             <button type="button" className="btn btn-danger" disabled={del.isPending} onClick={() => deleting && del.mutate(deleting)}>
-              {del.isPending ? "Deleting..." : "Delete"}
+              {del.isPending ? "Removing..." : "Remove"}
             </button>
           </>
         }

@@ -1,10 +1,9 @@
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
 import type { SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
-import { EmptyState, ErrorBox, ICONS, Icon, Loading, PageHeader, SectionHeading, StatCell, StatGrid, StatusDot, TableCard } from "@/components/ui";
+import { EmptyState, ErrorBox, ICONS, Icon, Loading, PageHeader, SectionHeading, StatCell, StatGrid, StatusDot, TableCard, useSheetParam } from "@/components/ui";
 import { pageIcon } from "@/components/nav";
 import { SourceForm } from "@/pages/SourceForm";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
@@ -89,17 +88,13 @@ export function Sources() {
   const kinds = useQuery({ queryKey: ["source-kinds"], queryFn: endpoints.listSourceKinds });
   const llm = useQuery({ queryKey: ["llm-connections"], queryFn: endpoints.listLlmConnections, retry: false });
   const admin = me.data?.role === "admin";
-  const [sp, setSp] = useSearchParams();
-  // "?add=1" (the dashboard's Set up list) opens the add dialog straight away.
-  const [form, setForm] = useState<{ editing: SourceOut | null } | null>(sp.get("add") ? { editing: null } : null);
-  const closeForm = () => {
-    setForm(null);
-    if (sp.get("add")) setSp({}, { replace: true });
-  };
+  // ?sheet=new (the dashboard's Set up list links there) opens the add sheet.
+  const [sheet, openSheet, closeForm] = useSheetParam();
+  const form = admin && sheet === "new" ? { editing: null } : null;
   const sync = useSourceSync();
 
   const addButton = admin && kinds.data && (
-    <button type="button" className="btn btn-primary" onClick={() => setForm({ editing: null })}>
+    <button type="button" className="btn btn-primary" onClick={() => openSheet("new")}>
       <Icon d={ICONS.plus} size={14} /> Add source
     </button>
   );

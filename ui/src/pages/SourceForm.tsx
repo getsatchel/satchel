@@ -5,7 +5,7 @@ import { endpoints } from "@/api/endpoints";
 import type { GitTestOut, SourceKindOut, SourceOut, SyncReportOut } from "@/api/types";
 import { useToast } from "@/components/Toast";
 import { docsUrl } from "@/components/nav";
-import { ErrorBox, InfoTip, Modal, Notice, Segmented, StatusDot } from "@/components/ui";
+import { ErrorBox, InfoTip, Notice, Segmented, Sheet, StatusDot } from "@/components/ui";
 import { errMsg } from "@/lib/format";
 
 const HOST_KEYS = new Set(["publish", "priority", "connection", "git_url", "git_ref", "git_username", "git_token", "sync_interval_hours", "webhook_secret", "dbt_project_dir", "dbt_skip_deps", "dbt_vars", "dbt_target_schema", "dbt_target_name"]);
@@ -99,6 +99,8 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
   const requiredFiles = new Set(spec?.required_inputs ?? []);
   const cfg = (e?.config ?? {}) as Record<string, unknown>;
 
+  // Anything changed in the form (or a step past the first) makes closing ask first.
+  const [touched, setTouched] = useState(false);
   const [name, setName] = useState(e?.name ?? "");
   const [connection, setConnection] = useState(e?.connection ?? "");
   const [publish, setPublish] = useState<"auto" | "preview">(e?.publish === "preview" ? "preview" : "auto");
@@ -212,12 +214,13 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
   const blocked = newSecret && !props.encryption;
 
   return (
-    <Modal
+    <Sheet
       open
       wide
       onClose={props.onClose}
+      dirty={touched || (wizard && step > 0)}
       title={e ? `Edit ${e.name}` : "Add source"}
-      step={wizard ? { current: step, total: 3 } : undefined}
+      steps={wizard ? { current: step, total: 3 } : undefined}
       footer={
         <>
           {wizard && step > 0 && (
@@ -238,6 +241,11 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
     >
       <form
         id="source-form"
+        onChangeCapture={() => setTouched(true)}
+        onClickCapture={(ev) => {
+          // Segmented choices are buttons, not inputs.
+          if ((ev.target as HTMLElement).closest("button[aria-pressed]")) setTouched(true);
+        }}
         className="space-y-6"
         onSubmit={(ev) => {
           ev.preventDefault();
@@ -547,7 +555,7 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
           </div>
         )}
       </form>
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -647,9 +655,10 @@ export function UploadSync(props: { source: SourceOut; onDone: (r: SyncReportOut
   });
   const any = Object.values(picked).some((l) => l && l.length > 0);
   return (
-    <Modal
+    <Sheet
       open
       onClose={props.onClose}
+      dirty={any}
       title={`Upload and sync ${props.source.name}`}
       footer={
         <>
@@ -675,6 +684,6 @@ export function UploadSync(props: { source: SourceOut; onDone: (r: SyncReportOut
         ))}
         {error && <ErrorBox error={error} />}
       </div>
-    </Modal>
+    </Sheet>
   );
 }

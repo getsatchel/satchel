@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { ProposalOut } from "@/api/types";
-import { DescList, EmptyState, ErrorBox, GitBadge, ICONS, ItemKey, ItemLink, KeyLines, ListDetail, ListRow, Loading, Modal, Notice, PageHeader, PanelSection, SectionHeading, StatusLine, Tabs, TypeBadge, useWide } from "@/components/ui";
+import { DescList, EmptyState, ErrorBox, GitBadge, ICONS, ItemKey, ItemLink, KeyLines, ListDetail, ListRow, Loading, Modal, Notice, PageHeader, PanelSection, SectionHeading, Sheet, StatusLine, Tabs, TypeBadge, useWide } from "@/components/ui";
 import { pageIcon } from "@/components/nav";
 import { UnifiedDiff } from "@/components/UnifiedDiff";
 import { ItemEditor, metaToText, parseMeta, type EditorValue } from "@/components/ItemEditor";
@@ -218,10 +218,11 @@ function ProposalPanel({ p, onResolved }: { p: ProposalOut; onResolved: () => vo
       )}
       </PanelSection>
 
-      <Modal
+      <Sheet
         wide
         open={editing}
         onClose={() => setEditing(false)}
+        dirty={ev.body !== p.body || ev.metaText !== metaToText(p.meta) || newKey !== p.key}
         title={`Edit before accepting: ${p.key}`}
         footer={
           <>
@@ -245,12 +246,13 @@ function ProposalPanel({ p, onResolved }: { p: ProposalOut; onResolved: () => vo
           </label>
         )}
         <ItemEditor type={p.type} value={ev} onChange={setEv} />
-      </Modal>
+      </Sheet>
 
       <Modal
         open={rejecting}
         onClose={() => setRejecting(false)}
-        title="Reject proposal"
+        dirty={reason.trim() !== ""}
+        title="Reject this proposal?"
         footer={
           <>
             <button className="btn" onClick={() => setRejecting(false)}>
