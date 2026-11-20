@@ -7,7 +7,7 @@ export function CopyField({ label, value, secret }: { label: string; value: stri
     <div>
       <span className="label">{label}</span>
       <div className="flex min-w-0 items-center gap-2">
-        <code className={`min-w-0 flex-1 rounded-md border border-line bg-sunken px-2 py-1.5 text-xs [overflow-wrap:anywhere] ${secret ? "select-all" : ""}`}>{value}</code>
+        <code className={`min-w-0 flex-1 rounded-md border border-line bg-sunken px-2 py-1.5 text-xs whitespace-pre-wrap [overflow-wrap:anywhere] ${secret ? "select-all" : ""}`}>{value}</code>
         <button
           type="button"
           className="btn btn-sm shrink-0"

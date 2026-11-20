@@ -7,6 +7,7 @@ type Req<T> = { [K in keyof T]-?: T[K] };
 
 
 export type Me = S["MeOut"];
+export type ConnectInfo = S["ConnectInfo"];
 export type ItemUsage = Req<S["ItemUsage"]>;
 export type ItemSummary = Omit<Req<S["ItemSummary"]>, "usage"> & { usage: ItemUsage };
 export type ItemPage = Omit<S["ItemPage"], "items"> & { items: ItemSummary[] };

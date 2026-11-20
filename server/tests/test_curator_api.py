@@ -19,6 +19,7 @@ from satchel.api.app import create_app
 from satchel.llm.embeddings import HashEmbedder
 from satchel.mcp.auth import Principal, create_token
 from satchel.oauth import sessions
+from satchel.oauth.common import reachable_from_internet
 from satchel.settings import Settings
 from satchel.store.db import admin_session
 from satchel.store.models import (
@@ -102,6 +103,7 @@ ID = "00000000-0000-4000-8000-0000000000aa"  # fixed: test ids must match across
 ENDPOINTS: list[tuple[str, str, dict[str, Any] | None, str]] = [
     # (method, path, json, minimum role)
     ("GET", "/v1/me", None, "explorer"),
+    ("GET", "/v1/connect", None, "explorer"),
     ("GET", "/v1/items", None, "explorer"),
     ("GET", "/v1/items/workspace.md", None, "explorer"),
     ("GET", "/v1/items/workspace.md/versions/1", None, "explorer"),
@@ -178,6 +180,26 @@ def test_me_and_cookie_csrf(env: Env, app_engine: Engine) -> None:
     body = {**GUIDE, "key": "guides/cookie.md"}
     assert c.post("/v1/items", json=body).status_code == 403  # no CSRF header
     assert c.post("/v1/items", json=body, headers={sessions.CSRF_HEADER: csrf}).status_code == 201
+
+
+def test_connect_info(env: Env, app_engine: Engine) -> None:
+    r = env.client.get("/v1/connect", headers=env.h("explorer")).json()
+    assert r == {"mcp_url": "http://localhost:8080/mcp", "oauth": False, "provider": None,
+                 "public": False}
+    st = Settings(dev_auth=True, public_url="https://satchel.example.com/",
+                  oidc_issuer="https://accounts.google.com")
+    r = TestClient(create_app(app_engine, EMB, settings=st)).get(
+        "/v1/connect", headers=env.h("explorer")).json()
+    assert r == {"mcp_url": "https://satchel.example.com/mcp", "oauth": True,
+                 "provider": "Google", "public": True}
+
+
+def test_reachable_from_internet() -> None:
+    assert reachable_from_internet("https://satchel.example.com")
+    assert reachable_from_internet("https://34.1.2.3.sslip.io")
+    for url in ("http://satchel.example.com", "https://localhost:8443", "https://10.0.0.4",
+                "https://satchel.internal", "https://box", "https://127.0.0.1"):
+        assert not reachable_from_internet(url), url
 
 
 def test_bearer_token_role(env: Env, app_engine: Engine) -> None:

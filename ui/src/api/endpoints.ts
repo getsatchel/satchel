@@ -1,6 +1,7 @@
 import { api, keyPath } from "./client";
 import { crawlReportOf, curationReportOf, isJob, syncReportOf } from "./jobs";
 import type {
+  ConnectInfo,
   AgentInstructionsInfo,
   AssetDetail,
   AssetPage,
@@ -82,6 +83,7 @@ export interface ItemFilters {
 
 export const endpoints = {
   me: () => api.get<Me>("/v1/me"),
+  connect: () => api.get<ConnectInfo>("/v1/connect"),
 
   listItems: (f: ItemFilters) => api.get<ItemPage>("/v1/items", { limit: 200, ...f }),
   agentInstructions: () => api.get<AgentInstructionsInfo>("/v1/agent-instructions"),

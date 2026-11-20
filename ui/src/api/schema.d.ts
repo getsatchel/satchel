@@ -110,6 +110,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Connect
+         * @description How to add Satchel to an MCP client: the URL, and whether OAuth sign-in and a
+         *     cloud-hosted client (claude.ai) can work against this server.
+         */
+        get: operations["get_connect"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/connection-kinds": {
         parameters: {
             query?: never;
@@ -1632,6 +1653,32 @@ export interface components {
             only_in_a: string[];
             /** Only In B */
             only_in_b: string[];
+        };
+        /**
+         * ConnectInfo
+         * @description What an MCP client needs to reach this server, from its own settings.
+         */
+        ConnectInfo: {
+            /**
+             * Mcp Url
+             * @description The MCP endpoint, from SATCHEL_PUBLIC_URL.
+             */
+            mcp_url: string;
+            /**
+             * Oauth
+             * @description Whether clients can sign in through the identity provider.
+             */
+            oauth: boolean;
+            /**
+             * Provider
+             * @description The identity provider's name, when there is one.
+             */
+            provider: string | null;
+            /**
+             * Public
+             * @description Whether the URL is https on a public host, so claude.ai can reach it.
+             */
+            public: boolean;
         };
         /** ConnectionCreate */
         ConnectionCreate: {
@@ -4601,6 +4648,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChangesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_connect: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectInfo"];
                 };
             };
             /** @description Validation Error */

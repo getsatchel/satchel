@@ -1114,6 +1114,46 @@
         "title": "CompareOut",
         "type": "object"
       },
+      "ConnectInfo": {
+        "description": "What an MCP client needs to reach this server, from its own settings.",
+        "properties": {
+          "mcp_url": {
+            "description": "The MCP endpoint, from SATCHEL_PUBLIC_URL.",
+            "title": "Mcp Url",
+            "type": "string"
+          },
+          "oauth": {
+            "description": "Whether clients can sign in through the identity provider.",
+            "title": "Oauth",
+            "type": "boolean"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The identity provider's name, when there is one.",
+            "title": "Provider"
+          },
+          "public": {
+            "description": "Whether the URL is https on a public host, so claude.ai can reach it.",
+            "title": "Public",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mcp_url",
+          "oauth",
+          "provider",
+          "public"
+        ],
+        "title": "ConnectInfo",
+        "type": "object"
+      },
       "ConnectionCreate": {
         "properties": {
           "config": {
@@ -9080,6 +9120,88 @@
         "summary": "List Changes",
         "tags": [
           "workbench"
+        ]
+      }
+    },
+    "/v1/connect": {
+      "get": {
+        "description": "How to add Satchel to an MCP client: the URL, and whether OAuth sign-in and a\ncloud-hosted client (claude.ai) can work against this server.",
+        "operationId": "get_connect",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Connect",
+        "tags": [
+          "me"
         ]
       }
     },

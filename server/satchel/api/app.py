@@ -37,6 +37,7 @@ from satchel.api import jobs as jobs_api
 from satchel.api.auth import ApiContext, Auth, Caller
 from satchel.api.health import mount_readyz
 from satchel.api.schemas import (
+    ConnectInfo,
     MeOut,
     PackEntryOut,
     PackOut,
@@ -49,8 +50,9 @@ from satchel.jobs.runner import WEB_KINDS, JobRunner, Runtime
 from satchel.llm.chat import ChatProvider
 from satchel.llm.embeddings import EmbeddingProvider, make_embedder
 from satchel.oauth.clients import CimdFetcher
+from satchel.oauth.common import mcp_resource, reachable_from_internet
 from satchel.oauth.oidc import OidcProvider
-from satchel.oauth.routes import OAuthApp, mount_oauth
+from satchel.oauth.routes import OAuthApp, mount_oauth, provider_name
 from satchel.retrieval import build_context_pack, search_context
 from satchel.runtime import TraceMiddleware
 from satchel.settings import Settings, get_settings
@@ -175,6 +177,16 @@ def create_app(
                 workspace_id=ws.id, workspace_slug=ws.slug, workspace_name=ws.name,
                 csrf_token=who.csrf, auth=who.auth,
             )
+
+    @me.get("/v1/connect", response_model=ConnectInfo)
+    def get_connect(who: Who) -> ConnectInfo:
+        """How to add Satchel to an MCP client: the URL, and whether OAuth sign-in and a
+        cloud-hosted client (claude.ai) can work against this server."""
+        return ConnectInfo(
+            mcp_url=mcp_resource(st), oauth=bool(st.oidc_issuer),
+            provider=provider_name(st) if st.oidc_issuer else None,
+            public=reachable_from_internet(st.public_url),
+        )
 
     app.include_router(me)
     app.include_router(library.make_router(auth))

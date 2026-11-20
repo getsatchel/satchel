@@ -4,7 +4,7 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { Analytics, AssetNode, EvalRun } from "@/api/types";
 import { HeaderActions } from "@/components/CommandPalette";
-import { docsUrl } from "@/components/nav";
+import { ConnectSheet } from "@/components/ConnectAgent";
 import {
   CardFooter,
   CardHeader,
@@ -81,6 +81,7 @@ export function Dashboard() {
         <AgentActivity />
         <ContextHealth />
       </div>
+      <ConnectSheet />
     </>
   );
 }
@@ -127,8 +128,8 @@ function GetStarted() {
       title: "Connect an agent",
       detail: "Claude or another MCP client. Sessions appear once it asks a question.",
       done: sessions.data.total > 0,
-      href: docsUrl("integrations/claude"),
-      action: "Setup guide",
+      to: "/dashboard?sheet=connect",
+      action: "Connect",
     },
   ];
   // Show the exception, not the default: only what is still to do.
@@ -323,6 +324,7 @@ function AgentActivity() {
         <CardFooter>
           <PillButton to="/sessions">View sessions</PillButton>
           <PillButton to="/observability">Observability</PillButton>
+          <PillButton to="/dashboard?sheet=connect">Connect an agent</PillButton>
         </CardFooter>
       </div>
     </section>

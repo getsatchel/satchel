@@ -96,6 +96,7 @@ export function pagesFor(role: string | null | undefined): NavItem[] {
 
 /** Tabs worth finding by name in the command palette (each was its own page before). */
 export const SUB_PAGES: NavItem[] = [
+  { to: "/dashboard?sheet=connect", label: "Connect an agent", icon: ICONS.external, keywords: "mcp claude code cursor connector url token setup" },
   { to: "/releases", label: "Changes", icon: "M6 3v12m0 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm12-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 0c0 5-6 3-6 9", keywords: "releases preview publish unpublished drafts", min: "curator" },
   { to: "/releases?tab=history", label: "Release history", icon: ICONS.tag, keywords: "releases rollback versions published", min: "curator" },
   { to: "/settings?tab=jobs", label: "Jobs", icon: ICONS.clock, keywords: "settings queue background sync crawl curation retry worker", min: "curator" },
