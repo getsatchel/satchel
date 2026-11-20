@@ -76,7 +76,9 @@ class Env:
 
     def add(self, name: str = "jaffle", **cfg: Any) -> None:
         paths = {n: str(self.dir / f"{n}.json") for n in ("manifest", "semantic_manifest", "catalog")}
-        add_source(self.slug, "dbt", name, {**paths, "connection": "warehouse", **cfg},
+        # These tests cover publishing on sync, so they ask for it (the default is preview).
+        add_source(self.slug, "dbt", name, {**paths, "connection": "warehouse", "publish": "auto",
+                                            **cfg},
                    engine=self.engine)
 
     def item(self, key: str = ORDERS) -> ContextItem:
@@ -131,6 +133,18 @@ def env(app_engine: Engine, tmp_path: Path) -> Env:
     e = Env(app_engine, slug, ws_id, d, client, users)
     e.add()
     return e
+
+
+def test_a_new_source_defaults_to_preview(env: Env) -> None:
+    # Nothing publishes on its own: a source saved without `publish` leaves a preview release.
+    paths = {n: str(env.dir / f"{n}.json") for n in ("manifest", "semantic_manifest", "catalog")}
+    add_source(env.slug, "dbt", "fresh", {**paths, "connection": "warehouse"}, engine=env.engine)
+    with admin_session(engine=env.engine) as s:
+        src = s.scalars(select(ContextSource).where(ContextSource.workspace_id == env.ws_id,
+                                                    ContextSource.name == "fresh")).one()
+        assert src.config["publish"] == "preview"
+    r = env.sync("fresh")
+    assert r.release_kind == "preview" and not env.releases("published")
 
 
 def test_first_sync_creates_linked_items_and_second_is_a_noop(env: Env) -> None:

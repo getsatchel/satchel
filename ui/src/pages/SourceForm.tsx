@@ -103,7 +103,7 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
   const [touched, setTouched] = useState(false);
   const [name, setName] = useState(e?.name ?? "");
   const [connection, setConnection] = useState(e?.connection ?? "");
-  const [publish, setPublish] = useState<"auto" | "preview">(e?.publish === "preview" ? "preview" : "auto");
+  const [publish, setPublish] = useState<"auto" | "preview">(e?.publish === "auto" ? "auto" : "preview");
   const [priority, setPriority] = useState(String(e?.priority ?? 0));
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f.name, cfg[f.name] == null || cfg[f.name] === MASK ? "" : String(cfg[f.name])])),
@@ -302,13 +302,13 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
           <div>
             <span className="label flex items-center gap-1">
               Publishing
-              <InfoTip text="Auto publishes a release on every sync. Preview creates a preview release you review and publish yourself." />
+              <InfoTip text="Preview creates a preview release on each sync that a curator reviews and publishes. Auto publishes a release on every sync, without review." />
             </span>
             <Segmented
               label="Publishing"
               options={[
-                { id: "auto", label: "Auto" },
                 { id: "preview", label: "Preview" },
+                { id: "auto", label: "Auto" },
               ]}
               value={publish}
               onChange={setPublish}

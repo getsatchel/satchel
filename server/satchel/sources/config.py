@@ -37,7 +37,9 @@ class HostSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    publish: Literal["auto", "preview"] = "auto"
+    # A sync makes a preview release that a curator publishes: nothing publishes on its own
+    # unless the source says publish: auto.
+    publish: Literal["auto", "preview"] = "preview"
     priority: int = Field(
         default=0,
         description="Lower number wins when sources describe the same table (hand-written "
