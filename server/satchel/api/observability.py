@@ -16,9 +16,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import ColumnElement, and_, case, distinct, exists, func, select
 from sqlalchemy.orm import Session, aliased
 
+from satchel.analytics import compute as compute_analytics
 from satchel.api.auth import Auth, Caller
 from satchel.api.common import audit
 from satchel.api.schemas import (
+    Analytics,
     DayClientCount,
     FeedbackCounts,
     FeedbackOut,
@@ -211,6 +213,20 @@ def make_router(auth: Auth) -> APIRouter:
                     for i, k, t, n in served
                 ],
             )
+
+    @r.get("/v1/observability/analytics", response_model=Analytics)
+    def analytics(
+        who: Cur,
+        days: Annotated[int, Query(json_schema_extra={"enum": [7, 30, 90]})] = 30,
+    ) -> Analytics:
+        """The Observability page: headline numbers against the period before, answer quality,
+        adoption, grounding, performance and workflow adherence. Question and comment text is
+        redacted for everyone but admins, and left out for sensitive sessions."""
+        if days not in (7, 30, 90):
+            raise HTTPException(422, "days must be 7, 30 or 90")
+        level: Redaction = "none" if who.has_role("admin") else "redacted"
+        with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
+            return compute_analytics(s, days, level)
 
     # ---- sessions ------------------------------------------------------------------------------
 

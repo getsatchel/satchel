@@ -14,7 +14,7 @@ CI uses the REST API. What each person can do depends on their [role](#roles).
 | **Release** | An immutable set of published context items. Agents read the published release. Changes go draft → preview release → publish, and can be rolled back. |
 | **Source** | An upstream tool (dbt, Cube, SQLMesh, a git repo) synced into context. Fields are owned by the source or by a hand-written overlay. |
 | **Connection** | A warehouse (PostgreSQL, DuckDB, BigQuery, Snowflake) that agents query with governed, read-only SQL, and that Satchel crawls into the **Catalog**. Sources then describe what its tables mean. |
-| **Session** | One conversation with an agent: its tool calls, answers and feedback. A session holds one or more **questions** (turns), because agents often keep a session for follow-ups. Inspect them under **Sessions**; curators also get the **Usage** tab. |
+| **Session** | One conversation with an agent: its tool calls, answers and feedback. A session holds one or more **questions** (turns), because agents often keep a session for follow-ups. Inspect them under **Sessions**; curators also get **Observability** (quality, adoption, grounding, performance and workflow adherence; see [Observability](observability.md)). |
 | **Signal** | Something that says context was lacking: a flagged gap, a user correction, a SQL error, metric divergence. |
 | **Suggestion** | A proposed change drafted from signals and hygiene checks. Reviewed in the **Inbox**. Two suggestions that propose exactly the same change are merged into the older one, which keeps the evidence of both. |
 | **Eval suite** | Questions with graders, run against a release to gate publishing. |
@@ -84,7 +84,7 @@ Every member has one role. Each role can do everything the roles before it can.
 | Review the **Inbox**: accept or reject suggested changes and agent proposals | | | ✓ | ✓ |
 | Write and edit context items and **Agent instructions** (as drafts) | | | ✓ | ✓ |
 | Preview, run evals on, publish and roll back releases (**Releases**, **Evals**) | | | ✓ | ✓ |
-| See **Usage** charts and **Settings > Jobs**; retry failed jobs | | | ✓ | ✓ |
+| See **Observability** and **Settings > Jobs**; retry failed jobs | | | ✓ | ✓ |
 | View sources, connections, models and limits; sync a source now; crawl a connection | | | ✓ | ✓ |
 | Preview a context repo pull request (`POST /v1/sync/preview`, the GitHub Action) | | | ✓ | ✓ |
 | Add, change or remove sources, connections and models; change limits | | | | ✓ |

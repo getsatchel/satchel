@@ -20,6 +20,7 @@ import { Catalog } from "./pages/Catalog";
 import { SourceDetail } from "./pages/SourceDetail";
 import { Sources } from "./pages/Sources";
 import { Settings } from "./pages/Settings";
+import { Observability } from "./pages/Observability";
 import { Connections } from "./pages/Connections";
 import { EvalComparePage, EvalRunPage, Evals } from "./pages/Evals";
 
@@ -124,7 +125,6 @@ export function App() {
         <Route path="catalog" element={<Catalog />} />
         {/* Pages that became tabs: old links and bookmarks keep working. */}
         <Route path="changes" element={<Moved to="/releases" />} />
-        <Route path="observability" element={<Moved to="/sessions" add={{ tab: "usage" }} />} />
         <Route path="jobs" element={<Moved to="/settings" add={{ tab: "jobs" }} />} />
         <Route element={<RequireRole min="curator" />}>
           <Route path="inbox" element={<Inbox />} />
@@ -135,6 +135,7 @@ export function App() {
           <Route path="sources" element={<Sources />} />
           <Route path="sources/:name" element={<SourceDetail />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="observability" element={<Observability />} />
           <Route path="evals" element={<Evals />} />
           <Route path="evals/runs/:id" element={<EvalRunPage />} />
           <Route path="evals/compare" element={<EvalComparePage />} />

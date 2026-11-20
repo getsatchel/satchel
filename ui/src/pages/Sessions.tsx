@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
-import { EmptyState, ErrorBox, Feedback, FilterSelect, ICONS, Loading, PageHeader, PillButton, SectionHeading, Segmented, StatusDot, TableCard, Tabs, type Tone } from "@/components/ui";
-import { UsageSection } from "@/pages/Usage";
+import { EmptyState, ErrorBox, Feedback, FilterSelect, ICONS, Loading, PageHeader, PillButton, SectionHeading, Segmented, StatusDot, TableCard, type Tone } from "@/components/ui";
 import { pageIcon } from "@/components/nav";
 import { fullTime, timeAgo } from "@/lib/format";
 import { useRole } from "@/lib/role";
@@ -31,32 +30,26 @@ interface Row {
   startedAt: string;
 }
 
-type Tab = "sessions" | "usage";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "sessions", label: "Sessions" },
-  { id: "usage", label: "Usage" },
-];
-
-/** Sessions: every question agents were asked (the default tab), and Usage across them. */
+/** Sessions: every question agents were asked. Usage moved to Observability. */
 export function Sessions() {
-  const [sp, setSp] = useSearchParams();
+  const [sp] = useSearchParams();
   const { can } = useRole();
-  // Usage is for curators; everyone else gets the list without tabs.
   const curator = can("curator");
-  const tab: Tab = curator && sp.get("tab") === "usage" ? "usage" : "sessions";
+  if (sp.get("tab") === "usage") {
+    const q = new URLSearchParams(sp);
+    q.delete("tab");
+    const rest = q.toString();
+    return <Navigate to={`/observability${rest ? `?${rest}` : ""}`} replace />;
+  }
   const sub = curator
-    ? "Every question an agent was asked through Satchel, and how agents use the context. Open a session to replay its tool calls and the context it was served."
+    ? "Every question an agent was asked through Satchel. Open a session to replay its tool calls and the context it was served."
     : can("analyst")
       ? "Questions people in this workspace asked their agents, and the answers. Open one to see the queries it ran and the context it used."
       : "Questions you asked your agent, and the answers. Open one to see the queries it ran and the context it used.";
   return (
     <>
       <PageHeader title="Sessions" sub={sub} />
-      {curator && (
-        /* Each tab keeps its own filters, so switching starts clean. */
-        <Tabs tabs={TABS} value={tab} onChange={(t) => setSp(t === "sessions" ? {} : { tab: t }, { replace: true })} />
-      )}
-      <div className={curator ? "mt-6" : ""}>{tab === "usage" ? <UsageSection /> : <SessionList />}</div>
+      <SessionList />
     </>
   );
 }
@@ -70,11 +63,13 @@ function SessionList() {
   // Explorers only ever see their own; analysts and up choose between everyone and themselves.
   const team = can("analyst");
   const mine = !team || sp.get("who") === "me";
-  const user_id = team && mine ? (me.data?.user_id ?? undefined) : undefined;
+  // ?user= (from Observability → Adoption): one person's questions.
+  const person = team && !mine ? (sp.get("user") ?? undefined) : undefined;
+  const user_id = team && mine ? (me.data?.user_id ?? undefined) : person;
   const [page, setPage] = useState(0);
   const paging = { client, status, user_id, limit: LIMIT, offset: page * LIMIT };
   const turns = useQuery({
-    queryKey: ["turns", client, status, user_id, page],
+    queryKey: ["turns", client, status, user_id ?? null, page],
     queryFn: () => endpoints.listTurns(paging),
     placeholderData: (p) => p,
     enabled: view === "questions",
@@ -143,6 +138,14 @@ function SessionList() {
         title={view === "questions" ? "Questions" : "Conversations"}
         count={total}
       />
+      {person && (
+        <p className="mb-3 text-sm text-muted">
+          One person's questions.{" "}
+          <button type="button" className="text-accent hover:underline" onClick={() => set("user", "")}>
+            Show everyone
+          </button>
+        </p>
+      )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Segmented
           label="Group by"

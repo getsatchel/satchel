@@ -33,7 +33,7 @@ cases:
 
 A suite has at most 100 cases, and a case at most 15 rubrics. Each case runs the reference agent:
 a tool-use loop that calls Satchel's MCP tools in-process, pinned to the release under test. Eval
-sessions are tagged and kept out of **Sessions**, **Usage**, signals and curation.
+sessions are tagged and kept out of **Sessions**, **Observability**, signals and curation.
 
 | Grader | Passes when | Needs an LLM |
 | --- | --- | --- |

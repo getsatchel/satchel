@@ -13,6 +13,7 @@ try it, understand it, run it in production, then integrate and extend it.
 |---|---|
 | [Install and quickstart](install.md) | Run Satchel locally with `satchel init`, connect Claude, ask a question. |
 | [How Satchel works](concepts/how-it-works.md) | Context, sessions, signals, the curation loop, releases. |
+| [Observability](concepts/observability.md) | Quality, adoption, grounding, performance and workflow adherence of agent answers. |
 | [Evals](concepts/evals.md) | Measure answers with eval suites, gate publishing, run suites on a schedule. |
 | [Roles](concepts/how-it-works.md#roles) | Who can do what: explorer, analyst, curator, admin, and what each sees in the UI. |
 

@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
-import type { AssetNode, EvalRun, ObservabilitySummary } from "@/api/types";
+import type { Analytics, AssetNode, EvalRun } from "@/api/types";
 import { HeaderActions } from "@/components/CommandPalette";
 import { docsUrl } from "@/components/nav";
 import {
@@ -22,6 +22,7 @@ import {
 import { fullTime, timeAgo } from "@/lib/format";
 import { useRole } from "@/lib/role";
 import { Home } from "@/pages/Home";
+import { change, pct as obsPct } from "@/pages/Observability";
 
 const DASH = "–";
 const PERIODS = [7, 30, 90] as const;
@@ -65,9 +66,6 @@ function latestFinished(runs: EvalRun[]): EvalRun | undefined {
     .sort((a, b) => String(b.finished_at).localeCompare(String(a.finished_at)))[0];
 }
 
-function signalCount(s: ObservabilitySummary, kind: string) {
-  return s.signals_by_kind.find((k) => k.kind === kind)?.count ?? 0;
-}
 
 export function Dashboard() {
   const { can, loaded } = useRole();
@@ -286,9 +284,9 @@ function NeedsReview() {
 
 function AgentActivity() {
   const [days, setDays] = useState<(typeof PERIODS)[number]>(30);
-  const q = useQuery({ queryKey: ["summary", days], queryFn: () => endpoints.summary(days), placeholderData: (p) => p });
-  const s = (pick: (d: ObservabilitySummary) => ReactNode) => val(q, pick);
-  const s2 = (pick: (d: ObservabilitySummary) => ReactNode) => sec(q, pick);
+  const q = useQuery({ queryKey: ["analytics", days], queryFn: () => endpoints.analytics(days), placeholderData: (p) => p });
+  const h = (pick: (d: Analytics["headline"]) => ReactNode) => val(q, (d) => pick(d.headline));
+  const h2 = (pick: (d: Analytics["headline"]) => ReactNode) => sec(q, (d) => pick(d.headline));
   return (
     <section aria-labelledby="dash-activity">
       <SectionHeading id="dash-activity" icon={ICONS.pulse} title="Agent activity" />
@@ -308,7 +306,7 @@ function AgentActivity() {
             />
           }
         >
-          How agents used your context.
+          How agents used your context, against the {days} days before.
         </CardHeader>
         {q.isError ? (
           <div className="p-4">
@@ -316,37 +314,15 @@ function AgentActivity() {
           </div>
         ) : (
           <StatGrid>
-            <StatCell label="Sessions" tone="info" value={s((d) => fmt(d.total_sessions))} info="Analyses an agent ran against this workspace in the period." />
-            <StatCell
-              label="Tool errors"
-              tone="bad"
-              glyph="triangle"
-              value={s((d) => fmt(d.top_tools.reduce((n, t) => n + t.errors, 0)))}
-              secondary={s2((d) => {
-                const calls = d.top_tools.reduce((n, t) => n + t.calls, 0);
-                return calls ? pct(d.top_tools.reduce((n, t) => n + t.errors, 0), calls) : null;
-              })}
-              info="Tool calls that returned an error, as a count and a share of all calls."
-            />
-            <StatCell
-              label="Gaps flagged"
-              tone="warn"
-              glyph="triangle"
-              value={s((d) => fmt(signalCount(d, "gap_flagged")))}
-              info="Times an agent said the context did not cover what it needed."
-            />
-            <StatCell
-              label="Thumbs down"
-              tone="bad"
-              value={s((d) => fmt(d.feedback.negative))}
-              secondary={s2((d) => `${d.feedback.human_negative} human`)}
-              info="Negative feedback from people and agents. The secondary number is the human share. Positive feedback, tool calls and every signal kind are under Sessions, Usage."
-            />
+            <StatCell label="Questions" tone="info" value={h((d) => fmt(d.questions.value ?? 0))} secondary={h2((d) => change(d.questions, "count", days))} info="Questions agents worked on in the period." to="/observability?tab=adoption" />
+            <StatCell label="Thumbs up" tone="good" value={h((d) => obsPct(d.thumbs_up_rate.value))} secondary={h2((d) => change(d.thumbs_up_rate, "rate", days))} info="Share of thumbs that were up, from people and agents." to="/observability?tab=quality" />
+            <StatCell label="Governed" value={h((d) => obsPct(d.governed_rate.value))} secondary={h2((d) => change(d.governed_rate, "rate", days))} info="Data answers that used a governed metric rather than only raw SQL." to="/observability?tab=grounding" />
+            <StatCell label="Adherence" value={h((d) => obsPct(d.adherence_rate.value))} secondary={h2((d) => change(d.adherence_rate, "rate", days))} info="Questions where the agent followed every workflow rule that applied." to="/observability?tab=adherence" />
           </StatGrid>
         )}
         <CardFooter>
           <PillButton to="/sessions">View sessions</PillButton>
-          <PillButton to="/sessions?tab=usage">Usage</PillButton>
+          <PillButton to="/observability">Observability</PillButton>
         </CardFooter>
       </div>
     </section>
