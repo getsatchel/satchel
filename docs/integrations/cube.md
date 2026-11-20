@@ -29,7 +29,7 @@ satchel source add cube shop-cube \
   --models cube/model \
   --connection warehouse \
   --dialect duckdb \
-  --publish auto
+  --publish preview
 satchel source sync shop-cube
 ```
 

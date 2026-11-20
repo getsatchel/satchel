@@ -32,7 +32,7 @@ satchel connection crawl warehouse
 satchel source add sqlmesh shop-mesh \
   --project path/to/sqlmesh-project \
   --connection warehouse \
-  --publish auto
+  --publish preview
 satchel source sync shop-mesh
 ```
 
