@@ -249,7 +249,8 @@ class LlmConnection(Base):
     __table_args__ = (
         UniqueConstraint("workspace_id", "name", name="llm_connection_ws_name_uq"),
         CheckConstraint(
-            "provider in ('anthropic','openai_compat')", name="llm_connection_provider_ck"
+            "provider in ('anthropic','openai_compat','gemini')",
+            name="llm_connection_provider_ck",
         ),
         # At most one default per workspace (migration 0012).
         Index(

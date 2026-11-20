@@ -2002,7 +2002,8 @@
           "provider": {
             "enum": [
               "anthropic",
-              "openai_compat"
+              "openai_compat",
+              "gemini"
             ],
             "title": "Provider",
             "type": "string"
@@ -3600,7 +3601,8 @@
           "provider": {
             "enum": [
               "anthropic",
-              "openai_compat"
+              "openai_compat",
+              "gemini"
             ],
             "title": "Provider",
             "type": "string"
@@ -3681,7 +3683,8 @@
           "provider": {
             "enum": [
               "anthropic",
-              "openai_compat"
+              "openai_compat",
+              "gemini"
             ],
             "title": "Provider",
             "type": "string"
@@ -3962,7 +3965,8 @@
               {
                 "enum": [
                   "anthropic",
-                  "openai_compat"
+                  "openai_compat",
+                  "gemini"
                 ],
                 "type": "string"
               },

@@ -13,7 +13,7 @@ managed by git), or paste one in **Evals → New suite**.
 ```yaml
 id: core                       # letters, digits, _ - . ; the suite's key
 name: Core metrics
-model: { provider: anthropic, name: claude-sonnet-5-5 }   # optional: pin the reference agent's model
+model: { provider: anthropic, name: claude-sonnet-5-5 }   # optional: pin the reference agent's model; provider: anthropic, gemini or openai_compat
 schedule: { interval_hours: 24 }                          # optional: run it every day
 cases:
   - id: revenue-march-2025

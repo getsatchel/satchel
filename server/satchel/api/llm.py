@@ -29,7 +29,7 @@ from satchel.core.crypto import (
     Keyring,
     configured,
 )
-from satchel.llm.chat import DEFAULT_ANTHROPIC_MODEL
+from satchel.llm.chat import DEFAULT_ANTHROPIC_MODEL, DEFAULT_GEMINI_MODEL
 from satchel.llm.connections import (
     ChatTarget,
     LlmConnectionError,
@@ -45,7 +45,7 @@ from satchel.llm.connections import (
 from satchel.store.db import workspace_session
 from satchel.store.models import LlmConnection
 
-ProviderName = Literal["anthropic", "openai_compat"]
+ProviderName = Literal["anthropic", "openai_compat", "gemini"]
 
 
 class LlmConnectionOut(BaseModel):
@@ -160,8 +160,8 @@ def make_router(auth: Auth) -> APIRouter:
             encryption_configured=configured(st),
             deployment=DeploymentLlmOut(
                 provider=dep.provider,
-                model=dep.model or (DEFAULT_ANTHROPIC_MODEL if dep.provider == "anthropic"
-                                    else None),
+                model=dep.model or {"anthropic": DEFAULT_ANTHROPIC_MODEL,
+                                    "gemini": DEFAULT_GEMINI_MODEL}.get(dep.provider),
                 base_url=dep.base_url, has_api_key=bool(dep.api_key),
             ) if dep else None,
             connections=conns,

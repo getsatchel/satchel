@@ -11,25 +11,35 @@ import { JobsSection } from "@/pages/Jobs";
 import { DeploymentSection, LimitsSection } from "@/pages/SettingsLimits";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
 
-type Provider = "anthropic" | "openai_compat";
+type Provider = "anthropic" | "gemini" | "openai_compat";
 
 const PROVIDERS: { id: Provider; label: string }[] = [
   { id: "anthropic", label: "Anthropic" },
+  { id: "gemini", label: "Gemini" },
   { id: "openai_compat", label: "OpenAI-compatible" },
 ];
 
-const PROVIDER_LABEL: Record<Provider, string> = { anthropic: "Anthropic", openai_compat: "OpenAI-compatible" };
+const PROVIDER_LABEL: Record<Provider, string> = { anthropic: "Anthropic", gemini: "Gemini", openai_compat: "OpenAI-compatible" };
 
-const HINTS: Record<Provider, { url: string; model: string; urlHelp: string }> = {
+const HINTS: Record<Provider, { url: string; model: string; urlHelp: string; key: string; keyHelp?: string }> = {
   anthropic: {
     url: "https://api.anthropic.com",
     model: "claude-sonnet-5-5",
     urlHelp: "Leave empty for api.anthropic.com. Set it for a gateway or proxy.",
+    key: "sk-ant-...",
+  },
+  gemini: {
+    url: "https://generativelanguage.googleapis.com/v1beta/openai",
+    model: "gemini-2.5-flash",
+    urlHelp: "Leave empty for Google's Gemini API. Set it for a gateway or proxy.",
+    key: "AIza...",
+    keyHelp: "A Gemini API key from Google AI Studio (aistudio.google.com/apikey).",
   },
   openai_compat: {
     url: "https://api.openai.com/v1",
     model: "gpt-5",
     urlHelp: "Any /chat/completions endpoint: OpenAI, Azure OpenAI, vLLM, Ollama, LiteLLM.",
+    key: "sk-...",
   },
 };
 
@@ -234,10 +244,10 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
               value={apiKey}
               disabled={clearKey}
               onChange={(ev) => setApiKey(ev.target.value)}
-              placeholder={e?.has_api_key ? `Stored (${e.api_key_hint ?? "set"}). Leave empty to keep it.` : "sk-..."}
+              placeholder={e?.has_api_key ? `Stored (${e.api_key_hint ?? "set"}). Leave empty to keep it.` : hint.key}
             />
           </label>
-          <span className="mt-1 block text-xs text-muted">Encrypted at rest and never shown again.</span>
+          <span className="mt-1 block text-xs text-muted">{hint.keyHelp ? `${hint.keyHelp} ` : ""}Encrypted at rest and never shown again.</span>
           {e?.has_api_key && (
             <label className="mt-2 flex items-center gap-2 text-sm">
               <input type="checkbox" checked={clearKey} onChange={(ev) => { setClearKey(ev.target.checked); if (ev.target.checked) setApiKey(""); }} />

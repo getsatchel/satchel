@@ -1983,7 +1983,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "anthropic" | "openai_compat";
+            provider: "anthropic" | "openai_compat" | "gemini";
         };
         /** DeploymentOut */
         DeploymentOut: {
@@ -2586,7 +2586,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "anthropic" | "openai_compat";
+            provider: "anthropic" | "openai_compat" | "gemini";
         };
         /** LlmConnectionOut */
         LlmConnectionOut: {
@@ -2621,7 +2621,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "anthropic" | "openai_compat";
+            provider: "anthropic" | "openai_compat" | "gemini";
             /**
              * Updated At
              * Format: date-time
@@ -2708,7 +2708,7 @@ export interface components {
              */
             model?: string | null;
             /** Provider */
-            provider?: ("anthropic" | "openai_compat") | null;
+            provider?: ("anthropic" | "openai_compat" | "gemini") | null;
         };
         /** MeOut */
         MeOut: {

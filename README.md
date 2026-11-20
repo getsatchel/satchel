@@ -75,10 +75,10 @@ Drafting needs a chat model; without one, clustering and hygiene still run and s
 
 | Variable | Meaning |
 |---|---|
-| `SATCHEL_CHAT_PROVIDER` | `anthropic` or `openai_compat` (Ollama, vLLM, LiteLLM, OpenAI). Unset = no model. |
-| `SATCHEL_CHAT_MODEL` | Model name. Default for `anthropic`: `claude-sonnet-5-5`. Required for `openai_compat`. |
+| `SATCHEL_CHAT_PROVIDER` | `anthropic`, `gemini` or `openai_compat` (Ollama, vLLM, LiteLLM, OpenAI). Unset = no model. |
+| `SATCHEL_CHAT_MODEL` | Model name. Default for `anthropic`: `claude-sonnet-5-5`; for `gemini`: `gemini-2.5-flash`. Required for `openai_compat`. |
 | `SATCHEL_CHAT_BASE_URL` | Defaults to the provider's public API; set it for local servers, e.g. `http://localhost:11434/v1`. |
-| `SATCHEL_CHAT_API_KEY` | Environment only. Falls back to `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. |
+| `SATCHEL_CHAT_API_KEY` | Environment only. Falls back to `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` (then `GOOGLE_API_KEY`). |
 | `SATCHEL_CURATE_INTERVAL_MIN` | Minutes between `satchel worker` passes. |
 
 Evidence sent to the model is redacted like a curator's view (SQL literals masked, text truncated, users anonymised, sensitive sessions withheld). To see the loop on the Jaffle Shop demo, generate gap activity with `SATCHEL_TOKENS=tokA,tokB,tokC uv run --project server python scripts/demo_curation_activity.py`, then run curation; `scripts/demo_curation_fake.py WORKSPACE` does the drafting step offline with a scripted model. Admins can also press **Run curation now** in the Inbox; the pass is queued and its progress shows under **Settings > Jobs**.

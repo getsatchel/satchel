@@ -26,10 +26,10 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_EMBEDDING_BASE_URL` | `https://api.openai.com/v1` | Base URL for `openai_compat` embeddings. |
 | `SATCHEL_EMBEDDING_MODEL` | `text-embedding-3-large` | Model name for `openai_compat` embeddings. |
 | `SATCHEL_EMBEDDING_API_KEY` | — | API key for `openai_compat` embeddings. |
-| `SATCHEL_CHAT_PROVIDER` | — | `anthropic` or `openai_compat`; wins over workspace Settings → Models. |
+| `SATCHEL_CHAT_PROVIDER` | — | `anthropic`, `gemini` or `openai_compat`; wins over workspace Settings → Models. |
 | `SATCHEL_CHAT_MODEL` | — | Chat model name. |
 | `SATCHEL_CHAT_BASE_URL` | — | Chat API base URL (default per provider). |
-| `SATCHEL_CHAT_API_KEY` | — | Chat API key. |
+| `SATCHEL_CHAT_API_KEY` | — | Chat API key. Unset: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` (api.openai.com) or `GEMINI_API_KEY`/`GOOGLE_API_KEY`, by provider. |
 | `SATCHEL_CHAT_TIMEOUT_S` | `120.0` | Chat request timeout. |
 | `SATCHEL_CHAT_MAX_RETRIES` | `4` | Chat request retries. |
 | `SATCHEL_CURATE_INTERVAL_MIN` | `1440` | Minutes between worker passes: each queues a curation run per workspace and runs the purges. |
