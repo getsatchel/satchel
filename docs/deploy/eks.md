@@ -52,7 +52,7 @@ database_backup_retention_days = 1                    # "exceeds the maximum ava
 
 AWS closes a Free-plan account when its credits run out, so destroy the stack when you are done (section 12). Upgrade to the Paid plan to lift the limits.
 
-The image defaults to `ghcr.io/getsatchel/satchel:<tag>`. Nodes pull it directly through the NAT gateway. To pull from your own ECR instead, set `helm_extra_values = { image = { repository = "ACCOUNT.dkr.ecr.REGION.amazonaws.com/satchel", tag = "0.5.4" } }`.
+The image defaults to `ghcr.io/getsatchel/satchel:<tag>`. Nodes pull it directly through the NAT gateway. To pull from your own ECR instead, set `helm_extra_values = { image = { repository = "ACCOUNT.dkr.ecr.REGION.amazonaws.com/satchel", tag = "0.6.0" } }`.
 
 ## 2. Create the OIDC client
 
@@ -165,7 +165,7 @@ The ALB idle timeout is raised to an hour so MCP server-sent-event streams are n
 
 ## 9. Upgrades
 
-1. Set `image_tag = "0.5.4"`.
+1. Set `image_tag = "0.6.0"`.
 2. Run `terraform apply`. The Helm pre-upgrade hook migrates first. If it fails, `atomic = true` rolls the release back and the old pods keep serving.
 3. Chart-only changes apply the same way.
 
