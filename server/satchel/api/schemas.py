@@ -655,6 +655,16 @@ class MeOut(BaseModel):
     auth: str
 
 
+class ConnectInfo(BaseModel):
+    """What an MCP client needs to reach this server, from its own settings."""
+
+    mcp_url: str = Field(description="The MCP endpoint, from SATCHEL_PUBLIC_URL.")
+    oauth: bool = Field(description="Whether clients can sign in through the identity provider.")
+    provider: str | None = Field(description="The identity provider's name, when there is one.")
+    public: bool = Field(
+        description="Whether the URL is https on a public host, so claude.ai can reach it.")
+
+
 # ---- suggestions (M4) ------------------------------------------------------------------------
 
 SuggestionStatus = Literal["open", "completed", "dismissed"]

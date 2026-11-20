@@ -89,6 +89,22 @@ def redirect_uri_error(uri: str) -> str | None:
     return "redirect_uri must be https, or http on a loopback address"
 
 
+def reachable_from_internet(url: str) -> bool:
+    """Whether ``url`` is https on a host a cloud service could reach: not loopback, not a
+    private address, not a ``.localhost``/``.local``/``.internal`` name. A DNS name is assumed
+    public (it may still sit behind a VPN)."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or not host or host in LOOPBACK_HOSTS:
+        return False
+    if host.endswith((".localhost", ".local", ".internal", ".lan", ".test")) or "." not in host:
+        return False
+    try:
+        return ipaddress.ip_address(host).is_global
+    except ValueError:
+        return True
+
+
 def is_public_ip(ip: str) -> bool:
     try:
         return ipaddress.ip_address(ip).is_global

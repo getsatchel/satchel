@@ -2,8 +2,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { AssetNode } from "@/api/types";
-import { CopyField } from "@/components/CopyField";
-import { docsUrl } from "@/components/nav";
+import { ConnectSheet, ConnectSteps } from "@/components/ConnectAgent";
 import { CardFooter, CardHeader, ErrorBox, Icon, ICONS, PageHeader, PillButton, SectionHeading, StatCell, StatGrid, StatusDot, type Tone } from "@/components/ui";
 import { fullTime, timeAgo } from "@/lib/format";
 import { useRole } from "@/lib/role";
@@ -79,42 +78,21 @@ export function Home() {
         <WhatItKnows />
         {asked && connect}
       </div>
+      <ConnectSheet />
     </>
   );
 }
 
-/** How to add Satchel to Claude, with the URL ready to copy. */
+/** How to add Satchel to an agent, from this server's own settings. */
 function ConnectAgent({ compact }: { compact: boolean }) {
-  const url = `${window.location.origin}/mcp`;
   return (
     <section aria-labelledby="home-connect">
       <SectionHeading id="home-connect" icon={ICONS.external} title={compact ? "Connect another agent" : "Connect your agent"} />
       <div className="card overflow-hidden">
-        <CardHeader>Add Satchel to Claude once, then ask data questions in any chat.</CardHeader>
-        <div className="grid gap-6 px-4 py-4 sm:px-5 lg:grid-cols-2">
-          <div className="min-w-0 space-y-3">
-            <h3 className="text-sm font-medium">Claude (desktop or claude.ai)</h3>
-            <ol className="list-decimal space-y-1.5 pl-5 text-sm text-muted">
-              <li>
-                Open <span className="text-ink">Settings &gt; Connectors &gt; Add custom connector</span>.
-              </li>
-              <li>Name it Satchel and paste this URL. Leave the OAuth fields empty.</li>
-              <li>Click Connect and sign in with the account you use here.</li>
-            </ol>
-            <CopyField label="Connector URL" value={url} />
-          </div>
-          <div className="min-w-0 space-y-3">
-            <h3 className="text-sm font-medium">Claude Code</h3>
-            <p className="text-sm text-muted">Run this, then open /mcp in Claude Code and choose Authenticate.</p>
-            <CopyField label="Command" value={`claude mcp add --transport http satchel ${url}`} />
-          </div>
+        <CardHeader>Add Satchel to your agent once, then ask data questions in any chat.</CardHeader>
+        <div className="px-4 py-4 sm:px-5">
+          <ConnectSteps />
         </div>
-        <CardFooter>
-          <a className="btn-pill" href={docsUrl("integrations/claude")} target="_blank" rel="noreferrer">
-            Setup guide
-            <Icon d={ICONS.external} size={12} strokeWidth={2.2} />
-          </a>
-        </CardFooter>
       </div>
     </section>
   );

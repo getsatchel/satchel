@@ -2,6 +2,19 @@
 
 Satchel speaks MCP over **Streamable HTTP** (`/mcp`) and **stdio**. Remote HTTP supports **OAuth 2.1** (browser login through your IdP: Claude Desktop / claude.ai custom connectors, Claude Code, Cursor) as well as personal access tokens (PATs). stdio uses a PAT.
 
+## In the web UI
+
+**Connect an agent** (on Home, in the Dashboard's Set up list and Agent activity card, or from the
+command palette) gives the steps for Claude, Claude Code, Cursor and other clients, filled in from
+the server's own settings (`GET /v1/connect`):
+
+- the URL is `SATCHEL_PUBLIC_URL` + `/mcp`, so it is right behind a proxy. An admin who opened
+  the UI at another address is warned: sign-ins and tokens are bound to the public URL;
+- without an identity provider (`SATCHEL_OIDC_ISSUER`), it says agents can't sign in and gives the
+  token route instead, with `satchel token create` filled in with your workspace and email;
+- when the URL is not https on a public host, it says claude.ai and Claude Desktop can't reach it;
+- Cursor always uses a token (below).
+
 ## 0. The easy way: `satchel connect`
 
 After [installing](../install.md) Satchel as a tool and running `satchel init`:
@@ -51,7 +64,7 @@ Claude Desktop and claude.ai connect to a **public HTTPS URL** (Anthropic's side
 
 1. Run Satchel with the OIDC settings: `SATCHEL_PUBLIC_URL=https://satchel.example.com SATCHEL_OIDC_ISSUER=... SATCHEL_OIDC_CLIENT_ID=... SATCHEL_OIDC_CLIENT_SECRET=... uv run satchel serve api --host 0.0.0.0 --port 8080`.
 2. Decide who may sign in. Existing members match by IdP subject, then by verified email. An admin invites people under **Settings > Members** (an invite is a member with an email; their first sign-in links the account) and sends them the invite link the dialog shows (also **Copy link** on the member's row): it opens the sign-in page with their email passed to the IdP as `login_hint`. They still need an account at the IdP with that email; with Amazon Cognito, `SATCHEL_OIDC_CREATE_USERS=true` creates it when you invite them, and Cognito emails a temporary password. The admin also changes roles, and deactivates people: a deactivated member's tokens, sessions and sign-ins are refused until they are reactivated. For everyone else, **Sign-in** on the same tab (or `uv run satchel workspace auth -w jaffle --provision explorer --allow-domain example.com`) lets anyone the IdP verifies join as an explorer on first login; the default refuses them. `satchel token create ... --user alice@example.com` also creates a member.
-3. In Claude: **Settings > Connectors > Add custom connector**, name it, and enter `https://satchel.example.com/mcp`. Leave the OAuth client ID/secret fields empty: Claude registers itself dynamically (`/oauth/register`). Explorers and analysts find these steps, with the URL and the Claude Code command ready to copy, on **Home** in the web UI.
+3. In Claude: **Settings > Connectors > Add custom connector**, name it, and enter `https://satchel.example.com/mcp`. Leave the OAuth client ID/secret fields empty: Claude registers itself dynamically (`/oauth/register`).
 4. Click **Connect**. A browser tab opens: sign in at your IdP, pick a workspace if you belong to several (or pass nothing and be auto-selected), then **Approve** the Satchel consent page. Claude receives a 1 hour access token and a rotating refresh token.
 5. To revoke: disconnect the connector (Claude calls `/oauth/revoke`), or revoke server-side with `update api_token set revoked_at = now() where client_id = ...` (a CLI for this is future work).
 
