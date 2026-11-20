@@ -147,7 +147,7 @@ def register_source_commands(app: typer.Typer) -> None:
     ) -> None:
         """Add or update a source. Flags come from the adapter, e.g. for dbt:
         --manifest PATH [--semantic-manifest PATH] [--catalog PATH] [--connection NAME]
-        [--publish auto|preview] [--priority N]. See `satchel source info KIND`."""
+        [--publish preview|auto] [--priority N]. See `satchel source info KIND`."""
         from satchel.sources.config import SourceConfigError
         from satchel.sources.service import add_source
 
@@ -178,7 +178,7 @@ def register_source_commands(app: typer.Typer) -> None:
                        f"{entry.install_hint}")
         if i.description:
             typer.echo(i.description)
-        typer.echo("options (also: --publish auto|preview, --priority N, --connection NAME, "
+        typer.echo("options (also: --publish preview|auto, --priority N, --connection NAME, "
                    "--git-url URL [--git-ref REF] to read the files from a public repository):")
         for field, schema in _flag_fields(entry).items():
             folders = {f.name for f in i.file_inputs if f.multiple}

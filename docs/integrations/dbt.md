@@ -32,7 +32,7 @@ satchel source add dbt jaffle \
   --semantic-manifest target/semantic_manifest.json \
   --catalog target/catalog.json \
   --connection warehouse \
-  --publish auto
+  --publish preview
 satchel source sync jaffle
 ```
 
@@ -56,7 +56,7 @@ sources:
     semantic_manifest: ../dbt/target/semantic_manifest.json
     catalog: ../dbt/target/catalog.json
     connection: warehouse
-    publish: auto                                 # or: preview
+    publish: preview                              # the default; auto publishes without review
     priority: 1                                   # lower wins when several sources describe a table
 ```
 
@@ -64,7 +64,7 @@ sources:
 
 ## Keep it in sync from CI
 
-Upstream changes were already reviewed in your dbt repo, so a sync publishes them like a git import. Push the artifacts after every dbt build:
+Each sync leaves a preview release for a curator to publish. If upstream changes are already reviewed in your dbt repo and you want a sync to publish like a git import, set `publish: auto` on the source. Push the artifacts after every dbt build:
 
 ```bash
 dbt build && dbt docs generate
@@ -137,8 +137,10 @@ dbt metadata that merely *suggests* endorsement (`access: public` with an enforc
 
 | `publish` | a sync that changes something |
 |---|---|
-| `auto` (default) | publishes a new release, exactly like a git import on the default branch. If the workspace has required evals (`publish.require_evals`) that are not passing, it leaves a **preview** release instead and says so; run the evals on the preview and publish it from the UI. |
-| `preview` | only ever creates a preview release; a person publishes it. |
+| `preview` (default) | only ever creates a preview release; a person publishes it. |
+| `auto` | publishes a new release, exactly like a git import on the default branch. If the workspace has required evals (`publish.require_evals`) that are not passing, it leaves a **preview** release instead and says so; run the evals on the preview and publish it from the UI. |
+
+Existing sources keep the mode they were saved with. A source declared in `satchel.config.yaml` without `publish` becomes `preview` at the next import; add `publish: auto` to keep publishing on every sync.
 
 An identical second sync is a no-op: no new versions, no new release.
 

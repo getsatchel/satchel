@@ -156,7 +156,8 @@ def _second_source(env: Env, tmp: Path, **cfg: Any) -> None:
     node["columns"]["status"]["description"] = "A different status description."
     (d / "manifest.json").write_text(json.dumps(m))
     paths = {n: str(d / f"{n}.json") for n in ("manifest", "semantic_manifest", "catalog")}
-    add_source(env.slug, "dbt", "second", {**paths, "connection": "warehouse", **cfg},
+    add_source(env.slug, "dbt", "second", {**paths, "connection": "warehouse", "publish": "auto",
+                                            **cfg},
                engine=env.engine)
 
 
@@ -287,7 +288,8 @@ def _cube_source(env: Env, **cfg: Any) -> None:
     from tests.helpers import EXAMPLE
 
     add_source(env.slug, "cube", "cube",
-               {"models": str(EXAMPLE / "cube" / "model"), "connection": "warehouse", **cfg},
+               {"models": str(EXAMPLE / "cube" / "model"), "connection": "warehouse",
+                "publish": "auto", **cfg},
                engine=env.engine)
 
 
@@ -396,7 +398,7 @@ def test_sqlmesh_sync_creates_linked_asset_docs_and_overlaps_with_dbt(env: Env) 
     SQLMESH_EXAMPLE = EXAMPLE / "sqlmesh"
     env.add("jaffle", priority=1)
     add_source(env.slug, "sqlmesh", "mesh", {"project": str(SQLMESH_EXAMPLE), "connection": "warehouse",
-                                             "priority": 2}, engine=env.engine)
+                                             "publish": "auto", "priority": 2}, engine=env.engine)
     env.sync("jaffle")
     r = env.sync("mesh")
     assert r.counts()["created"] == 4 and r.kind == "sqlmesh" and r.release_kind == "published"

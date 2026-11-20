@@ -7,7 +7,7 @@
         semantic_manifest: ../dbt/target/semantic_manifest.json
         catalog: ../dbt/target/catalog.json
         connection: warehouse
-        publish: auto        # or: preview
+        publish: preview     # the default; auto publishes every sync without review
         priority: 10
 
 Relative paths are resolved against the repository folder. The older ``import.dbt_manifest`` key
