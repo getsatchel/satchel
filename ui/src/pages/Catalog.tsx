@@ -2,13 +2,15 @@ import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
-import type { AssetDetail, AssetNode, ConnectionOut } from "@/api/types";
+import type { AssetDetail, AssetNode } from "@/api/types";
+import { pageIcon } from "@/components/nav";
 import {
   Chevron,
   DescList,
-  DescribedBy,
+  type DocRef,
   EmptyState,
   ErrorBox,
+  FilterSelect,
   Icon,
   ICONS,
   ItemLink,
@@ -133,65 +135,13 @@ export function Catalog() {
 
   return (
     <>
-      <PageHeader title="Catalog" sub="The tables and columns Satchel has crawled from your connections, and how well each is documented." />
-
-      <section className="mb-9" aria-labelledby="conn-h">
-        <SectionHeading
-          id="conn-h"
-          icon={ICONS.database}
-          title="Connections"
-          count={conns.data?.length}
-          actions={
-            curator && (
-              <Link className="btn btn-sm" to="/connections">
-                Manage
-              </Link>
-            )
-          }
-        />
-        {conns.isPending && <Loading />}
-        {conns.isError && <ErrorBox error={conns.error} />}
-        {conns.data && conns.data.length === 0 && (
-          <EmptyState
-            title="No connections"
-            action={
-              admin && (
-                <Link className="btn btn-primary" to="/connections?sheet=new">
-                  Add a connection
-                </Link>
-              )
-            }
-          >
-            Connect a warehouse on the Connections page, then crawl it to fill the catalog. The CLI works too: <code>satchel connection add</code>.
-          </EmptyState>
-        )}
-        {conns.data && conns.data.length > 0 && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3">
-            {conns.data.map((c) => (
-              <ConnectionCard key={c.id} c={c} active={conn === c.name} onClick={() => setConn(conn === c.name ? "" : c.name)} />
-            ))}
-          </div>
-        )}
-      </section>
+      <PageHeader title="Catalog" sub="The tables and columns in your warehouses, what describes them, and how well each is documented." />
 
       <section aria-labelledby="assets-h">
         <SectionHeading
           id="assets-h"
           icon={ICONS.layers}
-          title={
-            <>
-              Assets
-              {conn && (
-                <span className="normal-case tracking-normal">
-                  {" "}
-                  in <span className="font-mono text-ink">{conn}</span>{" "}
-                  <button className="ml-1 text-accent hover:underline" onClick={() => setConn("")}>
-                    show all
-                  </button>
-                </span>
-              )}
-            </>
-          }
+          title="Assets"
         />
         <div className="mb-3 flex w-full flex-wrap items-center gap-2">
           <Segmented
@@ -205,13 +155,41 @@ export function Catalog() {
               ...(dropped > 0 || filter === "dropped" ? [{ id: "dropped" as const, label: `Dropped (${dropped})` }] : []),
             ]}
           />
+          {(conns.data?.length ?? 0) > 1 && <FilterSelect label="Connection" value={conn} onChange={setConn} options={(conns.data ?? []).map((c) => c.name)} />}
           <SearchInput className="w-full sm:ml-auto sm:w-60" placeholder="Filter by table or column" label="Filter assets" value={text} onChange={setText} />
         </div>
 
         {assets.isPending && <Loading />}
         {assets.isError && <ErrorBox error={assets.error} />}
-        {assets.data && roots.length === 0 && !text.trim() && (
-          <EmptyState title="No assets crawled yet">Run a crawl on a connection to populate the tree.</EmptyState>
+        {conns.data && conns.data.length === 0 ? (
+          <EmptyState
+            title="No warehouse connected."
+            muted="Connect one and crawl it to fill the catalog."
+            icon={pageIcon("/catalog")}
+            action={
+              admin && (
+                <Link className="btn btn-primary" to="/connections?sheet=new">
+                  Add connection
+                </Link>
+              )
+            }
+          >
+            {admin ? "Sources such as a dbt project then describe what the tables mean." : "An admin connects warehouses under Setup → Connections."}
+          </EmptyState>
+        ) : (
+          assets.data &&
+          roots.length === 0 &&
+          !text.trim() && (
+            <EmptyState title="Nothing crawled yet." muted="Crawl a connection to list its tables and columns.">
+              {curator ? (
+                <Link className="text-accent hover:underline" to="/connections">
+                  Connections
+                </Link>
+              ) : (
+                "An admin crawls connections under Setup → Connections."
+              )}
+            </EmptyState>
+          )
         )}
         {assets.data && (roots.length > 0 || text.trim()) && (
           <>
@@ -274,27 +252,27 @@ export function Catalog() {
   );
 }
 
-function ConnectionCard({ c, active, onClick }: { c: ConnectionOut; active: boolean; onClick: () => void }) {
-  const meta = c.asset_count > 0 ? `${c.asset_count.toLocaleString()} assets` : "Not crawled yet";
+/** The sources whose docs describe an asset, linked to each source; hand-written docs say so. */
+function SourceLinks({ refs, curator }: { refs: DocRef[]; curator: boolean }) {
+  const names = [...new Set(refs.map((r) => r.source))];
+  if (names.length === 0) return <span className="text-muted">Nothing yet: only the crawled schema</span>;
   return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      title={meta}
-      className={`card flex min-w-0 items-center gap-3 p-3 text-left transition-colors hover:bg-sunken ${active ? "border-accent shadow-[inset_0_0_0_1px_rgb(var(--accent))]" : ""}`}
-    >
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
-        <KindIcon kind="database" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate font-mono text-sm font-semibold">{c.name}</span>
-          <span className="badge shrink-0">{c.kind}</span>
-          {c.default_for_ai && <span className="badge badge-accent shrink-0">default</span>}
+    <span>
+      {names.map((n, i) => (
+        <span key={n}>
+          {i > 0 && ", "}
+          {n === "ui" || n === "git" ? (
+            <span>{n === "ui" ? "written in Satchel" : "the context repo"}</span>
+          ) : curator ? (
+            <Link className="text-accent hover:underline" to={`/sources/${encodeURIComponent(n)}`}>
+              {n}
+            </Link>
+          ) : (
+            <span>{n}</span>
+          )}
         </span>
-        <span className={`mt-0.5 block truncate text-xs ${c.asset_count > 0 ? "text-muted" : "text-warn"}`}>{meta}</span>
-      </span>
-    </button>
+      ))}
+    </span>
   );
 }
 
@@ -511,24 +489,31 @@ function AssetPanel({ id, node, onClose }: { id: string; node: AssetNode | null;
         </button>
       </div>
 
+      <PanelSection title="Comes from">
+        <DescList
+          labelWidth="6.5rem"
+          rows={[
+            [
+              "Warehouse",
+              a.connection &&
+                (curator ? (
+                  <Link className="font-mono text-accent hover:underline" to="/connections">
+                    {a.connection}
+                  </Link>
+                ) : (
+                  <span className="font-mono">{a.connection}</span>
+                )),
+            ],
+            ["Described by", <SourceLinks refs={[...(a.primary ? [a.primary] : []), ...(a.also_described_by ?? [])]} curator={curator} />],
+            ["Last seen", <span title={fullTime(a.last_seen_at)}>{timeAgo(a.last_seen_at)}</span>],
+          ]}
+        />
+      </PanelSection>
+
       {isDocumentable(a) && (
         <PanelSection title="Documentation">
           {a.doc_item_key ? (
-            <div className="space-y-1">
-              <ItemLink itemKey={a.doc_item_key} />
-              {a.primary && (
-                <p className="text-xs text-muted">
-                  Primary: <span className="font-medium text-ink">{a.primary.source}</span>
-                  {a.primary.key !== a.doc_item_key && (
-                    <>
-                      {" "}
-                      <ItemLink itemKey={a.primary.key} />
-                    </>
-                  )}
-                </p>
-              )}
-              <DescribedBy refs={a.also_described_by} />
-            </div>
+            <ItemLink itemKey={a.doc_item_key} />
           ) : (
             <div className="flex items-center justify-between gap-2">
               <span className="text-muted">Agents only see the raw schema.</span>
@@ -584,9 +569,7 @@ function AssetPanel({ id, node, onClose }: { id: string; node: AssetNode | null;
         <DescList
           labelWidth="6.5rem"
           rows={[
-            ["Connection", a.connection && <span className="font-mono">{a.connection}</span>],
             ["First seen", <span title={fullTime(a.first_seen_at)}>{timeAgo(a.first_seen_at)}</span>],
-            ["Last crawled", <span title={fullTime(a.last_seen_at)}>{timeAgo(a.last_seen_at)}</span>],
             ...stats.map(([k, v]): [string, ReactNode] => [
               k,
               <span className="break-all font-mono text-xs leading-5">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>,
