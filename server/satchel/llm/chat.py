@@ -33,6 +33,9 @@ log = logging.getLogger("satchel.llm.chat")
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5"
 DEFAULT_ANTHROPIC_URL = "https://api.anthropic.com"
 DEFAULT_OPENAI_URL = "https://api.openai.com/v1"
+# Gemini through Google's OpenAI-compatible endpoint, with a Gemini API key as the bearer.
+DEFAULT_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 ANTHROPIC_VERSION = "2023-06-01"
 _RETRY_STATUS = {408, 409, 429, 500, 502, 503, 504, 529}
 
@@ -275,11 +278,11 @@ class OpenAICompatChat(_HttpChat):
         self, model: str, base_url: str = DEFAULT_OPENAI_URL, api_key: str | None = None,
         *, timeout_s: float = 120.0, max_retries: int = 4,
         client: httpx.Client | None = None, sleep: Callable[[float], None] = time.sleep,
-        extra_headers: dict[str, str] | None = None,
+        extra_headers: dict[str, str] | None = None, provider: str = "openai_compat",
     ) -> None:
         super().__init__(timeout_s=timeout_s, max_retries=max_retries, client=client, sleep=sleep)
         self.model = model
-        self.model_id = f"openai_compat:{model}"
+        self.model_id = f"{provider}:{model}"
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._headers = {**(extra_headers or {}), "content-type": "application/json"}
         if api_key:

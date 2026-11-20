@@ -79,9 +79,10 @@ class Settings(BaseSettings):
     # Chat model used only to curate (design §7): drafting suggestions, contradiction checks.
     # Unset provider = no LLM: clustering and hygiene still run, drafting is skipped. The API
     # key comes from the environment only (SATCHEL_CHAT_API_KEY, else the provider's own variable:
-    # ANTHROPIC_API_KEY / OPENAI_API_KEY). `openai_compat` also covers Ollama, vLLM, LiteLLM.
-    chat_provider: Literal["anthropic", "openai_compat"] | None = None
-    chat_model: str | None = None  # default claude-sonnet-5-5 for anthropic
+    # ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY). `openai_compat` also covers Ollama,
+    # vLLM, LiteLLM. `gemini` takes a Gemini API key (Google AI Studio).
+    chat_provider: Literal["anthropic", "openai_compat", "gemini"] | None = None
+    chat_model: str | None = None  # default claude-sonnet-5-5 (anthropic), gemini-2.5-flash
     chat_base_url: str | None = None  # default per provider
     chat_api_key: str | None = None
     chat_timeout_s: float = 120.0

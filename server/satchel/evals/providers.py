@@ -19,7 +19,13 @@ from sqlalchemy import Engine
 
 from satchel.evals.runner import EvalProvider
 from satchel.evals.suite import ModelSpec
-from satchel.llm.connections import ChatTarget, build_chat, deployment_target, resolve_target
+from satchel.llm.connections import (
+    ChatTarget,
+    build_chat,
+    deployment_target,
+    gemini_env_key,
+    resolve_target,
+)
 from satchel.settings import Settings, get_settings
 from satchel.store.db import admin_session
 
@@ -27,9 +33,10 @@ log = logging.getLogger("satchel.evals")
 
 
 def parse_model_override(raw: str, default_provider: str) -> ModelSpec:
-    """``claude-haiku`` | ``anthropic:claude-haiku`` | ``openai_compat:gpt-x``."""
+    """``claude-haiku`` | ``anthropic:claude-haiku`` | ``openai_compat:gpt-x`` |
+    ``gemini:gemini-2.5-pro``."""
     prov, sep, name = raw.partition(":")
-    if sep and prov in ("anthropic", "openai_compat"):
+    if sep and prov in ("anthropic", "openai_compat", "gemini"):
         return ModelSpec(provider=prov, name=name)
     return ModelSpec(provider=default_provider, name=raw)
 
@@ -37,6 +44,8 @@ def parse_model_override(raw: str, default_provider: str) -> ModelSpec:
 def _env_target(provider: str) -> ChatTarget | None:
     if provider == "anthropic":
         key = os.environ.get("ANTHROPIC_API_KEY")
+    elif provider == "gemini":
+        key = gemini_env_key()
     else:
         key = os.environ.get("OPENAI_API_KEY")
     if not key:

@@ -199,6 +199,7 @@ def test_without_encryption_key_secrets_are_refused(env: Env) -> None:
     ({"base_url": "ftp://x"}, "http"),
     ({"api_key": None}, "needs an API key"),
     ({"provider": "openai_compat"}, "default model"),
+    ({"provider": "gemini", "api_key": None}, "Gemini connection needs an API key"),
     ({"extra_headers": {"Host": "x"}}, "cannot be overridden"),
     ({"extra_headers": {"X-A": "a\r\nb"}}, "invalid value"),
 ])
@@ -333,6 +334,32 @@ def test_test_unsaved_and_errors_are_scrubbed(env: Env, recorder: Recorder) -> N
     assert r.status_code == 422
 
 
+def test_gemini_uses_its_openai_endpoint_with_the_api_key(env: Env, recorder: Recorder) -> None:
+    r = _create(env, name="gemini", provider="gemini", api_key="AIza-gemini-key-000000wxyz")
+    assert r.status_code == 201 and r.json()["provider"] == "gemini", r.text
+    cid = str(env.row("gemini").id)
+    r = env.client.post("/v1/llm-connections/test", headers=env.h(), json={"connection_id": cid})
+    assert r.json()["ok"] and r.json()["model_id"] == "gemini:gemini-2.5-flash", r.text
+    req = recorder.requests[-1]
+    assert str(req.url) == ("https://generativelanguage.googleapis.com/v1beta/openai"
+                            "/chat/completions")
+    assert req.headers["authorization"] == "Bearer AIza-gemini-key-000000wxyz"
+    assert json.loads(req.content)["model"] == "gemini-2.5-flash"
+
+
+def test_gemini_deployment_key_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GOOGLE_API_KEY", "AIza-google")
+    t = lc.deployment_target(st(chat_provider="gemini"))
+    assert t is not None and t.api_key == "AIza-google"
+    monkeypatch.setenv("GEMINI_API_KEY", "AIza-gemini")
+    t = lc.deployment_target(st(chat_provider="gemini"))
+    assert t is not None and t.api_key == "AIza-gemini"
+    chat = lc.build_chat(t, st())
+    assert chat is not None and chat.model_id == "gemini:gemini-2.5-flash"
+    assert lc.build_chat(lc.ChatTarget("g", "gemini", None, None, None), st()) is None
+
+
 # --- resolution ---------------------------------------------------------------------------------
 
 
@@ -354,6 +381,8 @@ def test_resolution_for_curation_and_evals(env: Env, recorder: Recorder) -> None
     assert ev(ModelSpec(provider="openai_compat", name="gpt-5-mini")) == "openai_compat:gpt-5-mini"
     assert ev(None, "openai_compat:gpt-x") == "openai_compat:gpt-x"
     assert ev(None, "claude-opus-5-5") == "anthropic:claude-opus-5-5"
+    _create(env, name="gem", provider="gemini", api_key="AIza-0000000000wxyz", is_default=False)
+    assert ev(None, "gemini:gemini-2.5-pro") == "gemini:gemini-2.5-pro"
     dep = st(chat_provider="anthropic", chat_api_key="sk-ant-deployment-000000")
     assert ev(None, s=dep) == "anthropic:claude-sonnet-5-5"  # deployment wins
     assert ev(ModelSpec(provider="openai_compat", name="g"), s=dep) == "openai_compat:g"

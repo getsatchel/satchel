@@ -35,7 +35,7 @@ class SuiteError(ValueError):
 
 class ModelSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    provider: Literal["anthropic", "openai_compat"] = "anthropic"
+    provider: Literal["anthropic", "openai_compat", "gemini"] = "anthropic"
     name: str
 
 

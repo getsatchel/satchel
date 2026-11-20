@@ -33,6 +33,8 @@ from satchel.core.crypto import GENERATE_HINT, EncryptionUnavailable, Keyring, s
 from satchel.llm.chat import (
     DEFAULT_ANTHROPIC_MODEL,
     DEFAULT_ANTHROPIC_URL,
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_GEMINI_URL,
     DEFAULT_OPENAI_URL,
     AnthropicChat,
     ChatError,
@@ -46,8 +48,8 @@ from satchel.store.models import LlmConnection
 
 log = logging.getLogger("satchel.llm.connections")
 
-Provider = Literal["anthropic", "openai_compat"]
-PROVIDERS: tuple[Provider, ...] = ("anthropic", "openai_compat")
+Provider = Literal["anthropic", "openai_compat", "gemini"]
+PROVIDERS: tuple[Provider, ...] = ("anthropic", "openai_compat", "gemini")
 DEPLOYMENT_NAME = "deployment"
 
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$")
@@ -96,12 +98,19 @@ def deployment_target(st: Settings) -> ChatTarget | None:
     if key is None:
         if st.chat_provider == "anthropic":
             key = os.environ.get("ANTHROPIC_API_KEY")
+        elif st.chat_provider == "gemini":
+            key = gemini_env_key()
         elif (st.chat_base_url or DEFAULT_OPENAI_URL) == DEFAULT_OPENAI_URL:
             key = os.environ.get("OPENAI_API_KEY")
     return ChatTarget(
         name=DEPLOYMENT_NAME, provider=st.chat_provider, base_url=st.chat_base_url,
         model=st.chat_model, api_key=key, managed_by="deployment",
     )
+
+
+def gemini_env_key() -> str | None:
+    """Google's SDKs read ``GEMINI_API_KEY``, then ``GOOGLE_API_KEY``."""
+    return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
 
 
 def target_of(row: LlmConnection, keyring: Keyring | None) -> ChatTarget:
@@ -159,7 +168,8 @@ def build_chat(
     timeout_s: float | None = None, max_retries: int | None = None,
 ) -> ChatProvider | None:
     """A client for ``target`` (``model`` overrides its default), or ``None`` with a warning when
-    it cannot work (no key for Anthropic / api.openai.com, no model for OpenAI-compatible)."""
+    it cannot work (no key for Anthropic, Gemini or api.openai.com, no model for
+    OpenAI-compatible)."""
     t = st.chat_timeout_s if timeout_s is None else timeout_s
     r = st.chat_max_retries if max_retries is None else max_retries
     where = f"LLM connection {target.name!r}"
@@ -171,6 +181,15 @@ def build_chat(
             target.api_key or "", model or target.model or DEFAULT_ANTHROPIC_MODEL,
             target.base_url or DEFAULT_ANTHROPIC_URL, timeout_s=t, max_retries=r,
             extra_headers=target.extra_headers,
+        )
+    if target.provider == "gemini":
+        if not target.api_key:
+            log.warning("%s (gemini) has no API key", where)
+            return None
+        return OpenAICompatChat(
+            model or target.model or DEFAULT_GEMINI_MODEL, target.base_url or DEFAULT_GEMINI_URL,
+            target.api_key, timeout_s=t, max_retries=r, extra_headers=target.extra_headers,
+            provider="gemini",
         )
     name = model or target.model
     if not name:
@@ -257,6 +276,8 @@ def _check_usable(provider: str, base_url: str | None, model: str | None,
         raise LlmConnectionError(f"provider must be one of {', '.join(PROVIDERS)}")
     if provider == "anthropic" and not has_key and not base_url:
         raise LlmConnectionError("an Anthropic connection needs an API key")
+    if provider == "gemini" and not has_key:
+        raise LlmConnectionError("a Gemini connection needs an API key")
     if provider == "openai_compat":
         if not model:
             raise LlmConnectionError("an OpenAI-compatible connection needs a default model")

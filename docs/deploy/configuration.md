@@ -64,8 +64,9 @@ With Terraform: copy the current value from the secret manager into
 The LLM that curation uses to draft suggestions and that evals use to drive the reference agent
 and judges. Retrieval and the MCP tools never call it.
 
-- **Providers.** Anthropic, and anything that speaks OpenAI's `/chat/completions` (OpenAI, Azure
-  OpenAI, vLLM, Ollama, LiteLLM, gateways). Optional base URL, default model, API key and extra
+- **Providers.** Anthropic; Gemini, with a Gemini API key from Google AI Studio (Satchel calls
+  Google's OpenAI-compatible endpoint, default model `gemini-2.5-flash`); and anything that speaks
+  OpenAI's `/chat/completions` (OpenAI, Azure OpenAI, vLLM, Ollama, LiteLLM, gateways). Optional base URL, default model, API key and extra
   headers (for gateways that authenticate with their own header).
 - **Default.** One connection per workspace is the default: curation uses it, and so do eval
   suites that do not pin a model. A suite pinned to a provider uses that provider's connection.
