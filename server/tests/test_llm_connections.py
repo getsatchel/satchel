@@ -271,7 +271,8 @@ def test_deployment_provider_wins(env: Env) -> None:
     data = client.get("/v1/llm-connections", headers=env.h()).json()
     assert data["effective"] == "deployment"
     assert data["deployment"] == {"provider": "openai_compat", "model": "m",
-                                  "base_url": "http://vllm:8000/v1", "has_api_key": False}
+                                  "base_url": "http://vllm:8000/v1", "has_api_key": False,
+                                  "region": None, "project": None}
 
 
 # --- test endpoint ----------------------------------------------------------------------------

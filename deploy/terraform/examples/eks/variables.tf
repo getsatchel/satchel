@@ -224,3 +224,9 @@ variable "secrets_mode" {
   type        = string
   default     = "store"
 }
+
+variable "enable_bedrock" {
+  description = "Let Satchel call models on Amazon Bedrock with its own role (the \"bedrock\" model provider): no API key stored."
+  type        = bool
+  default     = false
+}

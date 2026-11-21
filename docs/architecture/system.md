@@ -39,7 +39,7 @@ flowchart LR
     Sync["sync<br/>git import/export · wren/cube/ossie interop<br/>(git import built; sources: in satchel.config.yaml synced after files)"]:::wip
     Sources["sources (M7a)<br/>registry (entry-point group satchel.sources, built-ins + external) · apply.py: IR → asset_doc / semantic_model / golden_query / glossary_term, content-hash versions, field ownership (source block vs overlay), overlay_out_of_sync + endorsement_candidate signals, publish auto|preview + eval gate, held overlay drafts<br/>built-in adapters: dbt (manifest v10–v12, semantic_manifest → Wren MDL, catalog types, saved queries) · cube (M7b: YAML cubes/views → asset docs + one Wren MDL, optional /meta file or --meta-url, the only adapter that declares network) · sqlmesh (M7b: static MODEL/@model reader, audits → facts, lineage, no sqlmesh import)<br/>file inputs from a git repository (satchel.sources.git: https only, host pinned and checked, shallow sparse blob-filtered clone, no hooks/submodules/symlinks, commit recorded in the sync report), s3:// / gs://, uploads or (CLI) server paths<br/>dbt_build: dbt + git + dbt_project_dir → dbt deps + dbt parse (/opt/dbt/bin/dbt or SATCHEL_DBT_BIN; separate process, env from scratch, HOME/TMPDIR temp, in-memory DuckDB profile, timeout + setrlimit, project paths/packages checked; manifest + semantic_manifest fed to the dbt adapter, dbt version in the sync report)<br/>precedence (M7b): one primary asset_doc per table, sources[].priority lower wins, hand-written wins ties; sync report lists overlaps; overlapping semantic models served from the best only"]:::built
     SDK["satchel-adapter-sdk (sdk/, PyPI, pydantic + pyyaml only)<br/>IR + IR_VERSION · SourceAdapter protocol · AdapterInfo (requires = optional modules, listed unavailable with an install hint) · FileInput(multiple) folder inputs · MdlBuilder · testing kit (conformance, golden, --update-golden)"]:::built
-    LLM["llm<br/>embeddings · chat (Anthropic, Gemini via its OpenAI-compatible endpoint, OpenAI-compatible incl. Ollama/vLLM/LiteLLM, fake) · connections: deployment SATCHEL_CHAT_* wins, else the workspace default llm_connection (core.crypto: AES-256-GCM, SATCHEL_ENCRYPTION_KEY, row-bound AAD, key rotation)"]:::built
+    LLM["llm<br/>embeddings · chat (Anthropic, Gemini via its OpenAI-compatible endpoint, keyless Amazon Bedrock (InvokeModel, AWS role) and Vertex AI (Claude rawPredict / Gemini OpenAI endpoint, Google identity), OpenAI-compatible incl. Ollama/vLLM/LiteLLM, fake) · connections: deployment SATCHEL_CHAT_* wins, else the workspace default llm_connection (core.crypto: AES-256-GCM, SATCHEL_ENCRYPTION_KEY, row-bound AAD, key rotation)"]:::built
   end
 
   subgraph Worker["satchel worker / satchel curate run"]
@@ -62,7 +62,7 @@ flowchart LR
     WH[("Warehouses<br/>BigQuery · Snowflake · Postgres · Databricks · DuckDB")]:::ext
     Repo[("Context git repo<br/>md + YAML")]:::ext
     IdP["OIDC IdP<br/>Okta · Google · Entra · Cognito · Dex"]:::ext
-    Models["LLM / embedding APIs<br/>or local (fastembed / TEI / Ollama)"]:::ext
+    Models["LLM / embedding APIs<br/>Anthropic · Gemini · Bedrock · Vertex AI · OpenAI-compatible<br/>or local (fastembed / TEI / Ollama)"]:::ext
     SM[("Secret managers<br/>AWS Secrets Manager · GCP Secret Manager<br/>aws-sm: / gcp-sm: references")]:::ext
   end
 

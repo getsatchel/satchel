@@ -366,7 +366,7 @@ function RunDialog({ suite, onClose }: { suite: EvalSuite; onClose: () => void }
 
 const OTHER = "__other";
 const PROVIDER_DEFAULT: Record<string, string> = { anthropic: "claude-sonnet-5-5", gemini: "gemini-2.5-flash" };
-const PROVIDER_LABEL: Record<string, string> = { anthropic: "Anthropic", gemini: "Gemini", openai_compat: "OpenAI-compatible" };
+const PROVIDER_LABEL: Record<string, string> = { anthropic: "Anthropic", gemini: "Gemini", openai_compat: "OpenAI-compatible", bedrock: "Amazon Bedrock", vertex: "Vertex AI" };
 
 /** Each configured model as a run override (provider:model); a run picks the provider's connection. */
 function modelChoices(d: LlmConnections | undefined): { value: string; label: string }[] {

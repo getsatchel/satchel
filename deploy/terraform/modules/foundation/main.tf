@@ -20,10 +20,11 @@ locals {
     "storage.googleapis.com",
     "cloudtrace.googleapis.com",
   ]
+  apis_all = concat(local.apis, var.enable_vertex_ai ? ["aiplatform.googleapis.com"] : [])
 }
 
 resource "google_project_service" "apis" {
-  for_each = toset(local.apis)
+  for_each = toset(local.apis_all)
 
   project            = var.project_id
   service            = each.value

@@ -92,6 +92,18 @@ and judges. Retrieval and the MCP tools never call it.
   Google's OpenAI-compatible endpoint, default model `gemini-2.5-flash`); and anything that speaks
   OpenAI's `/chat/completions` (OpenAI, Azure OpenAI, vLLM, Ollama, LiteLLM, gateways). Optional base URL, default model, API key and extra
   headers (for gateways that authenticate with their own header).
+- **No API key at all.** Two providers use the server's own cloud identity, so Satchel stores
+  nothing:
+  - **Amazon Bedrock**, for Claude. The model is a Bedrock model or inference profile id, such as
+    `eu.anthropic.claude-sonnet-4-5-20250929-v1:0`. The region defaults to the server's.
+    - **Access:** the server's AWS role needs `bedrock:InvokeModel`; the EKS Terraform's
+      `enable_bedrock = true` grants it. Model access must also be enabled in the Bedrock console.
+  - **Vertex AI**, for Claude (a `claude-...` model) or Gemini (any other model name).
+    - **Location:** the GCP project defaults to `GOOGLE_CLOUD_PROJECT`, and the region to
+      `global`.
+    - **Access:** the server's service account needs `roles/aiplatform.user`; the GKE and Cloud
+      Run Terraform's `enable_vertex_ai = true` grants it and enables the API. Claude models must
+      also be enabled in Model Garden.
 - **Default.** One connection per workspace is the default: curation uses it, and so do eval
   suites that do not pin a model. A suite pinned to a provider uses that provider's connection.
 - **Test** makes one tiny call with no retries, before or after saving. Errors are shown with any

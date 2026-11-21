@@ -18,7 +18,8 @@ locals {
 }
 
 resource "google_project_iam_member" "runtime" {
-  for_each = toset(local.runtime_project_roles)
+  for_each = toset(concat(local.runtime_project_roles,
+  var.enable_vertex_ai ? ["roles/aiplatform.user"] : []))
 
   project = var.project_id
   role    = each.value
