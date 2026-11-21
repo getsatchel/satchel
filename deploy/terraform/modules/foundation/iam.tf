@@ -40,6 +40,38 @@ resource "google_secret_manager_secret_iam_member" "runtime_generated" {
   member    = "serviceAccount:${google_service_account.runtime.email}"
 }
 
+# Secrets that connections, models and sources reference (gcp-sm:...) instead of storing: the
+# runtime may read those whose name starts with secret_ref_prefix, and no other secret of yours.
+resource "google_project_iam_member" "runtime_referenced_secrets" {
+  count = var.secret_ref_prefix == null ? 0 : 1
+
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
+  condition {
+    title       = "satchel-secret-refs"
+    description = "Secrets satchel reads by reference (gcp-sm:)"
+    expression  = "resource.name.startsWith(\"projects/${data.google_project.this.number}/secrets/${var.secret_ref_prefix}\")"
+  }
+
+  lifecycle {
+    # A prefix that covers the module's own secrets would let the runtime read the owner-level
+    # ones (migrate identity only) through a reference.
+    precondition {
+      condition     = alltrue([for n in values(local.secret_ids) : !startswith(n, var.secret_ref_prefix)])
+      error_message = "secret_ref_prefix must not cover satchel's own secrets (${var.name}-...): use a separate prefix such as \"${var.name}-ref-\"."
+    }
+  }
+}
+
+locals {
+  # Both forms the server accepts: by project id and by project number.
+  secret_ref_allow = var.secret_ref_prefix == null ? [] : [
+    "gcp-sm:projects/${var.project_id}/secrets/${var.secret_ref_prefix}*",
+    "gcp-sm:projects/${data.google_project.this.number}/secrets/${var.secret_ref_prefix}*",
+  ]
+}
+
 resource "google_secret_manager_secret_iam_member" "runtime_shell" {
   for_each = google_secret_manager_secret.shell
 

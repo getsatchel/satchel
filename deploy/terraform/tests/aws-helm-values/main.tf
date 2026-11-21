@@ -42,6 +42,8 @@ module "csi" {
   chat_provider          = "anthropic"
   chat_model             = "claude-sonnet-5-5"
   session_retention_days = 90
+  secret_ref_allow       = ["aws-sm:arn:aws:secretsmanager:eu-west-2:123456789012:secret:satchel/refs/*", "aws-sm:satchel/refs/*"]
+  secrets_mode           = "references"
   certificate_arn        = "arn:aws:acm:eu-west-2:123456789012:certificate/0000-1111"
   waf_acl_arn            = "arn:aws:wafv2:eu-west-2:123456789012:regional/webacl/satchel/abcd"
   network_policy_cidrs   = ["10.40.0.0/16"]

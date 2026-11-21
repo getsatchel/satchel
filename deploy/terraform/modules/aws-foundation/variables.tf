@@ -257,3 +257,13 @@ variable "source_artifact_buckets" {
   type        = list(string)
   default     = []
 }
+
+variable "secret_ref_prefix" {
+  description = "Secrets Manager name prefix (e.g. \"satchel/refs/\") whose secrets connections, models and sources may reference as aws-sm:... instead of Satchel storing them (docs/deploy/secrets.md). The runtime policy can read secrets under it, and secret_ref_allow lists it for SATCHEL_SECRET_REF_ALLOW. Null turns references off."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.secret_ref_prefix == null ? true : can(regex("^[A-Za-z0-9/_+=.@-]{1,200}$", var.secret_ref_prefix))
+    error_message = "secret_ref_prefix: letters, digits and / _ + = . @ - only (no wildcards)."
+  }
+}

@@ -140,6 +140,7 @@ Generated from `values.yaml` (helm-docs style); `values.schema.json` is strict, 
 | `env` | `production` | SATCHEL_ENV. Production refuses to start without OIDC, with SATCHEL_DEV_AUTH, or with a non-https publicUrl. |
 | `logFormat` | `json` |  |
 | `resultDir` | `/var/lib/satchel/results` | SATCHEL_RESULT_DIR. Must be gs://bucket/prefix or s3://bucket/prefix when more than one web replica can run. |
+| `secretRefs.allow` / `secretRefs.mode` | `[]` / `store` | SATCHEL_SECRET_REF_ALLOW and SATCHEL_SECRETS: the secret manager references the UI and API accept, and `references` to store no secret values ([Secrets](secrets.md)). Grant the runtime identity read access to those secrets. |
 | `sessionRetentionDays` | `null` | SATCHEL_SESSION_RETENTION_DAYS: the worker deletes agent sessions older than this (7-3650; sessions with feedback are kept). null keeps them forever. Workspace admins can override it in Settings -> Limits. |
 | `oidc.issuer` | `""` |  |
 | `oidc.clientId` | `""` |  |
