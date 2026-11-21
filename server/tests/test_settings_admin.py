@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import Engine, func, select, update
+from sqlalchemy import Engine, func, select, text, update
 from sqlalchemy.engine import make_url
 
 from satchel.api.app import create_app
@@ -265,7 +265,11 @@ def test_postgres_secret_is_sealed_and_used(env: Env, pg_url: str) -> None:
     assert row.secret_ref and row.secret_ref.startswith("enc:v1:")
     kr = Keyring.from_settings(st())
     assert kr.decrypt(row.secret_ref, connection_aad(env.ws_id, row.id)) == APP_PW
-    assert env.post("/v1/connections/test", {"connection_id": str(row.id)}).json()["ok"]
+    tested = env.post("/v1/connections/test", {"connection_id": str(row.id)}).json()
+    assert tested["ok"]
+    # satchel_app writes Satchel's own tables, so Test warns that this role is not read-only.
+    assert any("satchel_app can insert, update or delete" in w for w in tested["warnings"]), tested
+    assert "only run read-only queries" in tested["warnings"][-1]
     crawl = env.post(f"/v1/connections/{row.id}/crawl?wait=true", {})
     assert crawl.status_code == 200, crawl.text
     (ev,) = env.actions("connection.add")
@@ -447,3 +451,50 @@ def test_rotation_covers_connections_and_sources(env: Env, pg_url: str) -> None:
     assert kr.decrypt(conn.secret_ref or "", connection_aad(env.ws_id, conn.id)) == PW
     assert kr.decrypt(src.config["meta_token"], source_aad(env.ws_id, src.id,
                                                            "meta_token")) == "tok-123456"
+
+
+def test_write_warnings_for_snowflake_roles() -> None:
+    import pyarrow as pa
+
+    from satchel.data.connection_admin import write_warnings
+
+    class Fake:
+        def __init__(self, role: str, privileges: list[str]) -> None:
+            self.role, self.privileges = role, privileges
+
+        def execute(self, sql: str, *, limit: int, timeout_s: float) -> pa.Table:
+            if sql.startswith("select current_role"):
+                return pa.Table.from_pylist([{"CURRENT_ROLE()": self.role}])
+            return pa.Table.from_pylist([{"privilege": p} for p in self.privileges])
+
+    assert "ACCOUNTADMIN role, which can change anything" in write_warnings(
+        "snowflake", Fake("accountadmin", []))[0]
+    assert write_warnings("snowflake", Fake("SATCHEL_READ", ["USAGE", "SELECT"])) == []
+    w = write_warnings("snowflake", Fake("ANALYST", ["USAGE", "SELECT", "INSERT", "OWNERSHIP"]))
+    assert w and "INSERT, OWNERSHIP" in w[0]
+    assert write_warnings("bigquery", Fake("x", [])) == []
+
+
+def test_write_warnings_for_postgres_roles(pg_url: str, admin_engine: Engine) -> None:
+    """A role that can only read gets no warning; a superuser gets one."""
+    from satchel.data.connection_admin import test as test_connection
+
+    tag = uuid.uuid4().hex[:8]
+    role, schema, pw = f"ro_{tag}", f"ro_{tag}", "ro-password-0123456789"
+    with admin_engine.begin() as c:
+        c.execute(text(f"create schema {schema}"))
+        c.execute(text(f"create table {schema}.t (x int)"))
+        c.execute(text(f"create role {role} login password '{pw}'"))
+        c.execute(text(f"grant usage on schema {schema} to {role}"))
+        c.execute(text(f"grant select on {schema}.t to {role}"))
+    try:
+        cfg = pg_config(pg_url)
+        reader = test_connection("postgres", cfg | {"user": role}, pw)
+        assert reader.ok and reader.warnings == [], reader
+        u = make_url(pg_url)
+        su = test_connection("postgres", cfg, u.password)
+        assert su.ok and su.warnings and "is a superuser" in su.warnings[0], su
+    finally:
+        with admin_engine.begin() as c:
+            c.execute(text(f"drop schema {schema} cascade"))
+            c.execute(text(f"drop role {role}"))

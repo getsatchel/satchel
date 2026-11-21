@@ -31,6 +31,8 @@ locals {
     var.chat_provider == null ? {} : { SATCHEL_CHAT_PROVIDER = var.chat_provider },
     var.chat_model == null ? {} : { SATCHEL_CHAT_MODEL = var.chat_model },
     var.session_retention_days == null ? {} : { SATCHEL_SESSION_RETENTION_DAYS = tostring(var.session_retention_days) },
+    length(var.secret_ref_allow) == 0 ? {} : { SATCHEL_SECRET_REF_ALLOW = join(",", var.secret_ref_allow) },
+    var.secrets_mode == "store" ? {} : { SATCHEL_SECRETS = var.secrets_mode },
     var.extra_env,
   )
 

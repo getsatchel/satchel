@@ -69,6 +69,8 @@ module "foundation" {
   result_ttl_days      = var.result_ttl_days
   audit_retention_days = var.audit_retention_days
 
+  secret_ref_prefix = var.secret_ref_prefix
+
   # GKE pulls ghcr.io directly through Cloud NAT; no remote repository needed.
   create_ghcr_remote_repository = false
 }
@@ -104,6 +106,8 @@ module "gke" {
   chat_provider          = var.chat_provider
   chat_model             = var.chat_model
   session_retention_days = var.session_retention_days
+  secret_ref_allow       = module.foundation.secret_ref_allow
+  secrets_mode           = var.secrets_mode
   first_workspace        = var.first_workspace
 
   cluster_deletion_protection = var.cluster_deletion_protection

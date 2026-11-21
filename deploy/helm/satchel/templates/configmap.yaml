@@ -17,6 +17,12 @@ data:
   {{- end }}
   SATCHEL_RATE_LIMIT_AUTH_PER_MIN: {{ .Values.rateLimits.authPerMin | quote }}
   SATCHEL_RATE_LIMIT_MCP_PER_MIN: {{ .Values.rateLimits.mcpPerMin | quote }}
+  {{- with .Values.secretRefs.allow }}
+  SATCHEL_SECRET_REF_ALLOW: {{ join "," . | quote }}
+  {{- end }}
+  {{- if eq .Values.secretRefs.mode "references" }}
+  SATCHEL_SECRETS: "references"
+  {{- end }}
   {{- with .Values.sessionRetentionDays }}
   SATCHEL_SESSION_RETENTION_DAYS: {{ . | quote }}
   {{- end }}

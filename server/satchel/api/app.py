@@ -46,6 +46,7 @@ from satchel.api.schemas import (
     SearchHitOut,
     SearchRequest,
 )
+from satchel.api.security_headers import SecurityHeadersMiddleware, ui_csp
 from satchel.build_info import build_info
 from satchel.jobs.runner import WEB_KINDS, JobRunner, Runtime
 from satchel.llm.chat import ChatProvider
@@ -100,6 +101,8 @@ def _mount_ui(app: FastAPI, ui_dir: Path) -> bool:
     index = root / "index.html"
     if not index.is_file():
         return False
+    page_headers = {"Cache-Control": "no-cache",
+                    "Content-Security-Policy": ui_csp(index.read_text(encoding="utf-8"))}
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str) -> FileResponse:
@@ -114,7 +117,7 @@ def _mount_ui(app: FastAPI, ui_dir: Path) -> bool:
         # routes have no dot in their first segment; deeper ones (an item named x.yaml) do.
         if head == "assets" or ("/" not in path and "." in path):
             raise HTTPException(404, "Not Found")
-        return FileResponse(index, headers={"Cache-Control": "no-cache"})
+        return FileResponse(index, headers=page_headers)
 
     return True
 
@@ -135,6 +138,8 @@ def create_app(
     st = settings or get_settings()
     app.add_middleware(RateLimitMiddleware, auth_per_min=st.rate_limit_auth_per_min,
                        mcp_per_min=st.rate_limit_mcp_per_min)
+    app.add_middleware(SecurityHeadersMiddleware,
+                       hsts=st.public_url.lower().startswith("https://"))
     if mcp:
         from satchel.mcp.http import McpHttp, mount_mcp
 

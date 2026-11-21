@@ -188,3 +188,19 @@ variable "session_retention_days" {
   type        = number
   default     = null
 }
+
+variable "secret_ref_allow" {
+  description = "SATCHEL_SECRET_REF_ALLOW: the secret manager references (aws-sm:/gcp-sm: patterns) the UI and API accept. Empty turns references off."
+  type        = list(string)
+  default     = []
+}
+
+variable "secrets_mode" {
+  description = "SATCHEL_SECRETS: \"store\" keeps secrets typed into the UI encrypted in Postgres; \"references\" refuses every secret value, so Satchel stores no credentials."
+  type        = string
+  default     = "store"
+  validation {
+    condition     = contains(["store", "references"], var.secrets_mode)
+    error_message = "secrets_mode must be \"store\" or \"references\"."
+  }
+}

@@ -38,6 +38,8 @@ module "foundation" {
 
   result_ttl_days      = var.result_ttl_days
   audit_retention_days = var.audit_retention_days
+
+  secret_ref_prefix = var.secret_ref_prefix
 }
 
 module "cloud_run" {
@@ -67,6 +69,8 @@ module "cloud_run" {
   chat_provider          = var.chat_provider
   chat_model             = var.chat_model
   session_retention_days = var.session_retention_days
+  secret_ref_allow       = module.foundation.secret_ref_allow
+  secrets_mode           = var.secrets_mode
 
   deploy_service          = var.deploy_service
   min_instances           = var.min_instances

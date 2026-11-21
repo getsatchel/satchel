@@ -250,3 +250,13 @@ variable "source_artifact_buckets" {
   type        = list(string)
   default     = []
 }
+
+variable "secret_ref_prefix" {
+  description = "Secret Manager secret-name prefix (e.g. \"satchel-ref-\") whose secrets connections, models and sources may reference as gcp-sm:... instead of Satchel storing them (docs/deploy/secrets.md). The runtime service account can read secrets under it, and secret_ref_allow lists it for SATCHEL_SECRET_REF_ALLOW. Null turns references off."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.secret_ref_prefix == null ? true : can(regex("^[A-Za-z0-9_-]{1,200}$", var.secret_ref_prefix))
+    error_message = "secret_ref_prefix: letters, digits, _ and - only (Secret Manager names have no slashes)."
+  }
+}

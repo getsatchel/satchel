@@ -216,6 +216,8 @@ module "values" {
   chat_provider             = var.chat_provider
   chat_model                = var.chat_model
   session_retention_days    = var.session_retention_days
+  secret_ref_allow          = var.secret_ref_allow
+  secrets_mode              = var.secrets_mode
   replicas                  = var.replicas
   certificate_map           = var.enable_certificate_manager ? google_certificate_manager_certificate_map.this[0].name : null
   static_ip_name            = google_compute_global_address.gateway.name

@@ -34,6 +34,7 @@ Start with the [self-hosting overview](self-hosting/index.md) (architecture, pre
 Configure and operate it:
 
 - [Configuration: environment vs Settings](deploy/configuration.md), including the encryption key.
+- [Security](deploy/security.md): the controls Satchel applies itself, including its HTTP headers.
 - [Secrets](deploy/secrets.md): read credentials from AWS Secrets Manager or GCP Secret Manager instead of storing them.
 - [Database](deploy/database.md): roles, RLS, `satchel db bootstrap`.
 - [Storage and audit](deploy/storage-and-audit.md): result cache and audit export.

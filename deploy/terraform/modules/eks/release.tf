@@ -136,6 +136,8 @@ module "values" {
   chat_provider          = var.chat_provider
   chat_model             = var.chat_model
   session_retention_days = var.session_retention_days
+  secret_ref_allow       = var.secret_ref_allow
+  secrets_mode           = var.secrets_mode
   replicas               = var.replicas
   alb_scheme             = var.alb_scheme
   certificate_arn        = local.certificate_arn

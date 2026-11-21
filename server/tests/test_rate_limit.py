@@ -39,6 +39,7 @@ def test_middleware_limits_auth_by_ip_and_mcp_by_token(app_engine: Engine) -> No
     r = c.post("/oauth/register", json={})
     assert r.status_code == 429 and int(r.headers["retry-after"]) >= 1
     assert "Too many requests" in r.json()["detail"]
+    assert r.headers["x-content-type-options"] == "nosniff"  # 429s get the security headers too
     assert c.get("/healthz").status_code == 200  # other routes are not limited
 
     def mcp(token: str) -> int:

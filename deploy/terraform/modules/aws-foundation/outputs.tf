@@ -106,3 +106,8 @@ output "egress_dependencies" {
     aws_route_table_association.public[*].id, aws_route_table_association.private[*].id,
   )
 }
+
+output "secret_ref_allow" {
+  description = "SATCHEL_SECRET_REF_ALLOW patterns for secret_ref_prefix (empty when it is null)."
+  value       = local.secret_ref_allow
+}
