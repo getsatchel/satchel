@@ -52,11 +52,30 @@ data "aws_iam_policy_document" "runtime" {
     )
   }
 
+  # Secrets that connections, models and sources reference (aws-sm:...) instead of storing.
+  dynamic "statement" {
+    for_each = var.secret_ref_prefix == null ? [] : [1]
+    content {
+      sid       = "ReferencedSecrets"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [local.secret_ref_arn]
+    }
+  }
+
   statement {
     sid       = "Kms"
     actions   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
     resources = [local.kms_key_arn]
   }
+}
+
+locals {
+  secret_ref_arn = var.secret_ref_prefix == null ? null : "arn:${local.partition}:secretsmanager:${local.region}:${local.account_id}:secret:${var.secret_ref_prefix}*"
+  # Both forms the server accepts: the full ARN, and the bare name (read in this region).
+  secret_ref_allow = var.secret_ref_prefix == null ? [] : [
+    "aws-sm:${local.secret_ref_arn}",
+    "aws-sm:${var.secret_ref_prefix}*",
+  ]
 }
 
 data "aws_iam_policy_document" "migrate" {
@@ -81,6 +100,15 @@ resource "aws_iam_policy" "runtime" {
   description = "satchel runtime: results bucket, audit writes, runtime secrets"
   policy      = data.aws_iam_policy_document.runtime.json
   tags        = local.tags
+
+  lifecycle {
+    # A prefix that covers the module's own secrets would let the runtime read the owner-level
+    # ones (migrate role only) through a reference.
+    precondition {
+      condition     = var.secret_ref_prefix == null ? true : alltrue([for n in values(local.secret_names) : !startswith(n, var.secret_ref_prefix)])
+      error_message = "secret_ref_prefix must not cover satchel's own secrets (${var.name}/...): use a separate path such as \"${var.name}/refs/\"."
+    }
+  }
 }
 
 resource "aws_iam_policy" "migrate" {

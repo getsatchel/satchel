@@ -400,7 +400,7 @@ flowchart TB
   subgraph EKS["Amazon EKS (Terraform modules/aws-foundation + modules/eks + Helm)"]
     e1["web Deployment + HPA + PDB · ALB Ingress (AWS Load Balancer Controller, ACM, AWS WAF)"]:::built
     e2["worker CronJob · migrate hook Job as SA satchel-migrate · first-workspace Job · managed nodes or Fargate"]:::built
-    e3["RDS PostgreSQL 17 (pgvector, force_ssl) · S3 results + audit (SSE-KMS) · Secrets Manager via CSI (ASCP) · KMS"]:::built
+    e3["RDS PostgreSQL 17 (pgvector, force_ssl) · S3 results + audit (SSE-KMS) · Secrets Manager via CSI (ASCP) · KMS · secret_ref_prefix: runtime reads referenced secrets (aws-sm:) under it only"]:::built
     e4["EKS Pod Identity (IRSA on Fargate): satchel ⇒ runtime role · satchel-migrate ⇒ migrate role (owner-level secrets only)"]:::built
   end
 ```

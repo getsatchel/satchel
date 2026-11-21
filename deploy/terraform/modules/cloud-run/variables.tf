@@ -298,3 +298,19 @@ variable "session_retention_days" {
     error_message = "session_retention_days must be a whole number of days between 7 and 3650, or null."
   }
 }
+
+variable "secret_ref_allow" {
+  description = "SATCHEL_SECRET_REF_ALLOW: the secret manager references (gcp-sm: patterns) the UI and API accept. Empty turns references off."
+  type        = list(string)
+  default     = []
+}
+
+variable "secrets_mode" {
+  description = "SATCHEL_SECRETS: \"store\" keeps secrets typed into the UI encrypted in Postgres; \"references\" refuses every secret value, so Satchel stores no credentials."
+  type        = string
+  default     = "store"
+  validation {
+    condition     = contains(["store", "references"], var.secrets_mode)
+    error_message = "secrets_mode must be \"store\" or \"references\"."
+  }
+}

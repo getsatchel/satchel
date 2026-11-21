@@ -44,6 +44,26 @@ curators can't.
 
 ## Turning it on
 
+**With the Terraform modules**, set one variable and the modules do the rest. They grant the
+runtime identity read access to that prefix only, and set the allow list to match.
+
+| Example | Variable | Secret names | References |
+|---|---|---|---|
+| `eks` | `secret_ref_prefix = "satchel/refs/"` | `satchel/refs/<anything>` in Secrets Manager, same account and region | `aws-sm:satchel/refs/<name>`, or the full ARN |
+| `gke`, `cloud-run` | `secret_ref_prefix = "satchel-ref-"` | `satchel-ref-<anything>` in Secret Manager, same project (names can't contain `/`) | `gcp-sm:projects/<project id or number>/secrets/satchel-ref-<name>` |
+
+The prefix must not cover the module's own secrets (`<name>/...` on AWS, `<name>-...` on GCP):
+`terraform plan` refuses one that does, because the runtime could then read the owner-level
+secrets that only the migrate identity may read.
+
+Add `secrets_mode = "references"` to store nothing. On AWS, secrets encrypted with a customer
+managed KMS key other than the module's own also need `kms:Decrypt` for the runtime role.
+
+**With Helm alone**, set `secretRefs.allow` (a list of patterns) and optionally
+`secretRefs.mode: references`. Then grant read access yourself, as below.
+
+**By hand:**
+
 1. **Pick a path for Satchel's secrets** and grant the server read access to that path only:
    - **AWS:** `secretsmanager:GetSecretValue` on
      `arn:aws:secretsmanager:<region>:<account>:secret:satchel/*`. If the secrets use a customer
@@ -69,8 +89,8 @@ curators can't.
    Secrets stored before the switch keep working. `satchel doctor` lists them so you can replace
    each one with a reference.
 4. **Set these the way your deployment sets environment variables:**
-   - **Helm:** `extraEnv`.
-   - **Terraform:** `extra_values` / `extra_env`.
+   - **Helm:** `secretRefs`.
+   - **Terraform:** `secret_ref_prefix` / `secrets_mode`.
    - **One VM:** `.env`.
 
    Restart to apply.

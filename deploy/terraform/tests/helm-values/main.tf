@@ -23,6 +23,7 @@ module "values" {
   chat_provider             = "anthropic"
   chat_model                = "claude-sonnet-5-5"
   session_retention_days    = 90
+  secret_ref_allow          = ["gcp-sm:projects/my-project/secrets/satchel-ref-*"]
   replicas                  = 2
   certificate_map           = "satchel-certmap"
   static_ip_name            = "satchel-gateway"

@@ -94,6 +94,8 @@ module "foundation" {
 
   result_ttl_days      = var.result_ttl_days
   audit_retention_days = var.audit_retention_days
+
+  secret_ref_prefix = var.secret_ref_prefix
 }
 
 module "eks" {
@@ -138,6 +140,8 @@ module "eks" {
   chat_provider          = var.chat_provider
   chat_model             = var.chat_model
   session_retention_days = var.session_retention_days
+  secret_ref_allow       = module.foundation.secret_ref_allow
+  secrets_mode           = var.secrets_mode
   replicas               = var.replicas
   bootstrap_enabled      = var.bootstrap_enabled
   first_workspace        = var.first_workspace

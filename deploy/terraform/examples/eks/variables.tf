@@ -212,3 +212,15 @@ variable "session_retention_days" {
     error_message = "session_retention_days must be a whole number of days between 7 and 3650, or null."
   }
 }
+
+variable "secret_ref_prefix" {
+  description = "Secrets Manager name prefix (e.g. \"satchel/refs/\") for secrets that connections, models and sources reference as aws-sm:... instead of Satchel storing them. Satchel can read secrets under it and nothing else of yours. Null turns references off. See docs/deploy/secrets.md."
+  type        = string
+  default     = null
+}
+
+variable "secrets_mode" {
+  description = "\"references\" makes Satchel refuse every secret value, so it stores no credentials (needs secret_ref_prefix). Default \"store\"."
+  type        = string
+  default     = "store"
+}

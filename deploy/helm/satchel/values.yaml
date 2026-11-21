@@ -26,6 +26,15 @@ resultDir: /var/lib/satchel/results
 # or longer limit for their workspace in Settings -> Limits.
 sessionRetentionDays: null
 
+# Secret manager references (docs/deploy/secrets.md). allow: SATCHEL_SECRET_REF_ALLOW, the
+# references the UI and API accept, e.g.
+#   "aws-sm:arn:aws:secretsmanager:eu-west-1:123456789012:secret:satchel/connections/*"
+# The runtime identity also needs read access to those secrets. mode: SATCHEL_SECRETS;
+# "references" refuses every secret value, so Satchel stores no credentials.
+secretRefs:
+  allow: []
+  mode: store
+
 oidc:
   issuer: ""
   clientId: ""

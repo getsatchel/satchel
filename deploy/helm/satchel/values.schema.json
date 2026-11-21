@@ -93,6 +93,26 @@
       "minLength": 1,
       "pattern": "^(gs://|s3://|/)"
     },
+    "secretRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(aws-sm|gcp-sm):[^,\\s]+$"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "store",
+            "references"
+          ]
+        }
+      }
+    },
     "sessionRetentionDays": {
       "type": [
         "integer",

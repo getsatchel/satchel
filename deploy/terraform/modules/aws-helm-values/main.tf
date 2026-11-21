@@ -114,6 +114,9 @@ locals {
       )
     },
     var.session_retention_days == null ? {} : { sessionRetentionDays = var.session_retention_days },
+    length(var.secret_ref_allow) == 0 && var.secrets_mode == "store" ? {} : {
+      secretRefs = { allow = var.secret_ref_allow, mode = var.secrets_mode }
+    },
     var.first_workspace == null ? {} : {
       firstWorkspace = {
         enabled    = true
