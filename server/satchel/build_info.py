@@ -22,7 +22,7 @@ def server_version() -> str:
 
 
 def build_info() -> dict[str, str]:
-    """``{"version": "0.6.0", "widget": "ui://satchel/result/<hash>"}``. The widget URI changes
+    """``{"version": "0.7.0", "widget": "ui://satchel/result/<hash>"}``. The widget URI changes
     with every build, so it also tells two builds of the same version apart."""
     from satchel.mcp.apps import result_uri
 
