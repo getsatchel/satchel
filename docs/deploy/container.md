@@ -1,6 +1,6 @@
 # Running Satchel from the container image
 
-One image, `ghcr.io/getsatchel/satchel`, runs every role; the command picks the role. Tags: for each `v*` release, the version (`0.7.0`), the minor line (`0.7`) and `latest`; for every push to `main`, `main` and `sha-<short>`. Pin a release version in production; `main` moves with every merge. It runs as uid/gid 10001 and needs no writable root filesystem when `SATCHEL_RESULT_DIR` points at `gs://`, `s3://` or a mounted volume. It includes the `gcp` and `aws` extras (google-cloud-storage, boto3).
+One image, `ghcr.io/getsatchel/satchel`, runs every role; the command picks the role. Tags: for each `v*` release, the version (`0.8.0`), the minor line (`0.8`) and `latest`; for every push to `main`, `main` and `sha-<short>`. Pin a release version in production; `main` moves with every merge. It runs as uid/gid 10001 and needs no writable root filesystem when `SATCHEL_RESULT_DIR` points at `gs://`, `s3://` or a mounted volume. It includes the `gcp` and `aws` extras (google-cloud-storage, boto3).
 
 ## Build
 
@@ -58,9 +58,9 @@ and `npm audit` for the UI and widgets. This runs on every lockfile change and w
 Example, local:
 
 ```bash
-docker run --rm -e SATCHEL_DATABASE_URL=... ghcr.io/getsatchel/satchel:0.7.0 db upgrade
-docker run --rm -e SATCHEL_DATABASE_URL=... ghcr.io/getsatchel/satchel:0.7.0 workspace create main --name Main --admin-email you@example.com
-docker run -p 8080:8080 -e SATCHEL_DATABASE_URL=... -e SATCHEL_PUBLIC_URL=http://localhost:8080 ghcr.io/getsatchel/satchel:0.7.0
+docker run --rm -e SATCHEL_DATABASE_URL=... ghcr.io/getsatchel/satchel:0.8.0 db upgrade
+docker run --rm -e SATCHEL_DATABASE_URL=... ghcr.io/getsatchel/satchel:0.8.0 workspace create main --name Main --admin-email you@example.com
+docker run -p 8080:8080 -e SATCHEL_DATABASE_URL=... -e SATCHEL_PUBLIC_URL=http://localhost:8080 ghcr.io/getsatchel/satchel:0.8.0
 ```
 
 ## Probes
@@ -71,7 +71,7 @@ docker run -p 8080:8080 -e SATCHEL_DATABASE_URL=... -e SATCHEL_PUBLIC_URL=http:/
 | readiness / startup | `GET /readyz` | 200 when the database answers (checked on every call, 3 s timeout) and the alembic revision is at head (cached about 30 s). Otherwise 503 `{"status": "unavailable", "reason": "..."}`. |
 
 Both also return what is running, so you can check an upgrade took with one request:
-`{"status": "ok", "version": "0.7.0", "widget": "ui://satchel/result/<hash>"}`. The widget URI changes
+`{"status": "ok", "version": "0.8.0", "widget": "ui://satchel/result/<hash>"}`. The widget URI changes
 with every build.
 
 ## Production mode
