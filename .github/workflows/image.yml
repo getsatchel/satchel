@@ -24,6 +24,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # cosign keyless signing (GitHub OIDC)
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -88,6 +89,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push
+        id: push
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
@@ -98,3 +100,17 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: BAKE_EMBEDDINGS=true
           cache-from: type=gha,scope=satchel
+          # Attached to the image in the registry: an SPDX SBOM of every package in it, and
+          # SLSA provenance (what built it, from which commit, with which inputs).
+          sbom: true
+          provenance: mode=max
+      # Keyless signature: this workflow's GitHub OIDC identity, recorded in the public
+      # Sigstore transparency log. No key to keep. Verify with the command in
+      # docs/deploy/container.md.
+      - uses: sigstore/cosign-installer@v3
+        if: github.event_name != 'pull_request'
+      - name: Sign
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"

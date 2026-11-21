@@ -11,6 +11,7 @@ side (network, identity, encryption at rest, edge) is covered per platform: see 
 | Warehouse SQL | `run_sql` takes one read-only `SELECT`/`WITH`, parsed with sqlglot, row-capped and timed out, in a read-only session. Also connect with a role that can only read: the setup SQL in **Add connection** creates one, and **Test** warns when the role can write. | [MCP tools](../reference/mcp-tools.md) |
 | Secrets | Encrypted with `SATCHEL_ENCRYPTION_KEY`, or kept in a secret manager and read by reference. `SATCHEL_SECRETS=references` makes Satchel store none. | [Secrets](secrets.md) |
 | Audit | Admin and curation actions are recorded, and can be exported to object storage. | [Storage and audit](storage-and-audit.md) |
+| Supply chain | Published images are signed with cosign and carry an SBOM and SLSA provenance. Locked dependencies are audited for known vulnerabilities, and Dependabot proposes updates weekly. | [Verifying the image](container.md#verifying-the-image) |
 | HTTP | Security headers on every response, and a strict Content-Security-Policy on the UI (below). | |
 | Rate limits | Sign-in and OAuth: 30 requests a minute per client IP. `/mcp`: 600 a minute per token. Past the limit the answer is `429`. | [Rate limits](configuration.md#rate-limits) |
 

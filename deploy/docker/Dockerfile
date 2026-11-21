@@ -5,8 +5,8 @@
 #                                        model is downloaded on first use instead)
 #   --build-arg INSTALL_DBT=false       leave out dbt (dbt sources can then only read a
 #                                        committed or uploaded manifest.json; smaller image)
-# Base images are pinned by digest; bump them deliberately (Dependabot / `docker buildx
-# imagetools inspect <tag>`).
+# Base images are pinned by digest; bump them deliberately (`docker buildx imagetools inspect
+# <tag>`): Dependabot cannot update ARG defaults.
 
 ARG PYTHON_IMAGE=python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337
 ARG NODE_IMAGE=node:22-bookworm-slim@sha256:2f0e17f8955e766e776ae16d3ac47519ca3edf47c07e5c1423527926fdd5d568
