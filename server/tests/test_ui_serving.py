@@ -3,6 +3,8 @@ the API surface."""
 
 from __future__ import annotations
 
+import base64
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -95,3 +97,30 @@ def test_ui_dir_resolution_falls_back_to_cwd(
     monkeypatch.chdir(tmp_path)
     assert app_mod._resolve_ui_dir(None) == tmp_path / "ui" / "dist"
     assert app_mod._resolve_ui_dir("~/x") == Path("~/x").expanduser()
+
+
+def test_security_headers(app_engine: Engine, tmp_path: Path) -> None:
+    theme = "document.documentElement.dataset.theme = 'light';"
+    d = tmp_path / "dist"
+    d.mkdir()
+    (d / "index.html").write_text(
+        f"<!doctype html><script>{theme}</script><div id=root></div>"
+        '<script type="module" src="/assets/app.js"></script>')
+    c = _client(app_engine, d)
+    page = c.get("/library")
+    csp = page.headers["content-security-policy"]
+    digest = base64.b64encode(hashlib.sha256(theme.encode()).digest()).decode()
+    assert f"script-src 'self' 'sha256-{digest}'" in csp  # only the inline theme script
+    assert "frame-ancestors 'none'" in csp and "object-src 'none'" in csp
+    assert "unsafe-eval" not in csp and "script-src 'self' 'unsafe-inline'" not in csp
+    for r in (page, c.get("/healthz"), c.get("/v1/me")):
+        assert r.headers["x-content-type-options"] == "nosniff"
+        assert r.headers["x-frame-options"] == "DENY"
+        assert r.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+        assert "strict-transport-security" not in r.headers  # http public URL
+    assert "content-security-policy" not in c.get("/docs").headers  # Swagger loads from a CDN
+    # The OAuth pages keep their own, stricter headers.
+    st = Settings(ui_dir=str(d), dev_auth=False, public_url="https://satchel.example.com")
+    tls = TestClient(create_app(app_engine, HashEmbedder(), settings=st))
+    r = tls.get("/healthz")
+    assert r.headers["strict-transport-security"] == "max-age=31536000"
