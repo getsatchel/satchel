@@ -259,7 +259,8 @@ def test_postgres_secret_is_sealed_and_used(env: Env, pg_url: str) -> None:
     assert not bad.json()["ok"] and PW not in bad.text
     r = env.post("/v1/connections", {"name": "pg", "kind": "postgres", "config": cfg,
                                      "secret": APP_PW})
-    assert r.status_code == 201 and r.json()["secret"] == "stored" and "secret_ref" not in r.text
+    assert r.status_code == 201 and r.json()["secret"] == "stored"
+    assert r.json()["secret_ref"] is None
     row = env.conn("pg")
     assert row.secret_ref and row.secret_ref.startswith("enc:v1:")
     kr = Keyring.from_settings(st())

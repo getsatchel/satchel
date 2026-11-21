@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { ConnectionKind, ConnectionOut, ConnectionPatch, ConnectionTestOut, ConnectionTestRequest } from "@/api/types";
+import { initialMode, isRef, refsOnly, SecretModeSwitch, SecretRefInput, useSecretPolicy, type SecretMode } from "@/components/SecretRef";
 import { useToast } from "@/components/Toast";
 import { docsUrl } from "@/components/nav";
 import { EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, PageHeader, Segmented, Sheet, StatusDot, TableCard, useSheetParam } from "@/components/ui";
@@ -109,7 +110,10 @@ function ConfigFields({ spec, values, onChange }: { spec: ConnectionKind | undef
   );
 }
 
-/** The secret (password, key file) and, for an encrypted key, its passphrase. */
+/**
+ * The secret (password, key file) and, for an encrypted key, its passphrase; or, where the
+ * deployment allows it, a secret manager reference that Satchel reads when it connects.
+ */
 function SecretField(props: {
   spec: ConnectionKind;
   secret: string;
@@ -118,10 +122,45 @@ function SecretField(props: {
   onPassphrase: (v: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** The saved reference, when editing a connection that has one. */
+  current?: string | null;
 }) {
   const { spec } = props;
+  const policy = useSecretPolicy();
+  const [mode, setMode] = useState<SecretMode>(() => initialMode(policy, props.current ?? props.secret));
+  useEffect(() => {
+    if (refsOnly(policy)) setMode("ref");
+  }, [policy]);
+  const switcher = (
+    <SecretModeSwitch
+      policy={policy}
+      mode={mode}
+      what={(spec.secret_label ?? "secret").toLowerCase()}
+      onMode={(m) => {
+        setMode(m);
+        props.onSecret("");
+        props.onPassphrase("");
+      }}
+    />
+  );
+  if (mode === "ref")
+    return (
+      <div className="space-y-3">
+        {switcher}
+        <SecretRefInput
+          policy={policy}
+          label={`${spec.secret_label ?? "Secret"} reference`}
+          value={props.secret}
+          onChange={props.onSecret}
+          disabled={props.disabled}
+          placeholder={props.current ? `${props.current} (type to replace)` : undefined}
+        />
+      </div>
+    );
   return (
-    <div>
+    <div className="space-y-3">
+      {switcher}
+      <div>
       <label className="block">
         <span className="label">{spec.secret_label}</span>
         {spec.secret_multiline ? (
@@ -159,6 +198,7 @@ function SecretField(props: {
           <span className="mt-1 block text-xs text-muted">For an encrypted key. It decrypts the key once, before it is encrypted with the server key, and is not stored.</span>
         </label>
       )}
+      </div>
     </div>
   );
 }
@@ -293,6 +333,7 @@ function AddConnection(props: { kinds: ConnectionKind[]; encryption: boolean; fi
   const spec = props.kinds.find((k) => k.kind === kind);
   const [name, setName] = useState("");
   const [values, setValues] = useState<Values>(() => defaults(spec));
+  const policy = useSecretPolicy();
   const [own, setOwn] = useState(!canGenerate());
   const [cred, setCred] = useState<Credential | null>(null);
   const [secret, setSecret] = useState("");
@@ -305,7 +346,8 @@ function AddConnection(props: { kinds: ConnectionKind[]; encryption: boolean; fi
 
   const names = spec?.setup ? ["Kind", "Details", "Prepare", "Crawl"] : ["Kind", "Details", "Crawl"];
   const lastForm = names.length - 2;
-  const generating = Boolean(spec?.generates) && !own;
+  // A generated key or password would be stored: a references-only deployment can't use it.
+  const generating = Boolean(spec?.generates) && !own && !refsOnly(policy);
   const usedSecret = generating ? (cred?.kind === kind ? cred.secret : "") : secret;
   const usedPassphrase = generating ? "" : passphrase;
 
@@ -340,7 +382,7 @@ function AddConnection(props: { kinds: ConnectionKind[]; encryption: boolean; fi
     setPassphrase("");
     t.reset();
   };
-  const blocked = Boolean(usedSecret) && !props.encryption;
+  const blocked = Boolean(usedSecret) && !isRef(usedSecret) && !props.encryption;
   const dirty = !saved && (step > 0 || name !== "");
   const isKeypair = spec?.generates === "keypair";
 
@@ -432,7 +474,7 @@ function AddConnection(props: { kinds: ConnectionKind[]; encryption: boolean; fi
                   ? `Run this in ${spec.label} as an admin. It creates a role and user that can only read.`
                   : "Run these as a project owner. They create a service account that can only run queries and read data."}
               </p>
-              {spec.generates && canGenerate() && (
+              {spec.generates && canGenerate() && !refsOnly(policy) && (
                 <Segmented
                   label="Credential"
                   value={own ? "own" : "generate"}
@@ -458,7 +500,7 @@ function AddConnection(props: { kinds: ConnectionKind[]; encryption: boolean; fi
               ) : (
                 spec.secret_label && <SecretField spec={spec} secret={secret} onSecret={setSecret} passphrase={passphrase} onPassphrase={setPassphrase} />
               )}
-              {spec.generates && !canGenerate() && <Notice tone="info">Generating a key needs HTTPS, so paste your own.</Notice>}
+              {spec.generates && !canGenerate() && !refsOnly(policy) && <Notice tone="info">Generating a key needs HTTPS, so paste your own.</Notice>}
             </>
           )}
           {step === lastForm && blocked && (
@@ -512,9 +554,10 @@ function EditConnection(props: { kinds: ConnectionKind[]; editing: ConnectionOut
     onError: (err) => setError(errMsg(err)),
   });
 
-  const blocked = Boolean(secret) && !props.encryption;
+  const blocked = Boolean(secret) && !isRef(secret) && !props.encryption;
   const dirty = name !== e.name || JSON.stringify(values) !== initial || secret !== "" || passphrase !== "" || clearSecret;
   const placeholder = e.secret === "stored" ? "Stored. Leave empty to keep it." : e.secret === "env" ? "Read from an environment variable (set with the CLI). Type to replace." : "";
+  const currentRef = e.secret === "reference" ? (e.secret_ref ?? null) : null;
 
   return (
     <Sheet
@@ -557,7 +600,7 @@ function EditConnection(props: { kinds: ConnectionKind[]; editing: ConnectionOut
         <ConfigFields spec={spec} values={values} onChange={setValues} />
         {spec?.secret_label && (
           <div>
-            <SecretField spec={spec} secret={secret} onSecret={setSecret} passphrase={passphrase} onPassphrase={setPassphrase} placeholder={placeholder} disabled={clearSecret} />
+            <SecretField spec={spec} secret={secret} onSecret={setSecret} passphrase={passphrase} onPassphrase={setPassphrase} placeholder={placeholder} disabled={clearSecret} current={currentRef} />
             {e.secret && (
               <label className="mt-2 flex items-center gap-2 text-sm">
                 <input
@@ -727,7 +770,7 @@ export function Connections() {
                   <td className="td hidden whitespace-nowrap sm:table-cell">{label(c.kind)}</td>
                   <td className="td hidden whitespace-nowrap text-right tabular-nums md:table-cell">{c.asset_count}</td>
                   <td className="td hidden whitespace-nowrap text-xs text-muted sm:table-cell">
-                    {c.secret === "stored" ? "encrypted" : c.secret === "env" ? <span title="An env:NAME reference set with the CLI">environment</span> : "–"}
+                    {c.secret === "stored" ? "encrypted" : c.secret === "reference" ? <span className="[overflow-wrap:anywhere]" title={c.secret_ref ?? undefined}>secret manager</span> : c.secret === "env" ? <span title="An env:NAME reference set with the CLI">environment</span> : "–"}
                   </td>
                   {admin && (
                     <td className="td hidden whitespace-nowrap lg:table-cell">

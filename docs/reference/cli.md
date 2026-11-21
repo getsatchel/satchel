@@ -42,7 +42,7 @@
 |---|---|
 | `workspace create` / `auth` / `curation` | Create a workspace and admin; OIDC user mapping; curation thresholds and instructions. |
 | `token create` / `token revoke` | Personal access tokens (printed once). |
-| `connection add` / `list` / `crawl` | Warehouse connections; `crawl` introspects into assets. |
+| `connection add` / `list` / `crawl` | Warehouse connections; `crawl` introspects into assets. `--secret-ref` takes `env:NAME`, `aws-sm:...` or `gcp-sm:...` ([Secrets](../deploy/secrets.md)). |
 | `search` | Hybrid search over published context. |
 
 ## Context, sources, evals

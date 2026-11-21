@@ -19,6 +19,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from satchel.audit import record as record_audit
+from satchel.core import secret_refs
 from satchel.core.crypto import EncryptionUnavailable, Keyring
 from satchel.data.connections import KINDS, ConnectionError_, connection_secret
 from satchel.data.connectors import make_connector
@@ -29,7 +30,7 @@ from satchel.data.connectors.snowflake_conn import ident as snowflake_ident
 from satchel.data.connectors.snowflake_conn import normalize_private_key
 from satchel.install_hints import extra_hint
 from satchel.secrets import connection_aad
-from satchel.settings import Settings
+from satchel.settings import Settings, get_settings
 from satchel.store.models import Asset, Connection, ContextSource, QueryResult
 
 FieldType = Literal["text", "number", "path"]
@@ -289,6 +290,22 @@ def _name(name: str) -> str:
     return name
 
 
+def _set_secret(conn: Connection, keyring: Keyring | None, secret: str,
+                passphrase: str | None, settings: Settings) -> None:
+    """Keep a secret manager reference as is (inside the allow list); seal anything else."""
+    try:
+        if secret_refs.is_api_ref(secret):
+            if passphrase:
+                raise ConnectionAdminError("a reference takes no passphrase: store the key "
+                                           "unencrypted in the secret manager")
+            conn.secret_ref = str(secret_refs.check_api_ref(secret, settings))
+            return
+        secret_refs.refuse_storing(settings, f"the {conn.kind} secret")
+    except secret_refs.SecretRefError as e:
+        raise ConnectionAdminError(str(e)) from None
+    _seal(conn, keyring, clean_secret(conn.kind, secret, passphrase) or "")
+
+
 def _seal(conn: Connection, keyring: Keyring | None, secret: str) -> None:
     if keyring is None:
         raise EncryptionUnavailable("SATCHEL_ENCRYPTION_KEY is not set, so the password "
@@ -307,10 +324,13 @@ def create(
     s: Session, workspace_id: uuid.UUID, actor: uuid.UUID | None, keyring: Keyring | None, *,
     name: str, kind: str, config: dict[str, Any], secret: str | None = None,
     passphrase: str | None = None, default_for_ai: bool | None = None,
+    settings: Settings | None = None,
 ) -> Connection:
+    st = settings or get_settings()
     name = _name(name)
     cfg = clean_config(kind, config)
-    secret = clean_secret(kind, secret, passphrase)
+    if passphrase and not secret:
+        raise ConnectionAdminError("a passphrase needs the private key it decrypts")
     if s.scalars(select(Connection.id).where(Connection.workspace_id == workspace_id,
                                             Connection.name == name)).first():
         raise ConnectionAdminError(f"a connection named {name!r} already exists")
@@ -319,14 +339,14 @@ def create(
     conn = Connection(id=uuid.uuid4(), workspace_id=workspace_id, name=name, kind=kind,
                       config=cfg, default_for_ai=False)
     if secret:
-        _seal(conn, keyring, secret)
+        _set_secret(conn, keyring, secret, passphrase, st)
     s.add(conn)
     s.flush()
     if default_for_ai or (default_for_ai is None and first):
         _set_default(s, conn)
     s.flush()
     record_audit(s, workspace_id, actor, "connection.add",
-                 {"connection": name, "kind": kind, "secret": "stored" if secret else None,
+                 {"connection": name, "kind": kind, "secret": _secret_kind(conn.secret_ref),
                   "default_for_ai": conn.default_for_ai})
     return conn
 
@@ -338,6 +358,7 @@ def update_conn(
     s: Session, conn: Connection, actor: uuid.UUID | None, keyring: Keyring | None, *,
     name: Any = _UNSET, config: Any = _UNSET, secret: Any = _UNSET,
     passphrase: str | None = None, default_for_ai: Any = _UNSET,
+    settings: Settings | None = None,
 ) -> Connection:
     """Patch: left-out arguments keep their value; ``secret=None`` removes the secret.
     ``passphrase`` only decrypts a new ``secret``."""
@@ -358,7 +379,7 @@ def update_conn(
         changed.append("config")
     if secret is not _UNSET:
         if secret:
-            _seal(conn, keyring, clean_secret(conn.kind, secret, passphrase) or "")
+            _set_secret(conn, keyring, secret, passphrase, settings or get_settings())
         else:
             conn.secret_ref = None
         changed.append("secret")
@@ -408,11 +429,16 @@ class TestResult:
 
 def test(
     kind: str, config: dict[str, Any], secret: str | None, passphrase: str | None = None,
+    settings: Settings | None = None,
 ) -> TestResult:
     """Open the connection and run ``select 1`` (10 s timeout). The secret is scrubbed from
-    errors."""
+    errors. A secret manager reference is checked against the allow list and read fresh."""
     t0 = time.monotonic()
     try:
+        if secret_refs.is_api_ref(secret):
+            st = settings or get_settings()
+            ref = secret_refs.check_api_ref(secret or "", st)
+            secret = secret_refs.resolve(str(ref), st, fresh=True)
         cfg = clean_config(kind, config)
         connector = make_connector(kind, cfg, clean_secret(kind, secret, passphrase))
         try:
@@ -477,8 +503,15 @@ def scrub(msg: str, *secrets: str | None) -> str:
     return msg
 
 
+def _secret_kind(ref: str | None) -> str | None:
+    if not ref:
+        return None
+    return "reference" if secret_refs.is_ref(ref) else "stored"
+
+
 def stored_secret(conn: Connection, settings: Settings) -> str | None:
+    """The saved secret for Test: a reference is read fresh, so a rotated secret shows."""
     try:
-        return connection_secret(conn, settings)
+        return connection_secret(conn, settings, fresh=True)
     except ValueError as e:
         raise ConnectionError_(str(e)) from None

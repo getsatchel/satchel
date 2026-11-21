@@ -27,10 +27,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from satchel.audit import record as record_audit
+from satchel.core import secret_refs
 from satchel.core.crypto import EncryptionUnavailable, Keyring
 from satchel.data.objstore import is_object_uri
 from satchel.llm.connections import LlmConnectionError, validate_base_url
 from satchel.secrets import is_sealed, is_secret_key, source_aad
+from satchel.settings import Settings, get_settings
 from satchel.sources import git
 from satchel.sources.config import (
     HOST_KEYS,
@@ -109,8 +111,10 @@ def _connection_id(s: Session, ws_id: uuid.UUID, name: str | None) -> uuid.UUID 
 
 
 def _seal_secrets(src: ContextSource, cfg: dict[str, Any], previous: dict[str, Any],
-                  keyring: Keyring | None) -> dict[str, Any]:
-    """Seal new secret values; ``***`` or a missing key keeps the stored one."""
+                  keyring: Keyring | None, settings: Settings | None = None) -> dict[str, Any]:
+    """Seal new secret values; ``***`` or a missing key keeps the stored one. A secret manager
+    reference (inside the allow list) is kept as the reference."""
+    st = settings or get_settings()
     out = dict(cfg)
     for k in {*cfg, *previous}:
         if not is_secret_key(k):
@@ -123,7 +127,16 @@ def _seal_secrets(src: ContextSource, cfg: dict[str, Any], previous: dict[str, A
                 out.pop(k, None)
         elif v in (None, ""):
             out.pop(k, None)
+        elif secret_refs.is_api_ref(v):
+            try:
+                out[k] = str(secret_refs.check_api_ref(str(v), st))
+            except secret_refs.SecretRefError as e:
+                raise SourceAdminError(f"{k}: {e}") from None
         elif not is_sealed(v):
+            try:
+                secret_refs.refuse_storing(st, k)
+            except secret_refs.SecretRefError as e:
+                raise SourceAdminError(str(e)) from None
             if keyring is None:
                 raise EncryptionUnavailable(
                     f"SATCHEL_ENCRYPTION_KEY is not set, so {k} cannot be stored")
@@ -173,7 +186,7 @@ def _validated(entry: AdapterEntry, config: dict[str, Any]) -> dict[str, Any]:
 
 def create(
     s: Session, workspace_id: uuid.UUID, actor: uuid.UUID | None, keyring: Keyring | None, *,
-    kind: str, name: str, config: dict[str, Any],
+    kind: str, name: str, config: dict[str, Any], settings: Settings | None = None,
 ) -> ContextSource:
     name = name.strip()
     if not name or len(name) > 64 or not all(c.isalnum() or c in "-_." for c in name):
@@ -192,7 +205,7 @@ def create(
     src = ContextSource(id=uuid.uuid4(), workspace_id=workspace_id, kind=kind, name=name,
                         config={}, connection_id=_connection_id(s, workspace_id,
                                                                 stored.get("connection")))
-    src.config = _seal_secrets(src, stored, {}, keyring)
+    src.config = _seal_secrets(src, stored, {}, keyring, settings)
     s.add(src)
     s.flush()
     record_audit(s, workspace_id, actor, "source.add",
@@ -202,7 +215,7 @@ def create(
 
 def update_src(
     s: Session, src: ContextSource, actor: uuid.UUID | None, keyring: Keyring | None, *,
-    config: dict[str, Any],
+    config: dict[str, Any], settings: Settings | None = None,
 ) -> ContextSource:
     """Replace the config. Secret fields sent as ``***`` (or left out) keep their value."""
     entry = get_entry(src.kind)
@@ -216,7 +229,7 @@ def update_src(
             stored[k] = config[k]
     _check_automation(entry, stored, has_webhook=bool(previous.get(WEBHOOK_KEY)))
     src.connection_id = _connection_id(s, src.workspace_id, stored.get("connection"))
-    src.config = _seal_secrets(src, stored, previous, keyring)
+    src.config = _seal_secrets(src, stored, previous, keyring, settings)
     s.flush()
     changed = sorted(k for k in {*previous, *src.config}
                      if previous.get(k) != src.config.get(k))
@@ -277,6 +290,8 @@ def remove(s: Session, src: ContextSource, actor: uuid.UUID | None) -> int:
 
 
 def masked(config: dict[str, Any]) -> dict[str, Any]:
-    """Config for responses: secrets (sealed or not) as ``***``."""
-    return {k: (MASK if (is_secret_key(k) or is_sealed(v)) and v else v)
+    """Config for responses: secrets (sealed or not) as ``***``; a secret manager reference
+    names the secret, so it is shown."""
+    return {k: (MASK if (is_secret_key(k) or is_sealed(v)) and v
+                and not secret_refs.is_api_ref(v) else v)
             for k, v in config.items()}

@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from satchel.api.auth import Auth, Caller
 from satchel.api.jobs import JobOut, job_of
+from satchel.core import secret_refs
 from satchel.core.crypto import EncryptionUnavailable, Keyring, configured
 from satchel.data import connection_admin as ca
 from satchel.data.connections import ConnectionError_
@@ -65,6 +66,8 @@ class ConnectionKindOut(BaseModel):
         "the secret. password: the client makes a random password.")
 
 
+_SECRET = ("Write-only. The password or key, or a secret manager reference (aws-sm:..., "
+           "gcp-sm:...) inside SATCHEL_SECRET_REF_ALLOW, which is kept instead of the value.")
 _PASSPHRASE = "Write-only: decrypts the private key given in secret; never stored."
 
 
@@ -72,7 +75,7 @@ class ConnectionCreate(BaseModel):
     name: str
     kind: str
     config: dict[str, Any] = Field(default_factory=dict)
-    secret: str | None = Field(None, description="Write-only.")
+    secret: str | None = Field(None, description=_SECRET)
     passphrase: str | None = Field(None, description=_PASSPHRASE)
     default_for_ai: bool | None = None
 
@@ -80,7 +83,7 @@ class ConnectionCreate(BaseModel):
 class ConnectionPatch(BaseModel):
     name: str | None = None
     config: dict[str, Any] | None = None
-    secret: str | None = Field(None, description="Write-only; null removes the secret.")
+    secret: str | None = Field(None, description=_SECRET + " Null removes the secret.")
     passphrase: str | None = Field(None, description=_PASSPHRASE)
     default_for_ai: bool | None = None
 
@@ -92,6 +95,15 @@ class ConnectionTestRequest(BaseModel):
     config: dict[str, Any] | None = None
     secret: str | None = None
     passphrase: str | None = Field(None, description=_PASSPHRASE)
+
+
+class SecretPolicyOut(BaseModel):
+    """How secret fields behave on this deployment (Connections, Models and Sources forms)."""
+
+    mode: Literal["store", "references"] = Field(
+        description="'references': secret values are refused; only references are accepted.")
+    allow: list[str] = Field(
+        description="SATCHEL_SECRET_REF_ALLOW patterns. Empty: references are off.")
 
 
 class ConnectionTestOut(BaseModel):
@@ -115,20 +127,30 @@ class ConnectionSavedOut(BaseModel):
     name: str
     kind: str
     config: dict[str, Any]
-    secret: Literal["stored", "env"] | None
+    secret: Literal["stored", "env", "reference"] | None
+    secret_ref: str | None = Field(
+        None, description="The secret manager reference, when secret is 'reference'.")
     default_for_ai: bool
 
 
 def saved_out(c: Connection) -> ConnectionSavedOut:
     return ConnectionSavedOut(id=c.id, name=c.name, kind=c.kind, config=dict(c.config or {}),
                               secret=secret_source(c.secret_ref),
+                              secret_ref=public_ref(c.secret_ref),
                               default_for_ai=c.default_for_ai)
 
 
-def secret_source(ref: str | None) -> Literal["stored", "env"] | None:
+def secret_source(ref: str | None) -> Literal["stored", "env", "reference"] | None:
     if not ref:
         return None
-    return "env" if ref.startswith("env:") else "stored"
+    if ref.startswith("env:"):
+        return "env"
+    return "reference" if secret_refs.is_api_ref(ref) else "stored"
+
+
+def public_ref(ref: str | None) -> str | None:
+    """A secret manager reference names the secret; it is safe to show to an admin."""
+    return ref if secret_refs.is_api_ref(ref) else None
 
 
 def make_router(auth: Auth) -> APIRouter:
@@ -154,6 +176,10 @@ def make_router(auth: Auth) -> APIRouter:
         except EncryptionUnavailable as e:
             raise HTTPException(503, str(e)) from None
 
+    @r.get("/v1/secret-policy", response_model=SecretPolicyOut)
+    def secret_policy(who: Adm) -> SecretPolicyOut:
+        return SecretPolicyOut(mode=st.secrets, allow=secret_refs.allowed_patterns(st))
+
     @r.get("/v1/connection-kinds", response_model=list[ConnectionKindOut])
     def list_connection_kinds(who: Cur) -> list[ConnectionKindOut]:
         return [
@@ -173,7 +199,7 @@ def make_router(auth: Auth) -> APIRouter:
             c = guard(lambda: ca.create(
                 s, who.workspace_id, who.user_id, keyring(), name=req.name, kind=req.kind,
                 config=req.config, secret=req.secret, passphrase=req.passphrase,
-                default_for_ai=req.default_for_ai))
+                default_for_ai=req.default_for_ai, settings=st))
             return saved_out(c)
 
     @r.patch("/v1/connections/{connection_id}", response_model=ConnectionSavedOut)
@@ -186,7 +212,7 @@ def make_router(auth: Auth) -> APIRouter:
                 kw.pop(f)
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             c = get_conn(s, connection_id)
-            guard(lambda: ca.update_conn(s, c, who.user_id, keyring(), **kw))
+            guard(lambda: ca.update_conn(s, c, who.user_id, keyring(), settings=st, **kw))
             return saved_out(c)
 
     @r.delete("/v1/connections/{connection_id}", status_code=204)
@@ -216,7 +242,7 @@ def make_router(auth: Auth) -> APIRouter:
                         return ConnectionTestOut(ok=False, latency_ms=0, error=str(e))
         if not kind:
             raise HTTPException(422, "kind is required without connection_id")
-        res = await run_in_threadpool(ca.test, kind, config, secret, req.passphrase)
+        res = await run_in_threadpool(ca.test, kind, config, secret, req.passphrase, st)
         return ConnectionTestOut(ok=res.ok, latency_ms=res.latency_ms, error=res.error)
 
     @r.post(

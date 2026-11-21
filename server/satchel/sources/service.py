@@ -42,7 +42,8 @@ def plain_config(src: ContextSource, settings: Settings | None = None) -> dict[s
 
     st = settings or get_settings()
     try:
-        return unseal_source_config(src, Keyring.from_settings(st) if configured(st) else None)
+        return unseal_source_config(src, Keyring.from_settings(st) if configured(st) else None,
+                                    st)
     except (ValueError, DecryptionError) as e:
         raise SourceSyncError(f"source {src.name!r}: {e}") from None
 

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from satchel.api.auth import Auth, Caller
 from satchel.api.common import escape_like
-from satchel.api.connections import secret_source
+from satchel.api.connections import public_ref, secret_source
 from satchel.api.schemas import (
     AssetDetail,
     AssetLinkedItem,
@@ -127,6 +127,7 @@ def make_router(auth: Auth) -> APIRouter:
                     id=c.id, name=c.name, kind=c.kind, default_for_ai=c.default_for_ai,
                     has_secret=c.secret_ref is not None, asset_count=cnt,
                     secret=secret_source(c.secret_ref),
+                    secret_ref=public_ref(c.secret_ref) if who.has_role("admin") else None,
                     config=dict(c.config or {}) if who.has_role("admin") else None,
                 )
                 for c, cnt in s.execute(select(Connection, n).order_by(Connection.name))
