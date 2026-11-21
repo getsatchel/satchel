@@ -12,6 +12,11 @@ data:
   SATCHEL_LOG_FORMAT: {{ .Values.logFormat | quote }}
   SATCHEL_PUBLIC_URL: {{ .Values.publicUrl | quote }}
   SATCHEL_RESULT_DIR: {{ .Values.resultDir | quote }}
+  {{- with .Values.forwardedAllowIps }}
+  SATCHEL_FORWARDED_ALLOW_IPS: {{ . | quote }}
+  {{- end }}
+  SATCHEL_RATE_LIMIT_AUTH_PER_MIN: {{ .Values.rateLimits.authPerMin | quote }}
+  SATCHEL_RATE_LIMIT_MCP_PER_MIN: {{ .Values.rateLimits.mcpPerMin | quote }}
   {{- with .Values.sessionRetentionDays }}
   SATCHEL_SESSION_RETENTION_DAYS: {{ . | quote }}
   {{- end }}

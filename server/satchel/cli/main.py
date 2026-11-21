@@ -183,6 +183,7 @@ def serve_api(
     uvicorn.run(
         "satchel.api.app:create_app", factory=True, host=host, port=port, reload=reload,
         log_config=uvicorn_log_config(st.log_format),
+        forwarded_allow_ips=st.forwarded_allow_ips,
     )
 
 
@@ -200,6 +201,7 @@ def serve_mcp(host: str = "127.0.0.1", port: int = 8081) -> None:
     uvicorn.run(
         "satchel.mcp.http:create_standalone_app", factory=True, host=host, port=port,
         log_config=uvicorn_log_config(st.log_format),
+        forwarded_allow_ips=st.forwarded_allow_ips,
     )
 
 

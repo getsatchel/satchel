@@ -93,6 +93,23 @@
       "minLength": 1,
       "pattern": "^(gs://|s3://|/)"
     },
+    "forwardedAllowIps": {
+      "type": "string"
+    },
+    "rateLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authPerMin": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mcpPerMin": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
     "sessionRetentionDays": {
       "type": [
         "integer",

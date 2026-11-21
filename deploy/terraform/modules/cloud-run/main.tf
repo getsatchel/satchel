@@ -22,6 +22,10 @@ locals {
 
       SATCHEL_OIDC_ISSUER    = var.oidc_issuer
       SATCHEL_OIDC_CLIENT_ID = var.oidc_client_id
+
+      # Every request reaches the container through Google's front end, which sets
+      # X-Forwarded-For: trust it for the client address (rate limits, logs).
+      SATCHEL_FORWARDED_ALLOW_IPS = "*"
     },
     var.embedding_provider == null ? {} : { SATCHEL_EMBEDDING_PROVIDER = var.embedding_provider },
     var.chat_provider == null ? {} : { SATCHEL_CHAT_PROVIDER = var.chat_provider },

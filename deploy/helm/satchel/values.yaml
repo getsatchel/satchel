@@ -26,6 +26,17 @@ resultDir: /var/lib/satchel/results
 # or longer limit for their workspace in Settings -> Limits.
 sessionRetentionDays: null
 
+# SATCHEL_FORWARDED_ALLOW_IPS: proxies whose X-Forwarded-For gives the client address (rate
+# limits, logs). "*" suits pods reached only through the ingress / load balancer (the
+# NetworkPolicy admits only that); set the proxies' CIDRs if anything else can reach the pods.
+forwardedAllowIps: "*"
+
+# Requests per minute per client: sign-in and OAuth by IP, /mcp by token; 0 turns one off. Per
+# pod, so N replicas allow N times as many. A WAF's own limits apply on top.
+rateLimits:
+  authPerMin: 30
+  mcpPerMin: 600
+
 oidc:
   issuer: ""
   clientId: ""

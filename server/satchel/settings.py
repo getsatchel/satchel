@@ -156,6 +156,14 @@ class Settings(BaseSettings):
     secret_ref_allow: str = ""
     # How long a secret read from a secret manager is cached in memory (seconds).
     secret_cache_s: float = 300.0
+    # Requests per minute per client (satchel.api.rate_limit); 0 turns a group off. Sign-in and
+    # OAuth are keyed by IP, /mcp by bearer token. Per server process.
+    rate_limit_auth_per_min: int = 30
+    rate_limit_mcp_per_min: int = 600
+    # Proxies whose X-Forwarded-For / -Proto uvicorn trusts for the client address (comma-separated
+    # IPs or CIDRs, or "*" when only the proxy can reach the server). Unset: uvicorn's default,
+    # 127.0.0.1 (or FORWARDED_ALLOW_IPS).
+    forwarded_allow_ips: str | None = None
     # Client ID Metadata Documents (MCP draft): fetch client metadata from https client_ids.
     oauth_cimd_enabled: bool = True
     oauth_cimd_allow_private_hosts: bool = False  # SSRF guard off: tests/dev only
