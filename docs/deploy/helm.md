@@ -140,6 +140,8 @@ Generated from `values.yaml` (helm-docs style); `values.schema.json` is strict, 
 | `env` | `production` | SATCHEL_ENV. Production refuses to start without OIDC, with SATCHEL_DEV_AUTH, or with a non-https publicUrl. |
 | `logFormat` | `json` |  |
 | `resultDir` | `/var/lib/satchel/results` | SATCHEL_RESULT_DIR. Must be gs://bucket/prefix or s3://bucket/prefix when more than one web replica can run. |
+| `forwardedAllowIps` | `"*"` | SATCHEL_FORWARDED_ALLOW_IPS: proxies whose `X-Forwarded-For` gives the client address. `*` suits pods reached only through the ingress or load balancer; list CIDRs otherwise. |
+| `rateLimits.authPerMin` / `rateLimits.mcpPerMin` | `30` / `600` | Requests a minute per client for sign-in/OAuth (by IP) and `/mcp` (by token); `0` turns one off. Per pod. ([Rate limits](configuration.md#rate-limits)) |
 | `secretRefs.allow` / `secretRefs.mode` | `[]` / `store` | SATCHEL_SECRET_REF_ALLOW and SATCHEL_SECRETS: the secret manager references the UI and API accept, and `references` to store no secret values ([Secrets](secrets.md)). Grant the runtime identity read access to those secrets. |
 | `sessionRetentionDays` | `null` | SATCHEL_SESSION_RETENTION_DAYS: the worker deletes agent sessions older than this (7-3650; sessions with feedback are kept). null keeps them forever. Workspace admins can override it in Settings -> Limits. |
 | `oidc.issuer` | `""` |  |

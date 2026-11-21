@@ -47,6 +47,9 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_RESULT_TTL_DAYS` | `7` | Default result cache lifetime. |
 | `SATCHEL_SQL_ROW_CAP` | `1000` | Default max rows per query (workspace Limits may override). |
 | `SATCHEL_SQL_TIMEOUT_S` | `30.0` | Default query timeout in seconds (workspace Limits may override). |
+| `SATCHEL_RATE_LIMIT_AUTH_PER_MIN` | `30` | Sign-in and OAuth requests a minute per client IP; `0` turns it off ([Rate limits](../deploy/configuration.md#rate-limits)). |
+| `SATCHEL_RATE_LIMIT_MCP_PER_MIN` | `600` | `/mcp` requests a minute per token (else IP); `0` turns it off. |
+| `SATCHEL_FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxies whose `X-Forwarded-For` gives the client address: IPs/CIDRs, comma-separated, or `*`. |
 | `SATCHEL_SESSION_RETENTION_DAYS` | — | Default session retention; unset keeps forever. |
 | `SATCHEL_PUBLIC_URL` | `http://localhost:8080` | Externally visible base URL (OIDC callbacks, OAuth metadata). |
 | `SATCHEL_OIDC_ISSUER` | — | OIDC issuer URL. |

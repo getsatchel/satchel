@@ -18,6 +18,9 @@ x-satchel: &satchel
     SATCHEL_OIDC_CLIENT_SECRET: ${SATCHEL_OIDC_CLIENT_SECRET:?}
     SATCHEL_ENCRYPTION_KEY: ${SATCHEL_ENCRYPTION_KEY:?}
     SATCHEL_LOG_FORMAT: json
+    # Only Caddy reaches the web container, so trust its X-Forwarded-For for the client address
+    # (rate limits and logs). The web port is not published on the host.
+    SATCHEL_FORWARDED_ALLOW_IPS: "*"
     # Embeddings: fastembed (local, about 1.3 GiB per process), openai_compat or hash. See docs/deploy/vm.md.
     SATCHEL_EMBEDDING_PROVIDER: ${SATCHEL_EMBEDDING_PROVIDER:-fastembed}
     SATCHEL_EMBEDDING_BASE_URL: ${SATCHEL_EMBEDDING_BASE_URL:-https://api.openai.com/v1}

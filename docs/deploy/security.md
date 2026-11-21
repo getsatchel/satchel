@@ -8,10 +8,11 @@ side (network, identity, encryption at rest, edge) is covered per platform: see 
 |---|---|---|
 | Workspaces | Every table has Postgres row-level security, forced, and Satchel connects as roles without `BYPASSRLS`. A test fails if a table lacks it. | [Database](database.md) |
 | Sign-in | OIDC through your identity provider. Agents use OAuth 2.1 with PKCE. Tokens are stored as SHA-256 hashes only. | [Connecting Claude](../integrations/claude.md) |
-| Warehouse SQL | `run_sql` takes one read-only `SELECT`/`WITH`, parsed with sqlglot, row-capped and timed out, in a read-only session. Also connect with a role that can only read: the setup SQL in **Add connection** creates one. | [MCP tools](../reference/mcp-tools.md) |
+| Warehouse SQL | `run_sql` takes one read-only `SELECT`/`WITH`, parsed with sqlglot, row-capped and timed out, in a read-only session. Also connect with a role that can only read: the setup SQL in **Add connection** creates one, and **Test** warns when the role can write. | [MCP tools](../reference/mcp-tools.md) |
 | Secrets | Encrypted with `SATCHEL_ENCRYPTION_KEY`, or kept in a secret manager and read by reference. `SATCHEL_SECRETS=references` makes Satchel store none. | [Secrets](secrets.md) |
 | Audit | Admin and curation actions are recorded, and can be exported to object storage. | [Storage and audit](storage-and-audit.md) |
 | HTTP | Security headers on every response, and a strict Content-Security-Policy on the UI (below). | |
+| Rate limits | Sign-in and OAuth: 30 requests a minute per client IP. `/mcp`: 600 a minute per token. Past the limit the answer is `429`. | [Rate limits](configuration.md#rate-limits) |
 
 ## HTTP headers
 

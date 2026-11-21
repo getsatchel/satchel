@@ -62,6 +62,27 @@ With Terraform: copy the current value from the secret manager into
 `SATCHEL_ENCRYPTION_KEY_PREVIOUS` (via `extra_values` / `extraEnv` from a secret), then
 `terraform apply -replace=module.foundation.random_id.encryption_key`, and continue at step 2.
 
+## Rate limits
+
+Satchel limits the requests each client can make to the routes worth guessing at or flooding. This
+matters where no WAF sits in front, as on [one VM](vm.md):
+
+| Routes | Keyed by | Default | Setting |
+|---|---|---|---|
+| Sign-in (`/auth/login/start`, `/auth/callback`) and OAuth (`/oauth/...`) | client IP | 30 a minute | `SATCHEL_RATE_LIMIT_AUTH_PER_MIN` |
+| `/mcp` | the bearer token (else the IP), so a team behind one NAT isn't one client | 600 a minute | `SATCHEL_RATE_LIMIT_MCP_PER_MIN` |
+
+Each is a token bucket: a client may burst up to the limit, then gets one more request every
+`60 / limit` seconds. Past the limit the answer is `429` with `Retry-After`. `0` turns a group off.
+
+Limits are kept in each server process, so N replicas allow up to N times the rate. A WAF in front
+adds its own: on EKS, AWS WAF has a per-IP rate limit (`waf_rate_limit`).
+
+**The client address.** Behind a proxy, every request comes from the proxy unless Satchel trusts
+its `X-Forwarded-For`. `SATCHEL_FORWARDED_ALLOW_IPS` lists the proxies to trust: IPs or CIDRs,
+comma-separated, or `*` when only the proxy can reach Satchel. The one-VM Compose file, the Helm
+chart (`forwardedAllowIps`) and the Cloud Run module set `*`. Unset, only `127.0.0.1` is trusted.
+
 ## Settings → Models
 
 The LLM that curation uses to draft suggestions and that evals use to drive the reference agent

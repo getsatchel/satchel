@@ -116,4 +116,8 @@ def create_standalone_app(
     app = Starlette(routes=[Route("/healthz", healthz)])
     mount_mcp(app, mcp)
     mount_oauth(app, OAuthApp(eng, st))
+    from satchel.api.rate_limit import RateLimitMiddleware
+
+    app.add_middleware(RateLimitMiddleware, auth_per_min=st.rate_limit_auth_per_min,
+                       mcp_per_min=st.rate_limit_mcp_per_min)
     return app

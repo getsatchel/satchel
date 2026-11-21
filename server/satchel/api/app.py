@@ -36,6 +36,7 @@ from satchel.api import (
 from satchel.api import jobs as jobs_api
 from satchel.api.auth import ApiContext, Auth, Caller
 from satchel.api.health import mount_readyz
+from satchel.api.rate_limit import RateLimitMiddleware
 from satchel.api.schemas import (
     ConnectInfo,
     MeOut,
@@ -135,6 +136,8 @@ def create_app(
     eng = engine or get_engine()
     emb = embedder or make_embedder()
     st = settings or get_settings()
+    app.add_middleware(RateLimitMiddleware, auth_per_min=st.rate_limit_auth_per_min,
+                       mcp_per_min=st.rate_limit_mcp_per_min)
     app.add_middleware(SecurityHeadersMiddleware,
                        hsts=st.public_url.lower().startswith("https://"))
     if mcp:
