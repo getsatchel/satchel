@@ -60,6 +60,10 @@ class ToolUse:
     id: str
     name: str
     input: dict[str, Any]
+    # Provider fields that must go back unchanged with this call on the next turn: Gemini's
+    # OpenAI-compatible endpoint puts a thought signature in ``extra_content`` and refuses a
+    # function call sent back without it.
+    extra: dict[str, Any] | None = None
 
 
 @dataclass
@@ -84,7 +88,7 @@ class ModelTurn:
 
 # Provider-neutral transcript for the tool loop. Each item is one of:
 #   {"role": "user", "content": str}
-#   {"role": "assistant", "text": str, "tool_uses": [{"id","name","input"}]}
+#   {"role": "assistant", "text": str, "tool_uses": [{"id","name","input"[,"extra"]}]}
 #   {"role": "tool", "results": [{"id","name","content","is_error"}]}
 AgentMessage = dict[str, Any]
 
@@ -324,7 +328,8 @@ class OpenAICompatChat(_HttpChat):
                 if m.get("tool_uses"):
                     entry["tool_calls"] = [
                         {"id": t["id"], "type": "function",
-                         "function": {"name": t["name"], "arguments": json.dumps(t["input"])}}
+                         "function": {"name": t["name"], "arguments": json.dumps(t["input"])},
+                         **({"extra_content": t["extra"]} if t.get("extra") else {})}
                         for t in m["tool_uses"]
                     ]
                 msgs.append(entry)
@@ -351,8 +356,10 @@ class OpenAICompatChat(_HttpChat):
                 args = json.loads(fn.get("arguments") or "{}")
             except json.JSONDecodeError:
                 args = {}
+            extra = call.get("extra_content")
             turn.tool_uses.append(ToolUse(str(call.get("id")), str(fn.get("name")),
-                                          args if isinstance(args, dict) else {}))
+                                          args if isinstance(args, dict) else {},
+                                          extra if isinstance(extra, dict) else None))
         return turn
 
 
