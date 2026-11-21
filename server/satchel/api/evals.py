@@ -21,6 +21,7 @@ from satchel.api.eval_schemas import (
     CaseMove,
     CaseOut,
     CompareOut,
+    EvalModelOut,
     GateOut,
     GateSuiteOut,
     GradeOut,
@@ -37,9 +38,11 @@ from satchel.api.eval_schemas import (
 from satchel.evals import schedule
 from satchel.evals.gate import evaluate_gate, load_gate_config, start_gate_runs
 from satchel.evals.jobs import enqueue_runs, eval_provider
+from satchel.evals.providers import resolve as resolve_eval_model
 from satchel.evals.runner import EvalProvider, compare_summaries, create_run, execute_run
 from satchel.evals.store import latest_suite, latest_suites, save_suite, suite_of
 from satchel.evals.suite import SuiteError, parse_suite_text
+from satchel.llm.connections import build_chat
 from satchel.mcp.auth import Principal
 from satchel.store.db import workspace_session
 from satchel.store.models import EvalCaseResult, EvalRun, EvalSuite, Release
@@ -101,6 +104,7 @@ def _suite_out(s: Session, row: EvalSuite, required: set[str]) -> SuiteOut:
         id=row.id, key=row.key, name=row.name, version_seq=row.version_seq,
         managed_by=row.managed_by, cases=len(suite.cases), measures=suite.measures(),
         needs_agent=suite.needs_agent, required_by_gate=row.key in required,
+        model=f"{suite.model.provider}:{suite.model.name}" if suite.model else None,
         created_at=row.created_at, last_run_at=last, schedule_hours=hours, next_run_at=nxt,
     )
 
@@ -147,6 +151,28 @@ def make_router(auth: Auth) -> APIRouter:
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             required = set(load_gate_config(s, who.workspace_id).require)
             return [_suite_out(s, row, required) for row in latest_suites(s, who.workspace_id)]
+
+    @r.get("/v1/evals/model", response_model=EvalModelOut)
+    def eval_model(who: Run_, suite: str, model: str | None = None) -> EvalModelOut:
+        """Which model a run of ``suite`` would use (with ``model`` as the run's override), and
+        why its agent-driven cases would be skipped, if they would."""
+        with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
+            row = latest_suite(s, who.workspace_id, suite)
+            if row is None:
+                raise HTTPException(404, f"no such suite: {suite}")
+            spec = suite_of(row).model
+        res = resolve_eval_model(spec, model, st, workspace_id=who.workspace_id, engine=eng)
+        pinned = f"{spec.provider}:{spec.name}" if spec else None
+        if res.target is None:
+            return EvalModelOut(model_id=None, connection=None, source=res.source, pinned=pinned,
+                                problem=res.problem)
+        chat = build_chat(res.target, st, res.model)
+        if chat is None:
+            return EvalModelOut(
+                model_id=None, connection=res.target.name, source=res.source, pinned=pinned,
+                problem=f"the {res.target.name!r} model connection is incomplete (key or model)")
+        return EvalModelOut(model_id=chat.model_id, connection=res.target.name,
+                            source=res.source, pinned=pinned, problem=None)
 
     @r.get("/v1/evals/suites/{key:path}", response_model=SuiteDetail)
     def get_suite(key: str, who: Any_) -> SuiteDetail:

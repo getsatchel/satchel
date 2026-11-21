@@ -280,6 +280,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/evals/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Eval Model
+         * @description Which model a run of ``suite`` would use (with ``model`` as the run's override), and
+         *     why its agent-driven cases would be skipped, if they would.
+         */
+        get: operations["eval_model"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/evals/runs": {
         parameters: {
             query?: never;
@@ -2125,6 +2146,38 @@ export interface components {
             primary: boolean;
             /** Source */
             source: string;
+        };
+        /**
+         * EvalModelOut
+         * @description The model a run of a suite would use, worked out the way the run does.
+         */
+        EvalModelOut: {
+            /**
+             * Connection
+             * @description The model connection it goes through ('deployment', 'environment' or a Settings > Models name)
+             */
+            connection: string | null;
+            /**
+             * Model Id
+             * @description provider:name, or null when there is none
+             */
+            model_id: string | null;
+            /**
+             * Pinned
+             * @description The suite's own model, if it pins one
+             */
+            pinned: string | null;
+            /**
+             * Problem
+             * @description Why agent-driven cases would be skipped; null when the model is usable
+             */
+            problem: string | null;
+            /**
+             * Source
+             * @description What chose it: the run's model, the suite's pinned model, or the workspace's model
+             * @enum {string}
+             */
+            source: "override" | "suite" | "workspace";
         };
         /**
          * EvidenceSession
@@ -4016,6 +4069,11 @@ export interface components {
             managed_by: string;
             /** Measures */
             measures: string[];
+            /**
+             * Model
+             * @description The model the suite pins, as provider:name; null uses the workspace's model
+             */
+            model?: string | null;
             /** Name */
             name: string;
             /** Needs Agent */
@@ -4076,6 +4134,11 @@ export interface components {
             managed_by: string;
             /** Measures */
             measures: string[];
+            /**
+             * Model
+             * @description The model the suite pins, as provider:name; null uses the workspace's model
+             */
+            model?: string | null;
             /** Name */
             name: string;
             /** Needs Agent */
@@ -5109,6 +5172,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompareOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eval_model: {
+        parameters: {
+            query: {
+                suite: string;
+                model?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalModelOut"];
                 };
             };
             /** @description Validation Error */

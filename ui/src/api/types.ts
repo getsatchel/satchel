@@ -55,6 +55,7 @@ export type CurateRunOut = S["CurateRunOut"];
 
 // ---- evals (M5) ----
 export type EvalSuite = Req<S["SuiteOut"]>;
+export type EvalModel = S["EvalModelOut"];
 export type EvalSuiteDetail = Req<S["SuiteDetail"]>;
 export type MeasureStat = S["MeasureStat"];
 export type EvalRun = Req<S["RunOut"]>;

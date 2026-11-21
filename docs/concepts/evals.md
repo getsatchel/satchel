@@ -49,8 +49,15 @@ suite made only of `context_used` rubrics runs without any LLM, so it is a cheap
 regression check.
 
 The model comes from, in order: the run's model override, the suite's `model`, then the
-workspace's default model (Settings → Models, or `SATCHEL_CHAT_*`). With no model, agent-driven
-cases are `skipped`.
+workspace's default model (Settings → Models, or `SATCHEL_CHAT_*`). A pinned or chosen provider
+goes through the workspace's model of that provider. With no model, agent-driven cases are
+`skipped`.
+
+The **Evals** page shows the workspace's model above the suites, and each suite's pinned model.
+**Run** lists every configured model to pick from, and says which model the run will use before
+it starts (`GET /v1/evals/model?suite=<key>&model=<override>`). If the suite pins a model the
+workspace doesn't have, the picker starts on the workspace's own model. If no model can run the
+suite, it says why and links to **Settings > Models**.
 
 ## Running a suite
 
