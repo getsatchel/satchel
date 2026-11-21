@@ -129,6 +129,8 @@ def run_checks(settings: Settings, *, check_clients: bool = True) -> list[Check]
 
     # 7b. Encryption key (secrets stored in the database)
     out.append(_encryption(settings, engine if st.ok else None))
+    if settings.secrets == "references":
+        out.append(_stored_secrets(engine if st.ok else None))
 
     # 8. Connections
     if summary is None or not summary.exists:
@@ -244,6 +246,24 @@ def _encryption(settings: Settings, engine: Engine | None) -> Check:
         return Check(name, WARN, f"{stale} secret(s) still on a previous key",
                      "satchel secrets rotate")
     return Check(name, OK, f"key {kr.current_id} configured")
+
+
+def _stored_secrets(engine: Engine | None) -> Check:
+    """SATCHEL_SECRETS=references refuses new secret values; list the ones stored before."""
+    name = "Stored secrets"
+    if engine is None:
+        return Check(name, WARN, "SATCHEL_SECRETS=references; database not reachable to check")
+    from satchel.secrets import iter_sealed
+    from satchel.store.db import admin_session
+
+    with admin_session(engine=engine) as s:
+        # A push webhook's secret is Satchel's own (it verifies the git host), not a credential.
+        labels = [x.label for x in iter_sealed(s) if not x.label.endswith(".webhook_secret")]
+    if not labels:
+        return Check(name, OK, "none: every secret is a reference")
+    shown = ", ".join(labels[:5]) + (f" and {len(labels) - 5} more" if len(labels) > 5 else "")
+    return Check(name, WARN, f"{len(labels)} secret value(s) still stored: {shown}",
+                 "replace each with a secret manager reference (aws-sm:... or gcp-sm:...)")
 
 
 def _result_dir(settings: Settings, out: list[Check]) -> None:

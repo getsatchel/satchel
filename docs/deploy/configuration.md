@@ -31,6 +31,9 @@ openssl rand -hex 32        # or: satchel secrets generate-key
   one into the local profile (`~/.config/satchel/config.toml`, mode 0600) for development.
 - **Without it** Satchel still runs. Settings explains that API keys cannot be saved, keyless
   connections (a local Ollama) still work, and `satchel doctor` warns.
+- **Not storing secrets at all.** Each secret field also takes a secret manager reference
+  (`aws-sm:...`, `gcp-sm:...`), and `SATCHEL_SECRETS=references` refuses secret values entirely:
+  see [Secrets](secrets.md).
 - **Losing it** makes every stored secret unreadable. Connections then fail with "sealed with
   key …" and must be re-entered. Back it up with the rest of your secrets, not with the database.
 
@@ -123,7 +126,8 @@ redirects there). Admins add and change them; curators see the list.
   `satchel-server[bigquery]` and `satchel-server[snowflake]`; the Docker image includes both. Without the
   library the kind is listed unavailable with the install command.
 - Keys (a PEM or JSON key file) are entered in a multi-line box, so newlines are kept. Every
-  secret is write-only and sealed with `SATCHEL_ENCRYPTION_KEY`.
+  secret is write-only and sealed with `SATCHEL_ENCRYPTION_KEY`, unless it is a
+  [secret manager reference](secrets.md), which is kept instead.
 - **Test** opens the connection and runs `select 1`, before or after saving. **Crawl** refreshes
   the catalog. **Default for agents** is the connection tools use when the agent names none.
 - **Remove** marks the connection's catalogued tables and columns as dropped and detaches them,

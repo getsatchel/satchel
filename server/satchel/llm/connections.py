@@ -29,6 +29,7 @@ from sqlalchemy import Engine, select, update
 from sqlalchemy.orm import Session
 
 from satchel.audit import record as record_audit
+from satchel.core import secret_refs
 from satchel.core.crypto import GENERATE_HINT, EncryptionUnavailable, Keyring, secret_hint
 from satchel.llm.chat import (
     DEFAULT_ANTHROPIC_MODEL,
@@ -42,7 +43,7 @@ from satchel.llm.chat import (
     OpenAICompatChat,
 )
 from satchel.secrets import llm_aad
-from satchel.settings import Settings
+from satchel.settings import Settings, get_settings
 from satchel.store.db import admin_session
 from satchel.store.models import LlmConnection
 
@@ -95,7 +96,13 @@ def deployment_target(st: Settings) -> ChatTarget | None:
     if st.chat_provider is None:
         return None
     key = st.chat_api_key
-    if key is None:
+    if key is not None and secret_refs.is_ref(key):
+        try:
+            key = secret_refs.resolve(key, st)
+        except secret_refs.SecretRefError as e:
+            log.error("SATCHEL_CHAT_API_KEY: %s", e)
+            key = None
+    elif key is None:
         if st.chat_provider == "anthropic":
             key = os.environ.get("ANTHROPIC_API_KEY")
         elif st.chat_provider == "gemini":
@@ -113,9 +120,16 @@ def gemini_env_key() -> str | None:
     return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
 
 
-def target_of(row: LlmConnection, keyring: Keyring | None) -> ChatTarget:
-    """Decrypt a row. ``keyring`` may be ``None`` only when the row holds no secrets."""
+def target_of(row: LlmConnection, keyring: Keyring | None, settings: Settings | None = None,
+              *, fresh: bool = False) -> ChatTarget:
+    """Decrypt a row, or read its key reference. ``keyring`` may be ``None`` only when the row
+    holds no sealed secrets."""
     key: str | None = None
+    if row.api_key_ref:
+        try:
+            key = secret_refs.resolve(row.api_key_ref, settings or get_settings(), fresh=fresh)
+        except secret_refs.SecretRefError as e:
+            raise LlmConnectionError(f"LLM connection {row.name!r}: {e}") from None
     headers: dict[str, str] = {}
     if row.api_key_enc or row.extra_headers_enc:
         if keyring is None:
@@ -160,7 +174,7 @@ def resolve_target(
         rows = [r for r in rows if r.provider == provider]
     if not rows:
         return None
-    return target_of(rows[0], _keyring_or_none(st))
+    return target_of(rows[0], _keyring_or_none(st), st)
 
 
 def build_chat(
@@ -298,11 +312,25 @@ def _need(keyring: Keyring | None) -> Keyring:
 
 
 def _seal(row: LlmConnection, keyring: Keyring | None, api_key: Any,
-          headers: Any) -> list[str]:
+          headers: Any, settings: Settings) -> list[str]:
     """Apply secret changes (``_UNSET`` = keep); returns the changed field names (never values)
-    for the audit. Only storing a non-empty secret needs the key."""
+    for the audit. Only storing a non-empty secret needs the key. An API key that is a secret
+    manager reference is kept as the reference."""
     changed: list[str] = []
+    try:
+        if api_key is not _UNSET and api_key and secret_refs.is_api_ref(api_key):
+            row.api_key_ref = str(secret_refs.check_api_ref(api_key, settings))
+            row.api_key_enc = row.api_key_hint = None
+            changed.append("api_key")
+            api_key = _UNSET
+        elif api_key is not _UNSET and api_key:
+            secret_refs.refuse_storing(settings, "the API key")
+        if headers is not _UNSET and any((headers or {}).values()):
+            secret_refs.refuse_storing(settings, "header values")
+    except secret_refs.SecretRefError as e:
+        raise LlmConnectionError(str(e)) from None
     if api_key is not _UNSET:
+        row.api_key_ref = None
         if api_key:
             if len(api_key) > MAX_SECRET:
                 raise LlmConnectionError("api_key is too long")
@@ -333,7 +361,7 @@ def create_connection(
     s: Session, workspace_id: uuid.UUID, actor: uuid.UUID | None, keyring: Keyring | None, *,
     name: str, provider: str, base_url: str | None = None, default_model: str | None = None,
     api_key: str | None = None, extra_headers: dict[str, str] | None = None,
-    is_default: bool | None = None,
+    is_default: bool | None = None, settings: Settings | None = None,
 ) -> LlmConnection:
     name = validate_name(name)
     base = validate_base_url(base_url)
@@ -347,7 +375,7 @@ def create_connection(
     row = LlmConnection(id=uuid.uuid4(), workspace_id=workspace_id, name=name, provider=provider,
                         base_url=base, default_model=model, created_by=actor,
                         extra_header_names=[])
-    _seal(row, keyring, api_key or None, extra_headers or {})
+    _seal(row, keyring, api_key or None, extra_headers or {}, settings or get_settings())
     s.add(row)
     s.flush()
     if is_default or (is_default is None and first):
@@ -366,6 +394,7 @@ def update_connection(
     s: Session, row: LlmConnection, actor: uuid.UUID | None, keyring: Keyring | None, *,
     name: Any = _UNSET, base_url: Any = _UNSET, default_model: Any = _UNSET,
     api_key: Any = _UNSET, extra_headers: Any = _UNSET, is_default: Any = _UNSET,
+    settings: Settings | None = None,
 ) -> LlmConnection:
     """Patch semantics: an argument left out keeps the stored value; ``api_key=None`` (or "")
     clears the key; ``extra_headers`` replaces the whole map."""
@@ -386,8 +415,9 @@ def update_connection(
         row.default_model = (default_model or "").strip() or None
         changed.append("default_model")
     changed += _seal(row, keyring, _UNSET if api_key is _UNSET else (api_key or None),
-                     extra_headers)
-    _check_usable(row.provider, row.base_url, row.default_model, row.api_key_enc is not None)
+                     extra_headers, settings or get_settings())
+    _check_usable(row.provider, row.base_url, row.default_model,
+                  row.api_key_enc is not None or row.api_key_ref is not None)
     if is_default is not _UNSET:
         if is_default and not row.is_default:
             _make_default(s, row)

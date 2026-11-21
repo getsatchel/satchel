@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from satchel.api.auth import Auth, Caller
 from satchel.api.common import audit
 from satchel.api.jobs import JobOut, job_of
+from satchel.core import secret_refs
 from satchel.core.crypto import EncryptionUnavailable, Keyring, configured
 from satchel.sources import admin as source_admin
 from satchel.sources import dbt_build, git
@@ -390,7 +391,7 @@ def make_router(auth: Auth) -> APIRouter:
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             src = guarded(lambda: source_admin.create(
                 s, who.workspace_id, who.user_id, keyring(), kind=req.kind, name=req.name,
-                config=req.config))
+                config=req.config, settings=auth.ctx.settings))
             s.refresh(src)
             return out_of(s, src)
 
@@ -401,7 +402,8 @@ def make_router(auth: Auth) -> APIRouter:
             if src is None:
                 raise HTTPException(404, "no such source")
             guarded(lambda: source_admin.update_src(s, src, who.user_id, keyring(),
-                                                     config=req.config))
+                                                     config=req.config,
+                                                     settings=auth.ctx.settings))
             return out_of(s, src)
 
     @r.post("/v1/sources/git/test", response_model=GitTestOut)
@@ -417,6 +419,13 @@ def make_router(auth: Auth) -> APIRouter:
                     token = plain_config(src, auth.ctx.settings).get("git_token")
                 except SourceSyncError as e:
                     return GitTestOut(ok=False, error=str(e))
+        if secret_refs.is_api_ref(token):
+            try:
+                ref = secret_refs.check_api_ref(token or "", auth.ctx.settings)
+                token = await run_in_threadpool(secret_refs.resolve, str(ref), auth.ctx.settings,
+                                                fresh=True)
+            except secret_refs.SecretRefError as e:
+                return GitTestOut(ok=False, error=str(e))
         spec = git.GitSpec(url=req.url, ref=req.ref, username=req.username, token=token)
         try:
             commit = await run_in_threadpool(git.resolve, spec)

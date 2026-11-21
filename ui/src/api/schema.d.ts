@@ -897,6 +897,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/secret-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Secret Policy */
+        get: operations["secret_policy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions": {
         parameters: {
             query?: never;
@@ -1699,7 +1716,7 @@ export interface components {
             passphrase?: string | null;
             /**
              * Secret
-             * @description Write-only.
+             * @description Write-only. The password or key, or a secret manager reference (aws-sm:..., gcp-sm:...) inside SATCHEL_SECRET_REF_ALLOW, which is kept instead of the value.
              */
             secret?: string | null;
         };
@@ -1776,9 +1793,14 @@ export interface components {
             name: string;
             /**
              * Secret
-             * @description 'stored' (encrypted, set in the UI), 'env' (env:NAME, CLI) or null.
+             * @description 'stored' (encrypted, set in the UI), 'reference' (a secret manager), 'env' (env:NAME, CLI) or null.
              */
-            secret?: ("stored" | "env") | null;
+            secret?: ("stored" | "env" | "reference") | null;
+            /**
+             * Secret Ref
+             * @description The secret manager reference (admins only), when secret is 'reference'. It names the secret, it is not the secret.
+             */
+            secret_ref?: string | null;
         };
         /** ConnectionPatch */
         ConnectionPatch: {
@@ -1797,7 +1819,7 @@ export interface components {
             passphrase?: string | null;
             /**
              * Secret
-             * @description Write-only; null removes the secret.
+             * @description Write-only. The password or key, or a secret manager reference (aws-sm:..., gcp-sm:...) inside SATCHEL_SECRET_REF_ALLOW, which is kept instead of the value. Null removes the secret.
              */
             secret?: string | null;
         };
@@ -1832,7 +1854,12 @@ export interface components {
             /** Name */
             name: string;
             /** Secret */
-            secret: ("stored" | "env") | null;
+            secret: ("stored" | "env" | "reference") | null;
+            /**
+             * Secret Ref
+             * @description The secret manager reference, when secret is 'reference'.
+             */
+            secret_ref?: string | null;
         };
         /** ConnectionTestOut */
         ConnectionTestOut: {
@@ -2608,7 +2635,7 @@ export interface components {
         LlmConnectionCreate: {
             /**
              * Api Key
-             * @description Write-only.
+             * @description Write-only. The key, or a secret manager reference (aws-sm:..., gcp-sm:...) inside SATCHEL_SECRET_REF_ALLOW, which is kept instead of the key.
              */
             api_key?: string | null;
             /** Base Url */
@@ -2642,6 +2669,11 @@ export interface components {
              * @description Last four characters, e.g. '…abcd'.
              */
             api_key_hint?: string | null;
+            /**
+             * Api Key Ref
+             * @description The secret manager reference the key is read from, if any.
+             */
+            api_key_ref?: string | null;
             /** Base Url */
             base_url: string | null;
             /**
@@ -3436,6 +3468,23 @@ export interface components {
             query: string;
             /** Types */
             types?: string[] | null;
+        };
+        /**
+         * SecretPolicyOut
+         * @description How secret fields behave on this deployment (Connections, Models and Sources forms).
+         */
+        SecretPolicyOut: {
+            /**
+             * Allow
+             * @description SATCHEL_SECRET_REF_ALLOW patterns. Empty: references are off.
+             */
+            allow: string[];
+            /**
+             * Mode
+             * @description 'references': secret values are refused; only references are accepted.
+             * @enum {string}
+             */
+            mode: "store" | "references";
         };
         /** SensitiveRequest */
         SensitiveRequest: {
@@ -6690,6 +6739,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchHitOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    secret_policy: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-satchel-workspace"?: string | null;
+                "x-satchel-user"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretPolicyOut"];
                 };
             };
             /** @description Validation Error */

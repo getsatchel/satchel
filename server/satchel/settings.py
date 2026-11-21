@@ -147,6 +147,15 @@ class Settings(BaseSettings):
     oauth_flow_ttl_s: int = 600
     # Browser session cookie lifetime for the human UI login.
     session_ttl_s: int = 12 * 3600
+    # Secrets (satchel.core.secret_refs). `store` keeps secrets typed into the UI encrypted in
+    # Postgres; `references` refuses every secret value, so only secret manager references
+    # (aws-sm:, gcp-sm:) and keyless auth are accepted. SATCHEL_SECRETS.
+    secrets: Literal["store", "references"] = "store"
+    # Comma-separated globs of the references the API accepts, e.g.
+    # "aws-sm:arn:aws:secretsmanager:eu-west-1:123456789012:secret:satchel/*". Empty = none.
+    secret_ref_allow: str = ""
+    # How long a secret read from a secret manager is cached in memory (seconds).
+    secret_cache_s: float = 300.0
     # Client ID Metadata Documents (MCP draft): fetch client metadata from https client_ids.
     oauth_cimd_enabled: bool = True
     oauth_cimd_allow_private_hosts: bool = False  # SSRF guard off: tests/dev only

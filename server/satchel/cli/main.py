@@ -444,10 +444,13 @@ def connection_add(
     user: Annotated[str | None, typer.Option(help="Postgres user")] = None,
     role: Annotated[str | None, typer.Option(help="Postgres role to SET ROLE to")] = None,
     secret_ref: Annotated[
-        str | None, typer.Option("--secret-ref", help="env:NAME holding the password/token")
+        str | None, typer.Option("--secret-ref", help="Where the password/key is read from: "
+                                            "env:NAME, aws-sm:<name or ARN>[#field] or "
+                                            "gcp-sm:projects/<p>/secrets/<s>[#field]")
     ] = None,
 ) -> None:
-    """Add or update a connection. Secrets are referenced (env:NAME), never stored."""
+    """Add or update a connection. Secrets are referenced (env:, aws-sm:, gcp-sm:), never
+    stored."""
     from pathlib import Path
 
     from satchel.data.connections import add_connection

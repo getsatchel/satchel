@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
 import type { GitTestOut, SourceKindOut, SourceOut, SyncReportOut } from "@/api/types";
+import { isRef, refsOnly, savedPlaceholder, secretHelp, useSecretPolicy } from "@/components/SecretRef";
 import { useToast } from "@/components/Toast";
 import { docsUrl } from "@/components/nav";
 import { ErrorBox, InfoTip, Notice, Segmented, Sheet, StatusDot } from "@/components/ui";
@@ -106,7 +107,7 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
   const [publish, setPublish] = useState<"auto" | "preview">(e?.publish === "auto" ? "auto" : "preview");
   const [priority, setPriority] = useState(String(e?.priority ?? 0));
   const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(fields.map((f) => [f.name, cfg[f.name] == null || cfg[f.name] === MASK ? "" : String(cfg[f.name])])),
+    Object.fromEntries(fields.map((f) => [f.name, cfg[f.name] == null || cfg[f.name] === MASK || (isSecret(f.name) && isRef(String(cfg[f.name]))) ? "" : String(cfg[f.name])])),
   );
   const [cleared, setCleared] = useState<Record<string, boolean>>({});
   // File inputs whose saved location is a path on the server (set with the CLI). The UI can't set
@@ -123,7 +124,8 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
   const [gitRef, setGitRef] = useState(String(cfg.git_ref ?? ""));
   const [gitUser, setGitUser] = useState(String(cfg.git_username ?? ""));
   const [gitToken, setGitToken] = useState("");
-  const tokenStored = cfg.git_token === MASK;
+  const tokenStored = cfg.git_token === MASK || isRef(String(cfg.git_token ?? ""));
+  const policy = useSecretPolicy();
   const [tokenCleared, setTokenCleared] = useState(false);
   const [gitResult, setGitResult] = useState<GitTestOut | null>(null);
   const dbtParse = props.kinds.find((k) => k.kind === "dbt")?.dbt_parse ?? null;
@@ -190,7 +192,7 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
       const v = values[f.name]?.trim() ?? "";
       if (isSecret(f.name)) {
         if (v) out[f.name] = v;
-        else if (cfg[f.name] === MASK) out[f.name] = cleared[f.name] ? "" : MASK;
+        else if (cfg[f.name] === MASK || isRef(String(cfg[f.name] ?? ""))) out[f.name] = cleared[f.name] ? "" : MASK;
       } else if (v) {
         out[f.name] = v;
       }
@@ -210,7 +212,7 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
     onError: (err) => setError(errMsg(err)),
   });
 
-  const newSecret = fields.some((f) => isSecret(f.name) && values[f.name]) || (where === "git" && Boolean(gitToken));
+  const newSecret = fields.some((f) => isSecret(f.name) && values[f.name] && !isRef(values[f.name])) || (where === "git" && Boolean(gitToken) && !isRef(gitToken));
   const blocked = newSecret && !props.encryption;
 
   return (
@@ -369,15 +371,16 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
                       <span className="label">Access token (optional for public repositories)</span>
                       <input
                         className="input w-full"
-                        type="password"
+                        type={isRef(gitToken) || refsOnly(policy) ? "text" : "password"}
                         autoComplete="off"
+                        spellCheck={false}
                         value={gitToken}
                         disabled={tokenCleared}
                         onChange={(ev) => setGitToken(ev.target.value)}
-                        placeholder={tokenStored ? "Stored. Leave empty to keep it." : "Fine-grained, read-only contents"}
+                        placeholder={savedPlaceholder(cfg.git_token, "Fine-grained, read-only contents")}
                       />
                     </label>
-                    <span className="mt-1 block text-xs text-muted">Encrypted at rest and never shown again.</span>
+                    <span className="mt-1 block text-xs text-muted">{secretHelp(policy)}</span>
                     {tokenStored && (
                       <label className="mt-2 flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={tokenCleared} onChange={(ev) => setTokenCleared(ev.target.checked)} />
@@ -515,7 +518,7 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
             <h3 className="label-caps sm:col-span-2">Options</h3>
             {otherFields.map((f) => {
               const secret = isSecret(f.name);
-              const stored = secret && cfg[f.name] === MASK;
+              const stored = secret && (cfg[f.name] === MASK || isRef(String(cfg[f.name] ?? "")));
               return (
                 <div key={f.name}>
                   <label className="block">
@@ -525,17 +528,17 @@ export function SourceForm(props: { kinds: SourceKindOut[]; editing: SourceOut |
                     </span>
                     <input
                       className={`input w-full ${secret ? "" : "mono"}`}
-                      type={secret ? "password" : "text"}
+                      type={secret && !isRef(values[f.name]) && !refsOnly(policy) ? "password" : "text"}
                       autoComplete="off"
                       spellCheck={false}
                       value={values[f.name] ?? ""}
                       disabled={Boolean(cleared[f.name])}
                       onChange={(ev) => setValues({ ...values, [f.name]: ev.target.value })}
-                      placeholder={stored ? "Stored. Leave empty to keep it." : f.prop.default != null ? String(f.prop.default) : ""}
+                      placeholder={stored ? savedPlaceholder(cfg[f.name], "") : f.prop.default != null ? String(f.prop.default) : ""}
                       required={f.required && !stored}
                     />
                   </label>
-                  <span className="mt-1 block text-xs text-muted">{secret ? "Encrypted at rest and never shown again." : f.prop.description}</span>
+                  <span className="mt-1 block text-xs text-muted">{secret ? secretHelp(policy) : f.prop.description}</span>
                   {stored && (
                     <label className="mt-2 flex items-center gap-2 text-sm">
                       <input type="checkbox" checked={Boolean(cleared[f.name])} onChange={(ev) => setCleared({ ...cleared, [f.name]: ev.target.checked })} />
