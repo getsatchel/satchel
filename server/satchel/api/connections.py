@@ -110,6 +110,9 @@ class ConnectionTestOut(BaseModel):
     ok: bool
     latency_ms: int
     error: str | None = None
+    warnings: list[str] = Field(
+        default_factory=list, description="Advice that doesn't fail the test, e.g. the role "
+        "can write.")
 
 
 class CrawlOut(BaseModel):
@@ -243,7 +246,8 @@ def make_router(auth: Auth) -> APIRouter:
         if not kind:
             raise HTTPException(422, "kind is required without connection_id")
         res = await run_in_threadpool(ca.test, kind, config, secret, req.passphrase, st)
-        return ConnectionTestOut(ok=res.ok, latency_ms=res.latency_ms, error=res.error)
+        return ConnectionTestOut(ok=res.ok, latency_ms=res.latency_ms, error=res.error,
+                                 warnings=res.warnings)
 
     @r.post(
         "/v1/connections/{connection_id}/crawl", response_model=CrawlOut | JobOut,

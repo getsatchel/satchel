@@ -22,10 +22,39 @@ function TestBadge({ r }: { r: ConnectionTestOut | null }) {
 
 /** The full error, at the end of the form. */
 function TestLine({ r }: { r: ConnectionTestOut | null }) {
-  if (!r?.error) return null;
+  if (!r?.error && !r?.warnings?.length) return null;
   return (
-    <div className="mt-3 text-sm">
+    <div className="mt-3 space-y-2 text-sm">
       {r.error && <p className="break-words font-mono text-xs text-bad [overflow-wrap:anywhere]">{r.error}</p>}
+      {r.ok && r.warnings && r.warnings.length > 0 && <Warnings items={r.warnings} />}
+    </div>
+  );
+}
+
+/** Advice from Test that doesn't fail it, such as a role that can write. */
+function Warnings({ items }: { items: string[] }) {
+  return (
+    <Notice tone="warn">
+      {items.map((w) => (
+        <p key={w} className="[&+p]:mt-1">
+          {w}
+        </p>
+      ))}
+    </Notice>
+  );
+}
+
+/** The last Test or Crawl on a row, kept under it until the next one. */
+type RowResult = { tone: "good" | "bad"; text: string; warnings?: string[] };
+
+function RowResultLine({ r }: { r: RowResult | undefined }) {
+  if (!r) return null;
+  return (
+    <div className="mt-1.5 space-y-1.5" role="status">
+      <p className={`break-words text-xs [overflow-wrap:anywhere] ${r.tone === "bad" ? "font-mono text-bad" : "text-muted"}`}>
+        {r.tone === "good" ? <StatusDot tone="good">{r.text}</StatusDot> : r.text}
+      </p>
+      {r.warnings && r.warnings.length > 0 && <Warnings items={r.warnings} />}
     </div>
   );
 }
@@ -640,19 +669,30 @@ export function Connections() {
   const qc = useQueryClient();
   const toast = useToast();
 
+  const [results, setResults] = useState<Record<string, RowResult>>({});
+  const show = (id: string, r: RowResult) => setResults((prev) => ({ ...prev, [id]: r }));
+  const clear = (id: string) =>
+    setResults((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   const crawl = useMutation({
     mutationFn: (c: ConnectionOut) => endpoints.crawlConnection(c.id),
-    onSuccess: (r) => {
-      toast("ok", `Crawled ${r.connection}: ${r.seen} objects, ${r.created} new, ${r.dropped} dropped`);
+    onMutate: (c) => clear(c.id),
+    onSuccess: (r, c) => {
+      show(c.id, { tone: "good", text: `Crawled: ${r.seen} objects, ${r.created} new, ${r.dropped} dropped` });
       void qc.invalidateQueries({ queryKey: ["connections"] });
       void qc.invalidateQueries({ queryKey: ["assets"] });
     },
-    onError: (e) => toast("err", errMsg(e)),
+    onError: (e, c) => show(c.id, { tone: "bad", text: `Crawl failed: ${errMsg(e)}` }),
   });
   const test = useMutation({
     mutationFn: (c: ConnectionOut) => endpoints.testConnection({ connection_id: c.id }),
-    onSuccess: (r, c) => toast(r.ok ? "ok" : "err", r.ok ? `${c.name}: connected (${r.latency_ms} ms)` : `${c.name}: ${r.error ?? "failed"}`),
-    onError: (e) => toast("err", errMsg(e)),
+    onMutate: (c) => clear(c.id),
+    onSuccess: (r, c) =>
+      show(c.id, r.ok ? { tone: "good", text: `Connected in ${r.latency_ms} ms`, warnings: r.warnings } : { tone: "bad", text: r.error ?? "Test failed" }),
+    onError: (e, c) => show(c.id, { tone: "bad", text: errMsg(e) }),
   });
   const makeDefault = useMutation({
     mutationFn: (c: ConnectionOut) => endpoints.updateConnection(c.id, { default_for_ai: true }),
@@ -765,6 +805,7 @@ export function Connections() {
                       {c.default_for_ai && <span className="badge badge-good">default</span>}
                     </div>
                     {where && <div className="mt-0.5 font-mono text-xs text-muted [overflow-wrap:anywhere]">{where}</div>}
+                    <RowResultLine r={results[c.id]} />
                     {admin && <div className="-ml-2 mt-1.5 flex flex-wrap gap-1 lg:hidden">{actions}</div>}
                   </td>
                   <td className="td hidden whitespace-nowrap sm:table-cell">{label(c.kind)}</td>

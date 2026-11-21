@@ -8,6 +8,7 @@ stores the secret itself, encrypted with SATCHEL_ENCRYPTION_KEY (``satchel.secre
 from __future__ import annotations
 
 import importlib.util
+import logging
 import re
 import time
 import uuid
@@ -32,6 +33,8 @@ from satchel.install_hints import extra_hint
 from satchel.secrets import connection_aad
 from satchel.settings import Settings, get_settings
 from satchel.store.models import Asset, Connection, ContextSource, QueryResult
+
+log = logging.getLogger("satchel.data.connection_admin")
 
 FieldType = Literal["text", "number", "path"]
 
@@ -425,6 +428,60 @@ class TestResult:
     latency_ms: int
     error: str | None = None
     detail: dict[str, Any] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+
+
+_PG_WRITE_PROBE = """
+select
+  (select rolsuper from pg_roles where rolname = current_user) as superuser,
+  (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where c.relkind in ('r', 'p') and n.nspname not in ('pg_catalog', 'information_schema')
+      and n.nspname not like 'pg\\_%'
+      and (has_table_privilege(c.oid, 'INSERT') or has_table_privilege(c.oid, 'UPDATE')
+           or has_table_privilege(c.oid, 'DELETE') or has_table_privilege(c.oid, 'TRUNCATE')))
+    as writable_tables,
+  (select count(*) from pg_namespace n
+    where n.nspname not in ('pg_catalog', 'information_schema') and n.nspname not like 'pg\\_%'
+      and has_schema_privilege(n.oid, 'CREATE')) as create_schemas,
+  current_user as username
+"""
+_SF_ADMIN_ROLES = {"ACCOUNTADMIN", "ORGADMIN", "SECURITYADMIN", "SYSADMIN", "USERADMIN"}
+_SF_WRITE_PRIVS = {"INSERT", "UPDATE", "DELETE", "TRUNCATE", "OWNERSHIP", "CREATE TABLE",
+                   "CREATE SCHEMA", "CREATE VIEW", "MODIFY"}
+_READ_ONLY_FIX = ("Agents only run read-only queries, but connect with a role that can only read "
+                  "(the setup SQL in Add connection makes one), so a mistake can't change data.")
+
+
+def write_warnings(kind: str, connector: Any) -> list[str]:
+    """What the connection's role could change. Satchel only runs read-only SQL, so this is a
+    second line of defence, reported by Test, never a failure. BigQuery's access is IAM, which
+    a query can't see; DuckDB files are opened read-only."""
+    if kind == "postgres":
+        row = connector.execute(_PG_WRITE_PROBE, limit=1, timeout_s=10.0).to_pylist()[0]
+        superuser, tables, schemas, user = (row["superuser"], row["writable_tables"],
+                                            row["create_schemas"], row["username"])
+        if superuser:
+            return [f"{user} is a superuser: it can change anything in the database. "
+                    + _READ_ONLY_FIX]
+        out = []
+        if tables:
+            out.append(f"{user} can insert, update or delete in {tables} table(s).")
+        if schemas:
+            out.append(f"{user} can create tables in {schemas} schema(s).")
+        return out + [_READ_ONLY_FIX] if out else []
+    if kind == "snowflake":
+        role = connector.execute("select current_role()", limit=1, timeout_s=10.0).to_pylist()
+        name = str(next(iter(role[0].values()))).upper() if role else ""
+        if name in _SF_ADMIN_ROLES:
+            return [f"The connection uses the {name} role, which can change anything. "
+                    + _READ_ONLY_FIX]
+        grants = connector.execute(f"show grants to role {snowflake_ident(name)}", limit=10000,
+                                   timeout_s=10.0).to_pylist() if name else []
+        writes = sorted({str(g.get("privilege", "")).upper() for g in grants}
+                        & _SF_WRITE_PRIVS)
+        if writes:
+            return [f"The {name} role has {', '.join(writes)} grants. " + _READ_ONLY_FIX]
+    return []
 
 
 def test(
@@ -449,6 +506,11 @@ def test(
                 db = snowflake_ident(str(cfg["database"]))
                 connector.execute(f"select count(*) from {db}.INFORMATION_SCHEMA.SCHEMATA",
                                   limit=1, timeout_s=10.0)
+            try:
+                warnings = write_warnings(kind, connector)
+            except Exception as e:  # noqa: BLE001 - the probe is advice; it never fails Test
+                log.info("write-access probe for %s failed: %s", kind, type(e).__name__)
+                warnings = []
         finally:
             connector.close()
     except Exception as e:  # noqa: BLE001 - every failure is reported to the admin
@@ -456,7 +518,7 @@ def test(
         hint = test_hint(kind, msg)
         return TestResult(False, int((time.monotonic() - t0) * 1000),
                           (msg[:900] + (f"\n{hint}" if hint else "")))
-    return TestResult(True, int((time.monotonic() - t0) * 1000))
+    return TestResult(True, int((time.monotonic() - t0) * 1000), warnings=warnings)
 
 
 _HINTS: dict[str, tuple[tuple[str, str], ...]] = {

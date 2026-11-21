@@ -1601,6 +1601,14 @@
           "ok": {
             "title": "Ok",
             "type": "boolean"
+          },
+          "warnings": {
+            "description": "Advice that doesn't fail the test, e.g. the role can write.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [

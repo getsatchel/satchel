@@ -128,7 +128,16 @@ redirects there). Admins add and change them; curators see the list.
 - Keys (a PEM or JSON key file) are entered in a multi-line box, so newlines are kept. Every
   secret is write-only and sealed with `SATCHEL_ENCRYPTION_KEY`, unless it is a
   [secret manager reference](secrets.md), which is kept instead.
-- **Test** opens the connection and runs `select 1`, before or after saving. **Crawl** refreshes
+- **Test** opens the connection and runs `select 1`, before or after saving. It also warns,
+  without failing, when the role can change data:
+  - **PostgreSQL:** a superuser, or a role that can insert, update or delete in any table, or
+    create tables in a schema.
+  - **Snowflake:** an admin role (ACCOUNTADMIN, SYSADMIN...), or a role granted INSERT, UPDATE,
+    DELETE, TRUNCATE, OWNERSHIP or CREATE privileges.
+
+  Agents only run read-only queries, so this is a second line of defence. BigQuery's access is
+  IAM, which a query can't inspect, and DuckDB files are opened read-only. Test and Crawl results
+  on the Connections list stay under the connection until the next run. **Crawl** refreshes
   the catalog. **Default for agents** is the connection tools use when the agent names none.
 - **Remove** marks the connection's catalogued tables and columns as dropped and detaches them,
   so context that mentions them is flagged by the stale-reference check; items and their history
