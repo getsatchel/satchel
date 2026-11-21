@@ -50,7 +50,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
       # Always build and load for the smoke test; push (below) reuses the cache.
       - name: Build (loaded locally, not pushed)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -91,7 +91,7 @@ jobs:
       - name: Push
         id: push
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/docker/Dockerfile
