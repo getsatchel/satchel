@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { endpoints } from "@/api/endpoints";
 import type { LlmConnection, LlmConnectionPatch, LlmDeployment, LlmTestOut, LlmTestRequest } from "@/api/types";
 import { ApiError } from "@/api/client";
+import { initialMode, isRef, refsOnly, SecretModeSwitch, SecretRefInput, useSecretPolicy, type SecretMode } from "@/components/SecretRef";
 import { useToast } from "@/components/Toast";
 import { DescList, EmptyState, ErrorBox, ICONS, Icon, InfoTip, Loading, Modal, Notice, PageHeader, SectionHeading, Segmented, Sheet, StatusDot, TableCard, Tabs, useSheetParam } from "@/components/ui";
 import { MembersSection } from "@/pages/SettingsMembers";
@@ -109,6 +110,11 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
   const [model, setModel] = useState(e?.default_model ?? "");
   const [apiKey, setApiKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
+  const policy = useSecretPolicy();
+  const [keyMode, setKeyMode] = useState<SecretMode>(() => initialMode(policy, e?.api_key_ref));
+  useEffect(() => {
+    if (refsOnly(policy)) setKeyMode("ref");
+  }, [policy]);
   const [replaceHeaders, setReplaceHeaders] = useState(!e);
   const [headers, setHeaders] = useState<HeaderRow[]>([]);
   const [makeDefault, setMakeDefault] = useState(e ? e.is_default : props.first);
@@ -164,7 +170,7 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
     onError: (err) => setError(errMsg(err)),
   });
 
-  const needsKey = Boolean(apiKey) || (replaceHeaders && headers.some((h) => h.value));
+  const needsKey = (Boolean(apiKey) && !isRef(apiKey)) || (replaceHeaders && headers.some((h) => h.value));
   const blocked = needsKey && !props.encryption;
   const dirty =
     name !== (e?.name ?? "") ||
@@ -233,7 +239,27 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
           <input className="input mono w-full" value={model} onChange={(ev) => setModel(ev.target.value)} placeholder={hint.model} required={provider === "openai_compat"} />
           <span className="mt-1 block text-xs text-muted">Used by curation and by eval suites that don't pin a model.</span>
         </label>
-        <div>
+        <div className="space-y-3">
+          <SecretModeSwitch
+            policy={policy}
+            mode={keyMode}
+            what="key"
+            onMode={(m) => {
+              setKeyMode(m);
+              setApiKey("");
+            }}
+          />
+          {keyMode === "ref" ? (
+            <SecretRefInput
+              policy={policy}
+              label="API key reference"
+              value={apiKey}
+              onChange={setApiKey}
+              disabled={clearKey}
+              placeholder={e?.api_key_ref ? `${e.api_key_ref} (type to replace)` : undefined}
+            />
+          ) : (
+          <div>
           <label className="block">
             <span className="label">API key</span>
             <input
@@ -248,10 +274,12 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
             />
           </label>
           <span className="mt-1 block text-xs text-muted">{hint.keyHelp ? `${hint.keyHelp} ` : ""}Encrypted at rest and never shown again.</span>
+          </div>
+          )}
           {e?.has_api_key && (
             <label className="mt-2 flex items-center gap-2 text-sm">
               <input type="checkbox" checked={clearKey} onChange={(ev) => { setClearKey(ev.target.checked); if (ev.target.checked) setApiKey(""); }} />
-              Remove the stored key
+              {e.api_key_ref ? "Remove the key reference" : "Remove the stored key"}
             </label>
           )}
         </div>
@@ -409,7 +437,7 @@ function ConnectionsTable(props: {
               <td className="td hidden whitespace-nowrap sm:table-cell">{PROVIDER_LABEL[c.provider as Provider] ?? c.provider}</td>
               <td className="td hidden whitespace-nowrap font-mono text-xs md:table-cell">{c.default_model ?? "–"}</td>
               <td className="td hidden whitespace-nowrap font-mono text-xs sm:table-cell">
-                {c.has_api_key ? c.api_key_hint : "–"}
+                {c.api_key_ref ? <span title={c.api_key_ref}>secret manager</span> : c.has_api_key ? c.api_key_hint : "–"}
                 {c.extra_header_names.length > 0 && <span className="ml-1 text-muted" title={c.extra_header_names.join(", ")}>+{c.extra_header_names.length} hdr</span>}
               </td>
               <td className="td hidden whitespace-nowrap text-xs text-muted lg:table-cell" title={fullTime(c.updated_at)}>{timeAgo(c.updated_at)}</td>

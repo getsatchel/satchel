@@ -102,7 +102,8 @@ def run_agent(
             break
         messages.append({
             "role": "assistant", "text": turn.text,
-            "tool_uses": [{"id": t.id, "name": t.name, "input": t.input} for t in turn.tool_uses],
+            "tool_uses": [{"id": t.id, "name": t.name, "input": t.input,
+                           **({"extra": t.extra} if t.extra else {})} for t in turn.tool_uses],
         })
         results: list[dict[str, Any]] = []
         for use in turn.tool_uses:

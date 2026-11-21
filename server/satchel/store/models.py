@@ -266,6 +266,8 @@ class LlmConnection(Base):
     default_model: Mapped[str | None] = mapped_column(Text, nullable=True)
     api_key_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
     api_key_hint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A secret manager reference read when the key is needed, instead of api_key_enc.
+    api_key_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     extra_headers_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
     extra_header_names: Mapped[list[str]] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")

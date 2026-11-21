@@ -2,6 +2,7 @@ import { api, keyPath } from "./client";
 import { crawlReportOf, curationReportOf, isJob, syncReportOf } from "./jobs";
 import type {
   EvalModel,
+  SecretPolicy,
   ConnectInfo,
   AgentInstructionsInfo,
   AssetDetail,
@@ -128,6 +129,7 @@ export const endpoints = {
 
   testGit: (req: GitTestRequest) => api.post<GitTestOut>("/v1/sources/git/test", req),
   listConnectionKinds: () => api.get<ConnectionKind[]>("/v1/connection-kinds"),
+  secretPolicy: () => api.get<SecretPolicy>("/v1/secret-policy"),
   getLimits: () => api.get<LimitRow[]>("/v1/settings/limits"),
   putLimits: (values: Record<string, LimitValue>) => api.put<LimitRow[]>("/v1/settings/limits", { values }),
   getDeployment: () => api.get<DeploymentInfo>("/v1/settings/deployment"),

@@ -731,7 +731,7 @@ def test_catalog(env: Env) -> None:
     conns = env.client.get("/v1/connections", headers=h).json()
     extra = next(c for c in conns if c["name"] == "extra")
     assert extra["has_secret"] and extra["asset_count"] == 0
-    assert extra.get("config") is None and "secret_ref" not in extra  # admins only
+    assert extra.get("config") is None and extra["secret_ref"] is None  # admins only
     page = env.client.get("/v1/assets", headers=h).json()
     by_fqn = {a["fqn"]: a for a in page["assets"]}
     documented = [a for a in page["assets"] if a["has_doc"]]

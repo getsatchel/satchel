@@ -63,6 +63,7 @@ flowchart LR
     Repo[("Context git repo<br/>md + YAML")]:::ext
     IdP["OIDC IdP<br/>Okta · Google · Entra · Cognito · Dex"]:::ext
     Models["LLM / embedding APIs<br/>or local (fastembed / TEI / Ollama)"]:::ext
+    SM[("Secret managers<br/>AWS Secrets Manager · GCP Secret Manager<br/>aws-sm: / gcp-sm: references")]:::ext
   end
 
   Claude & Cursor -->|MCP tools| MCP
@@ -81,7 +82,8 @@ flowchart LR
   CLI -->|"source validate (no database)"| SDK
   Sources -->|"load(config, files) → SourceSnapshot (pure, in-process)"| SDK
   Sources -->|"context_source · items managed_by=source · releases · hygiene signals"| PG
-  LLM -->|"llm_connection (ciphertext only)"| PG
+  LLM -->|"llm_connection (ciphertext or api_key_ref only)"| PG
+  Conn & LLM & Sources -->|"secret refs read with the server's cloud identity (satchel.core.secret_refs; SATCHEL_SECRET_REF_ALLOW, cached SATCHEL_SECRET_CACHE_S; SATCHEL_SECRETS=references stores none)"| SM
   Retrieval -->|"M7b: one served asset doc per table: primary by sources.priority, others folded in"| Sources
   Sync -->|"sources: list"| Sources
   GitHost["git hosts (GitHub, GitLab, Bitbucket, …)<br/>https, read-only token"]:::ext -->|"shallow sparse clone per sync"| Sources

@@ -594,8 +594,12 @@ class ConnectionOut(BaseModel):
     kind: str
     default_for_ai: bool
     has_secret: bool
-    secret: Literal["stored", "env"] | None = Field(
-        None, description="'stored' (encrypted, set in the UI), 'env' (env:NAME, CLI) or null.")
+    secret: Literal["stored", "env", "reference"] | None = Field(
+        None, description="'stored' (encrypted, set in the UI), 'reference' (a secret manager), "
+        "'env' (env:NAME, CLI) or null.")
+    secret_ref: str | None = Field(
+        None, description="The secret manager reference (admins only), when secret is "
+        "'reference'. It names the secret, it is not the secret.")
     config: dict[str, Any] | None = Field(
         None, description="Host, database, user... (admins only; never a secret).")
     asset_count: int

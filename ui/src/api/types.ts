@@ -91,6 +91,7 @@ export type InviteOut = { invited: Member[]; existing: string[]; accounts?: Invi
 export type MemberPatch = S["MemberPatch"];
 
 export type ConnectionKind = Req<S["ConnectionKindOut"]>;
+export type SecretPolicy = S["SecretPolicyOut"];
 export type ConnectionKindField = S["KindFieldOut"];
 export type ConnectionSaved = S["ConnectionSavedOut"];
 export type ConnectionCreate = S["ConnectionCreate"];

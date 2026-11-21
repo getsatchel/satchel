@@ -8,8 +8,9 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session as OrmSession
 
 from satchel import audit
+from satchel.core import secret_refs
 from satchel.core.crypto import DecryptionError, EncryptionUnavailable, Keyring
-from satchel.data.connectors import Connector, make_connector, resolve_secret
+from satchel.data.connectors import Connector, make_connector
 from satchel.data.gateway import DIALECTS
 from satchel.secrets import connection_aad, is_sealed
 from satchel.settings import Settings, get_settings
@@ -65,9 +66,8 @@ def add_connection(
 
 
 def resolve_secret_syntax(ref: str) -> None:
-    scheme, _, name = ref.partition(":")
-    if scheme != "env" or not name:
-        raise ValueError("secret_ref must look like env:NAME (secrets are never stored)")
+    """The CLI (an operator) may use any reference scheme, without the API's allow list."""
+    secret_refs.parse(ref)
 
 
 def workspace_connections(s: OrmSession) -> list[Connection]:
@@ -95,9 +95,12 @@ def pick_connection(s: OrmSession, name: str | None) -> Connection:
     )
 
 
-def connection_secret(conn: Connection, settings: Settings | None = None) -> str | None:
-    """The connection's secret: an ``env:NAME`` reference (CLI) or a value sealed with
-    SATCHEL_ENCRYPTION_KEY (entered in Settings → Connections)."""
+def connection_secret(
+    conn: Connection, settings: Settings | None = None, *, fresh: bool = False,
+) -> str | None:
+    """The connection's secret: a value sealed with SATCHEL_ENCRYPTION_KEY (typed into the UI),
+    or a reference read when needed (``aws-sm:``, ``gcp-sm:``, ``env:``; see
+    :mod:`satchel.core.secret_refs`). ``fresh`` skips the reference cache."""
     ref = conn.secret_ref
     if is_sealed(ref):
         assert ref is not None
@@ -109,7 +112,9 @@ def connection_secret(conn: Connection, settings: Settings | None = None) -> str
             return keyring.decrypt(ref, connection_aad(conn.workspace_id, conn.id))
         except DecryptionError as e:
             raise ValueError(f"its stored password cannot be decrypted ({e})") from None
-    return resolve_secret(ref)
+    if not ref:
+        return None
+    return secret_refs.resolve(ref, settings or get_settings(), fresh=fresh)
 
 
 def open_connector(conn: Connection, settings: Settings | None = None) -> Connector:

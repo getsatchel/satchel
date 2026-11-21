@@ -49,11 +49,18 @@ def llm_aad(ws_id: uuid.UUID, conn_id: uuid.UUID, column: str) -> str:
     return f"llm_connection:{ws_id}:{conn_id}:{column}"
 
 
-def unseal_source_config(src: ContextSource, keyring: Keyring | None) -> dict[str, Any]:
-    """The source config with sealed values decrypted (for the adapter, never for responses)."""
+def unseal_source_config(src: ContextSource, keyring: Keyring | None,
+                         settings: Settings | None = None) -> dict[str, Any]:
+    """The source config with sealed values decrypted and references read (for the adapter,
+    never for responses)."""
+    from satchel.core import secret_refs
+    from satchel.settings import get_settings
+
     cfg = dict(src.config or {})
     for k, v in cfg.items():
-        if is_sealed(v):
+        if is_secret_key(k) and secret_refs.is_api_ref(v):
+            cfg[k] = secret_refs.resolve(str(v), settings or get_settings())
+        elif is_sealed(v):
             if keyring is None:
                 raise ValueError(f"source {src.name!r} has an encrypted {k} but "
                                  "SATCHEL_ENCRYPTION_KEY is not set")

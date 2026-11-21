@@ -446,6 +446,50 @@ def test_anthropic_and_openai_tool_loops_over_http() -> None:
     assert seen[1]["tools"][0]["function"]["name"] == "start_analysis"
 
 
+def test_gemini_thought_signature_goes_back_with_its_call(env: Env) -> None:
+    """Gemini's OpenAI-compatible endpoint returns a thought signature on each function call
+    and refuses the next turn (HTTP 400) unless the call comes back with it."""
+    sig = {"google": {"thought_signature": "c2lnbmF0dXJl"}}
+    seen: list[dict[str, Any]] = []
+
+    def gemini(req: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(req.content))
+        return httpx.Response(200, json={"choices": [{"finish_reason": "tool_calls", "message": {
+            "content": None, "tool_calls": [{
+                "id": "c1", "type": "function", "extra_content": sig,
+                "function": {"name": "start_analysis", "arguments": "{}"}}]}}]})
+
+    g = OpenAICompatChat("gemini-2.5-flash", "http://x/v1", client=httpx.Client(
+        transport=httpx.MockTransport(gemini)), provider="gemini")
+    tools = [ToolSpec(name="start_analysis", description="d", input_schema={"type": "object"})]
+    turn = g.complete_with_tools("sys", [{"role": "user", "content": "q"}], tools)
+    assert turn.tool_uses[0].extra == sig
+    msgs: list[dict[str, Any]] = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "text": "", "tool_uses": [
+            {"id": "c1", "name": "start_analysis", "input": {}, "extra": sig},
+            {"id": "c2", "name": "start_analysis", "input": {}}]},
+        {"role": "tool", "results": [
+            {"id": c, "name": "t", "content": "ok", "is_error": False} for c in ("c1", "c2")]},
+    ]
+    g.complete_with_tools("sys", msgs, tools)
+    calls = seen[-1]["messages"][2]["tool_calls"]
+    assert calls[0]["extra_content"] == sig and "extra_content" not in calls[1]
+
+    # The harness keeps it in the transcript it sends back on the next turn.
+    def script(system: str, messages: list[dict[str, Any]], tools: Any) -> ModelTurn:
+        if len(messages) == 1:
+            return ModelTurn(tool_uses=[ToolUse("c1", "start_analysis",
+                                                {"question": "q"}, sig)])
+        return ModelTurn(text="done")
+
+    agent = FakeChatProvider(replies=judge, turns=script)  # type: ignore[arg-type]
+    run_agent(env.engine, EMB, env.principal("analyst"), agent, "q", release_id=env.head(),
+              eval_run_id=uuid.uuid4())
+    sent = agent.turn_calls[1]["messages"][1]
+    assert sent["tool_uses"][0]["extra"] == sig
+
+
 def test_fake_provider_tool_turns() -> None:
     f = FakeChatProvider(turns=[ModelTurn(text="a"), ModelTurn(text="b")])
     assert [f.complete_with_tools("s", [], []).text for _ in range(3)] == ["a", "b", "b"]

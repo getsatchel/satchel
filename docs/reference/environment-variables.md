@@ -12,6 +12,9 @@ Secrets (`*_URL` with passwords, keys, client secret) belong in a secret manager
 | `SATCHEL_LOG_FORMAT` | `text` | `text` or `json`. |
 | `SATCHEL_TOKEN` | — | Personal access token used by the CLI and `mcp stdio`. |
 | `SATCHEL_ENCRYPTION_KEY` | — | 256-bit hex key sealing secrets stored in the database. |
+| `SATCHEL_SECRETS` | `store` | `references` refuses every secret value: only secret manager references ([Secrets](../deploy/secrets.md)). |
+| `SATCHEL_SECRET_REF_ALLOW` | — | Comma-separated patterns of the `aws-sm:` / `gcp-sm:` references the UI and API accept. Unset: none. |
+| `SATCHEL_SECRET_CACHE_S` | `300` | How long a secret read from a secret manager is cached in memory. |
 | `SATCHEL_ENCRYPTION_KEY_PREVIOUS` | — | Old key(s), comma-separated, accepted for decryption during rotation. |
 | `SATCHEL_DATABASE_URL` | `postgresql+psycopg://satchel_app:satchel_app@localhost:5433/satchel` | Runtime URL (`satchel_app`, RLS applies). |
 | `SATCHEL_ADMIN_DATABASE_URL` | — | Worker URL (`satchel_worker`) for server-internal jobs. |

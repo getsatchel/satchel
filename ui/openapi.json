@@ -1201,7 +1201,7 @@
                 "type": "null"
               }
             ],
-            "description": "Write-only.",
+            "description": "Write-only. The password or key, or a secret manager reference (aws-sm:..., gcp-sm:...) inside SATCHEL_SECRET_REF_ALLOW, which is kept instead of the value.",
             "title": "Secret"
           }
         },
@@ -1377,7 +1377,8 @@
               {
                 "enum": [
                   "stored",
-                  "env"
+                  "env",
+                  "reference"
                 ],
                 "type": "string"
               },
@@ -1385,8 +1386,20 @@
                 "type": "null"
               }
             ],
-            "description": "'stored' (encrypted, set in the UI), 'env' (env:NAME, CLI) or null.",
+            "description": "'stored' (encrypted, set in the UI), 'reference' (a secret manager), 'env' (env:NAME, CLI) or null.",
             "title": "Secret"
+          },
+          "secret_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The secret manager reference (admins only), when secret is 'reference'. It names the secret, it is not the secret.",
+            "title": "Secret Ref"
           }
         },
         "required": [
@@ -1457,7 +1470,7 @@
                 "type": "null"
               }
             ],
-            "description": "Write-only; null removes the secret.",
+            "description": "Write-only. The password or key, or a secret manager reference (aws-sm:..., gcp-sm:...) inside SATCHEL_SECRET_REF_ALLOW, which is kept instead of the value. Null removes the secret.",
             "title": "Secret"
           }
         },
@@ -1533,7 +1546,8 @@
               {
                 "enum": [
                   "stored",
-                  "env"
+                  "env",
+                  "reference"
                 ],
                 "type": "string"
               },
@@ -1542,6 +1556,18 @@
               }
             ],
             "title": "Secret"
+          },
+          "secret_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The secret manager reference, when secret is 'reference'.",
+            "title": "Secret Ref"
           }
         },
         "required": [
@@ -3654,7 +3680,7 @@
                 "type": "null"
               }
             ],
-            "description": "Write-only.",
+            "description": "Write-only. The key, or a secret manager reference (aws-sm:..., gcp-sm:...) inside SATCHEL_SECRET_REF_ALLOW, which is kept instead of the key.",
             "title": "Api Key"
           },
           "base_url": {
@@ -3740,6 +3766,18 @@
             ],
             "description": "Last four characters, e.g. '\u2026abcd'.",
             "title": "Api Key Hint"
+          },
+          "api_key_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The secret manager reference the key is read from, if any.",
+            "title": "Api Key Ref"
           },
           "base_url": {
             "anyOf": [
@@ -5908,6 +5946,34 @@
           "query"
         ],
         "title": "SearchRequest",
+        "type": "object"
+      },
+      "SecretPolicyOut": {
+        "description": "How secret fields behave on this deployment (Connections, Models and Sources forms).",
+        "properties": {
+          "allow": {
+            "description": "SATCHEL_SECRET_REF_ALLOW patterns. Empty: references are off.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allow",
+            "type": "array"
+          },
+          "mode": {
+            "description": "'references': secret values are refused; only references are accepted.",
+            "enum": [
+              "store",
+              "references"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "allow"
+        ],
+        "title": "SecretPolicyOut",
         "type": "object"
       },
       "SensitiveRequest": {
@@ -14734,6 +14800,87 @@
         "summary": "Search",
         "tags": [
           "retrieval"
+        ]
+      }
+    },
+    "/v1/secret-policy": {
+      "get": {
+        "operationId": "secret_policy",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Secret Policy",
+        "tags": [
+          "connections"
         ]
       }
     },

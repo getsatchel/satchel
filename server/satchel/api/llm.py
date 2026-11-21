@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from satchel.api.auth import Auth, Caller
+from satchel.core import secret_refs
 from satchel.core.crypto import (
     DecryptionError,
     EncryptionUnavailable,
@@ -56,6 +57,8 @@ class LlmConnectionOut(BaseModel):
     default_model: str | None
     has_api_key: bool
     api_key_hint: str | None = Field(None, description="Last four characters, e.g. '…abcd'.")
+    api_key_ref: str | None = Field(
+        None, description="The secret manager reference the key is read from, if any.")
     extra_header_names: list[str]
     is_default: bool
     created_at: datetime
@@ -88,7 +91,9 @@ class LlmConnectionCreate(BaseModel):
     provider: ProviderName
     base_url: str | None = None
     default_model: str | None = None
-    api_key: str | None = Field(None, description="Write-only.")
+    api_key: str | None = Field(None, description=(
+        "Write-only. The key, or a secret manager reference (aws-sm:..., gcp-sm:...) inside "
+        "SATCHEL_SECRET_REF_ALLOW, which is kept instead of the key."))
     extra_headers: dict[str, str] | None = Field(None, description="Write-only values.")
     is_default: bool | None = Field(
         None, description="Make this the workspace default (the first connection always is)."
@@ -128,7 +133,8 @@ def out(row: LlmConnection) -> LlmConnectionOut:
     return LlmConnectionOut(
         id=row.id, name=row.name, provider=row.provider,
         base_url=row.base_url, default_model=row.default_model,
-        has_api_key=row.api_key_enc is not None, api_key_hint=row.api_key_hint,
+        has_api_key=row.api_key_enc is not None or row.api_key_ref is not None,
+        api_key_hint=row.api_key_hint, api_key_ref=row.api_key_ref,
         extra_header_names=list(row.extra_header_names or []), is_default=row.is_default,
         created_at=row.created_at, updated_at=row.updated_at,
     )
@@ -176,7 +182,7 @@ def make_router(auth: Auth) -> APIRouter:
                     s, who.workspace_id, who.user_id, keyring_or_none(),
                     name=req.name, provider=req.provider, base_url=req.base_url,
                     default_model=req.default_model, api_key=req.api_key,
-                    extra_headers=req.extra_headers, is_default=req.is_default,
+                    extra_headers=req.extra_headers, is_default=req.is_default, settings=st,
                 )
             except LlmConnectionError as e:
                 raise HTTPException(422, str(e)) from None
@@ -197,7 +203,7 @@ def make_router(auth: Auth) -> APIRouter:
         with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
             row = get_row(s, connection_id)
             try:
-                update_connection(s, row, who.user_id, keyring_or_none(), **kw)
+                update_connection(s, row, who.user_id, keyring_or_none(), settings=st, **kw)
             except LlmConnectionError as e:
                 raise HTTPException(422, str(e)) from None
             except EncryptionUnavailable as e:
@@ -221,7 +227,7 @@ def make_router(auth: Auth) -> APIRouter:
             with workspace_session(who.workspace_id, who.user_id, engine=eng) as s:
                 row = get_row(s, req.connection_id)
                 try:
-                    base = target_of(row, keyring_or_none())
+                    base = target_of(row, keyring_or_none(), st, fresh=True)
                 except (LlmConnectionError, DecryptionError) as e:
                     raise HTTPException(409, str(e)) from None
         else:
@@ -229,6 +235,13 @@ def make_router(auth: Auth) -> APIRouter:
                 raise HTTPException(422, "provider is required without connection_id")
             base = ChatTarget(name="unsaved", provider=req.provider, base_url=None, model=None,
                               api_key=None)
+        api_key = req.api_key
+        try:
+            if "api_key" in given and secret_refs.is_api_ref(api_key):
+                ref = secret_refs.check_api_ref(api_key or "", st)
+                api_key = await run_in_threadpool(secret_refs.resolve, str(ref), st, fresh=True)
+        except secret_refs.SecretRefError as e:
+            return LlmTestOut(ok=False, model_id=None, latency_ms=None, error=str(e))
         try:
             target = ChatTarget(
                 name=base.name, managed_by=base.managed_by, connection_id=base.connection_id,
@@ -237,7 +250,7 @@ def make_router(auth: Auth) -> APIRouter:
                 and not req.deployment else base.base_url,
                 model=(req.default_model or None) if "default_model" in given
                 and not req.deployment else base.model,
-                api_key=req.api_key if "api_key" in given and not req.deployment
+                api_key=api_key if "api_key" in given and not req.deployment
                 else base.api_key,
                 extra_headers=validate_headers(req.extra_headers) if "extra_headers" in given
                 and not req.deployment else base.extra_headers,
