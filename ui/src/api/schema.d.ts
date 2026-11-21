@@ -1890,6 +1890,11 @@ export interface components {
             latency_ms: number;
             /** Ok */
             ok: boolean;
+            /**
+             * Warnings
+             * @description Advice that doesn't fail the test, e.g. the role can write.
+             */
+            warnings?: string[];
         };
         /** ConnectionTestRequest */
         ConnectionTestRequest: {
