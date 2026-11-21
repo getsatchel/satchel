@@ -1,0 +1,50 @@
+name: audit
+# Known vulnerabilities in the locked dependencies: the server (pip-audit on uv.lock), the UI and
+# the widgets (npm audit, production dependencies only). Runs when a lockfile changes and weekly,
+# so an advisory published after a merge still shows up.
+on:
+  pull_request:
+    paths:
+      - "server/uv.lock"
+      - "server/pyproject.toml"
+      - "ui/package-lock.json"
+      - "ui-widgets/package-lock.json"
+      - ".github/workflows/audit.yml"
+  push:
+    branches: [main]
+    paths:
+      - "server/uv.lock"
+      - "ui/package-lock.json"
+      - "ui-widgets/package-lock.json"
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: pip-audit (server, every extra)
+        working-directory: server
+        run: |
+          uv export --frozen --no-dev --no-hashes --all-extras --no-emit-project > requirements.txt
+          uvx pip-audit==2.9.0 -r requirements.txt --no-deps --disable-pip --progress-spinner off
+
+  node:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [ui, ui-widgets]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm audit (production dependencies)
+        working-directory: ${{ matrix.dir }}
+        run: npm audit --omit=dev --audit-level=high

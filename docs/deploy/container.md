@@ -11,6 +11,39 @@ docker build -f deploy/docker/Dockerfile --build-arg BAKE_EMBEDDINGS=false -t sa
 
 `BAKE_EMBEDDINGS=true` (default) downloads the fastembed model (`mixedbread-ai/mxbai-embed-large-v1`, about 1.3 GB) into `/opt/satchel/fastembed` so the container never needs the network to embed. Use `false` for a much smaller image if you use `hash` or `openai_compat` embeddings. The image installs the locked dependencies (hash-verified, from `server/uv.lock`) plus the `gcp` extra; base images are pinned by digest.
 
+## Verifying the image
+
+Every published image, on `main` and on release tags, is signed, and carries an SBOM and build
+provenance. This applies from 0.8.0; earlier images are unsigned.
+
+- **Signature:** keyless [cosign](https://docs.sigstore.dev/), made by this repository's
+  `image` workflow with its GitHub identity and recorded in the public Sigstore log. There is no
+  key to fetch. Check that an image was built here:
+
+  ```bash
+  cosign verify ghcr.io/getsatchel/satchel:0.8.0 \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --certificate-identity-regexp '^https://github.com/getsatchel/satchel/\.github/workflows/image\.yml@refs/(heads/main|tags/v.+)$'
+  ```
+
+  Admission controllers such as Kyverno or the Sigstore policy-controller can enforce the same
+  check before a pod starts.
+- **SBOM:** an SPDX list of every package in the image, attached to it in the registry:
+
+  ```bash
+  docker buildx imagetools inspect ghcr.io/getsatchel/satchel:0.8.0 --format '{{ json .SBOM }}'
+  ```
+
+- **Provenance:** SLSA provenance, recording the workflow, commit and build inputs:
+
+  ```bash
+  docker buildx imagetools inspect ghcr.io/getsatchel/satchel:0.8.0 --format '{{ json .Provenance }}'
+  ```
+
+The locked dependencies are also checked for known vulnerabilities: `pip-audit` for the server,
+and `npm audit` for the UI and widgets. This runs on every lockfile change and weekly, in the
+`audit` workflow, and Dependabot proposes updates every week.
+
 ## Commands
 
 | Role | Command | Notes |
