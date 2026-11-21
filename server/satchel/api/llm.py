@@ -46,7 +46,7 @@ from satchel.llm.connections import (
 from satchel.store.db import workspace_session
 from satchel.store.models import LlmConnection
 
-ProviderName = Literal["anthropic", "openai_compat", "gemini"]
+ProviderName = Literal["anthropic", "openai_compat", "gemini", "bedrock", "vertex"]
 
 
 class LlmConnectionOut(BaseModel):
@@ -61,6 +61,8 @@ class LlmConnectionOut(BaseModel):
         None, description="The secret manager reference the key is read from, if any.")
     extra_header_names: list[str]
     is_default: bool
+    region: str | None = Field(None, description="bedrock / vertex: where the model runs.")
+    project: str | None = Field(None, description="vertex: the GCP project.")
     created_at: datetime
     updated_at: datetime
 
@@ -70,6 +72,8 @@ class DeploymentLlmOut(BaseModel):
     model: str | None
     base_url: str | None
     has_api_key: bool
+    region: str | None = Field(None, description="bedrock / vertex: where the model runs.")
+    project: str | None = Field(None, description="vertex: the GCP project.")
 
 
 class LlmConnectionsOut(BaseModel):
@@ -98,6 +102,8 @@ class LlmConnectionCreate(BaseModel):
     is_default: bool | None = Field(
         None, description="Make this the workspace default (the first connection always is)."
     )
+    region: str | None = Field(None, description="bedrock / vertex: where the model runs.")
+    project: str | None = Field(None, description="vertex: the GCP project.")
 
 
 class LlmConnectionPatch(BaseModel):
@@ -107,6 +113,8 @@ class LlmConnectionPatch(BaseModel):
     api_key: str | None = Field(None, description="Write-only; null clears the stored key.")
     extra_headers: dict[str, str] | None = Field(None, description="Replaces the whole map.")
     is_default: bool | None = None
+    region: str | None = Field(None, description="bedrock / vertex: where the model runs.")
+    project: str | None = Field(None, description="vertex: the GCP project.")
 
 
 class LlmTestRequest(BaseModel):
@@ -120,6 +128,8 @@ class LlmTestRequest(BaseModel):
     api_key: str | None = None
     extra_headers: dict[str, str] | None = None
     model: str | None = Field(None, description="Test this model instead of the default.")
+    region: str | None = Field(None, description="bedrock / vertex: where the model runs.")
+    project: str | None = Field(None, description="vertex: the GCP project.")
 
 
 class LlmTestOut(BaseModel):
@@ -136,6 +146,7 @@ def out(row: LlmConnection) -> LlmConnectionOut:
         has_api_key=row.api_key_enc is not None or row.api_key_ref is not None,
         api_key_hint=row.api_key_hint, api_key_ref=row.api_key_ref,
         extra_header_names=list(row.extra_header_names or []), is_default=row.is_default,
+        region=row.region, project=row.project,
         created_at=row.created_at, updated_at=row.updated_at,
     )
 
@@ -169,6 +180,7 @@ def make_router(auth: Auth) -> APIRouter:
                 model=dep.model or {"anthropic": DEFAULT_ANTHROPIC_MODEL,
                                     "gemini": DEFAULT_GEMINI_MODEL}.get(dep.provider),
                 base_url=dep.base_url, has_api_key=bool(dep.api_key),
+                region=dep.region, project=dep.project,
             ) if dep else None,
             connections=conns,
             effective="deployment" if dep else default,
@@ -183,6 +195,7 @@ def make_router(auth: Auth) -> APIRouter:
                     name=req.name, provider=req.provider, base_url=req.base_url,
                     default_model=req.default_model, api_key=req.api_key,
                     extra_headers=req.extra_headers, is_default=req.is_default, settings=st,
+                    region=req.region, project=req.project,
                 )
             except LlmConnectionError as e:
                 raise HTTPException(422, str(e)) from None
@@ -254,6 +267,9 @@ def make_router(auth: Auth) -> APIRouter:
                 else base.api_key,
                 extra_headers=validate_headers(req.extra_headers) if "extra_headers" in given
                 and not req.deployment else base.extra_headers,
+                region=req.region if "region" in given and not req.deployment else base.region,
+                project=req.project if "project" in given and not req.deployment
+                else base.project,
             )
         except LlmConnectionError as e:
             raise HTTPException(422, str(e)) from None

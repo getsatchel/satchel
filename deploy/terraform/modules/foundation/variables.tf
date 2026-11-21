@@ -260,3 +260,9 @@ variable "secret_ref_prefix" {
     error_message = "secret_ref_prefix: letters, digits, _ and - only (Secret Manager names have no slashes)."
   }
 }
+
+variable "enable_vertex_ai" {
+  description = "Enable the Vertex AI API and let the runtime service account call its models (roles/aiplatform.user), for the \"vertex\" model provider: Claude or Gemini with no API key stored."
+  type        = bool
+  default     = false
+}

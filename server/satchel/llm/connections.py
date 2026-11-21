@@ -38,9 +38,12 @@ from satchel.llm.chat import (
     DEFAULT_GEMINI_URL,
     DEFAULT_OPENAI_URL,
     AnthropicChat,
+    BedrockChat,
     ChatError,
     ChatProvider,
     OpenAICompatChat,
+    VertexAnthropicChat,
+    VertexOpenAIChat,
 )
 from satchel.secrets import llm_aad
 from satchel.settings import Settings, get_settings
@@ -49,8 +52,8 @@ from satchel.store.models import LlmConnection
 
 log = logging.getLogger("satchel.llm.connections")
 
-Provider = Literal["anthropic", "openai_compat", "gemini"]
-PROVIDERS: tuple[Provider, ...] = ("anthropic", "openai_compat", "gemini")
+Provider = Literal["anthropic", "openai_compat", "gemini", "bedrock", "vertex"]
+PROVIDERS: tuple[Provider, ...] = ("anthropic", "openai_compat", "gemini", "bedrock", "vertex")
 DEPLOYMENT_NAME = "deployment"
 
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$")
@@ -82,6 +85,8 @@ class ChatTarget:
     extra_headers: dict[str, str] = field(default_factory=dict, repr=False)
     managed_by: Literal["deployment", "workspace"] = "workspace"
     connection_id: uuid.UUID | None = None
+    region: str | None = None  # bedrock / vertex
+    project: str | None = None  # vertex
 
 
 def _aad(ws_id: uuid.UUID, conn_id: uuid.UUID, column: str) -> str:
@@ -112,6 +117,7 @@ def deployment_target(st: Settings) -> ChatTarget | None:
     return ChatTarget(
         name=DEPLOYMENT_NAME, provider=st.chat_provider, base_url=st.chat_base_url,
         model=st.chat_model, api_key=key, managed_by="deployment",
+        region=st.chat_region, project=st.chat_project,
     )
 
 
@@ -145,6 +151,7 @@ def target_of(row: LlmConnection, keyring: Keyring | None, settings: Settings | 
     return ChatTarget(
         name=row.name, provider=row.provider, base_url=row.base_url,  # type: ignore[arg-type]
         model=row.default_model, api_key=key, extra_headers=headers, connection_id=row.id,
+        region=row.region, project=row.project,
     )
 
 
@@ -196,6 +203,8 @@ def build_chat(
             target.base_url or DEFAULT_ANTHROPIC_URL, timeout_s=t, max_retries=r,
             extra_headers=target.extra_headers,
         )
+    if target.provider in KEYLESS:
+        return _keyless_chat(target, model or target.model, t, r, where)
     if target.provider == "gemini":
         if not target.api_key:
             log.warning("%s (gemini) has no API key", where)
@@ -215,6 +224,36 @@ def build_chat(
         return None
     return OpenAICompatChat(name, base, target.api_key, timeout_s=t, max_retries=r,
                             extra_headers=target.extra_headers)
+
+
+KEYLESS = ("bedrock", "vertex")
+
+
+def bedrock_region(region: str | None) -> str | None:
+    return region or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+
+
+def vertex_location(project: str | None, region: str | None) -> tuple[str | None, str]:
+    return (project or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or os.environ.get("CLOUDSDK_CORE_PROJECT"),
+            region or os.environ.get("CLOUD_ML_REGION") or "global")
+
+
+def _keyless_chat(target: ChatTarget, model: str | None, t: float, r: int,
+                  where: str) -> ChatProvider | None:
+    """Bedrock or Vertex AI with the server's own cloud identity: no key to store."""
+    if not model:
+        log.warning("%s (%s) has no model", where, target.provider)
+        return None
+    if target.provider == "bedrock":
+        return BedrockChat(model, bedrock_region(target.region), timeout_s=t, max_retries=r)
+    project, region = vertex_location(target.project, target.region)
+    if not project:
+        log.warning("%s (vertex) has no GCP project", where)
+        return None
+    if model.startswith("claude"):
+        return VertexAnthropicChat(model, project, region, timeout_s=t, max_retries=r)
+    return VertexOpenAIChat(model, project, region, timeout_s=t, max_retries=r)
 
 
 def chat_for_workspace(
@@ -267,6 +306,30 @@ def validate_base_url(url: str | None) -> str | None:
     return url
 
 
+_REGION = re.compile(r"^[a-z0-9-]{2,40}$")
+_PROJECT = re.compile(r"^[a-z0-9][a-z0-9-]{3,62}$")
+
+
+def validate_location(provider: str, region: str | None,
+                      project: str | None) -> tuple[str | None, str | None]:
+    """Region (Bedrock, Vertex) and GCP project (Vertex); None for every other provider."""
+    region = (region or "").strip() or None
+    project = (project or "").strip() or None
+    if provider not in KEYLESS:
+        return None, None
+    if region and not _REGION.match(region):
+        raise LlmConnectionError("region: lowercase letters, digits and dashes, e.g. eu-west-1 "
+                                 "or europe-west1")
+    if provider == "bedrock":
+        return region, None
+    if project and not _PROJECT.match(project):
+        raise LlmConnectionError("project: a GCP project id, e.g. acme-analytics")
+    if not vertex_location(project, None)[0]:
+        raise LlmConnectionError("a vertex connection needs a GCP project (or "
+                                 "GOOGLE_CLOUD_PROJECT on the server)")
+    return region, project
+
+
 def validate_headers(headers: dict[str, str] | None) -> dict[str, str]:
     if not headers:
         return {}
@@ -290,6 +353,17 @@ def _check_usable(provider: str, base_url: str | None, model: str | None,
         raise LlmConnectionError(f"provider must be one of {', '.join(PROVIDERS)}")
     if provider == "anthropic" and not has_key and not base_url:
         raise LlmConnectionError("an Anthropic connection needs an API key")
+    if provider in KEYLESS:
+        if has_key:
+            raise LlmConnectionError(f"a {provider} connection takes no API key: it uses the "
+                                     "server's cloud identity")
+        if not model:
+            raise LlmConnectionError(
+                f"a {provider} connection needs a default model ("
+                + ("a Bedrock model or inference profile id, e.g. "
+                   "eu.anthropic.claude-sonnet-4-5-20250929-v1:0)" if provider == "bedrock"
+                   else "e.g. claude-sonnet-4-5@20250929 or gemini-2.5-flash)"))
+        return
     if provider == "gemini" and not has_key:
         raise LlmConnectionError("a Gemini connection needs an API key")
     if provider == "openai_compat":
@@ -362,11 +436,13 @@ def create_connection(
     name: str, provider: str, base_url: str | None = None, default_model: str | None = None,
     api_key: str | None = None, extra_headers: dict[str, str] | None = None,
     is_default: bool | None = None, settings: Settings | None = None,
+    region: str | None = None, project: str | None = None,
 ) -> LlmConnection:
     name = validate_name(name)
     base = validate_base_url(base_url)
     model = (default_model or "").strip() or None
     _check_usable(provider, base, model, bool(api_key))
+    region, project = validate_location(provider, region, project)
     if s.scalars(select(LlmConnection.id).where(
             LlmConnection.workspace_id == workspace_id, LlmConnection.name == name)).first():
         raise LlmConnectionError(f"an LLM connection named {name!r} already exists")
@@ -374,7 +450,7 @@ def create_connection(
         LlmConnection.workspace_id == workspace_id)).first() is None
     row = LlmConnection(id=uuid.uuid4(), workspace_id=workspace_id, name=name, provider=provider,
                         base_url=base, default_model=model, created_by=actor,
-                        extra_header_names=[])
+                        extra_header_names=[], region=region, project=project)
     _seal(row, keyring, api_key or None, extra_headers or {}, settings or get_settings())
     s.add(row)
     s.flush()
@@ -394,7 +470,7 @@ def update_connection(
     s: Session, row: LlmConnection, actor: uuid.UUID | None, keyring: Keyring | None, *,
     name: Any = _UNSET, base_url: Any = _UNSET, default_model: Any = _UNSET,
     api_key: Any = _UNSET, extra_headers: Any = _UNSET, is_default: Any = _UNSET,
-    settings: Settings | None = None,
+    settings: Settings | None = None, region: Any = _UNSET, project: Any = _UNSET,
 ) -> LlmConnection:
     """Patch semantics: an argument left out keeps the stored value; ``api_key=None`` (or "")
     clears the key; ``extra_headers`` replaces the whole map."""
@@ -414,6 +490,11 @@ def update_connection(
     if default_model is not _UNSET:
         row.default_model = (default_model or "").strip() or None
         changed.append("default_model")
+    if region is not _UNSET or project is not _UNSET:
+        row.region, row.project = validate_location(
+            row.provider, row.region if region is _UNSET else region,
+            row.project if project is _UNSET else project)
+        changed.append("location")
     changed += _seal(row, keyring, _UNSET if api_key is _UNSET else (api_key or None),
                      extra_headers, settings or get_settings())
     _check_usable(row.provider, row.base_url, row.default_model,

@@ -12,15 +12,20 @@ import { JobsSection } from "@/pages/Jobs";
 import { DeploymentSection, LimitsSection } from "@/pages/SettingsLimits";
 import { errMsg, fullTime, timeAgo } from "@/lib/format";
 
-type Provider = "anthropic" | "gemini" | "openai_compat";
+type Provider = "anthropic" | "gemini" | "openai_compat" | "bedrock" | "vertex";
+
+/** Providers that run on the server's own cloud identity: no API key to store. */
+const KEYLESS: Provider[] = ["bedrock", "vertex"];
 
 const PROVIDERS: { id: Provider; label: string }[] = [
   { id: "anthropic", label: "Anthropic" },
   { id: "gemini", label: "Gemini" },
   { id: "openai_compat", label: "OpenAI-compatible" },
+  { id: "bedrock", label: "Amazon Bedrock" },
+  { id: "vertex", label: "Vertex AI" },
 ];
 
-const PROVIDER_LABEL: Record<Provider, string> = { anthropic: "Anthropic", gemini: "Gemini", openai_compat: "OpenAI-compatible" };
+const PROVIDER_LABEL: Record<Provider, string> = { anthropic: "Anthropic", gemini: "Gemini", openai_compat: "OpenAI-compatible", bedrock: "Amazon Bedrock", vertex: "Vertex AI" };
 
 const HINTS: Record<Provider, { url: string; model: string; urlHelp: string; key: string; keyHelp?: string }> = {
   anthropic: {
@@ -41,6 +46,20 @@ const HINTS: Record<Provider, { url: string; model: string; urlHelp: string; key
     model: "gpt-5",
     urlHelp: "Any /chat/completions endpoint: OpenAI, Azure OpenAI, vLLM, Ollama, LiteLLM.",
     key: "sk-...",
+  },
+  bedrock: {
+    url: "",
+    model: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    urlHelp: "",
+    key: "",
+    keyHelp: "No API key: Satchel calls Bedrock with the server's own AWS role, which needs bedrock:InvokeModel (the Terraform modules' enable_bedrock grants it) and model access in the Bedrock console.",
+  },
+  vertex: {
+    url: "",
+    model: "claude-sonnet-4-5@20250929 or gemini-2.5-flash",
+    urlHelp: "",
+    key: "",
+    keyHelp: "No API key: Satchel calls Vertex AI with the server's own Google service account, which needs roles/aiplatform.user (the Terraform modules' enable_vertex_ai grants it). Claude models also need enabling in Model Garden.",
   },
 };
 
@@ -108,6 +127,8 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
   const [provider, setProvider] = useState<Provider>((e?.provider as Provider) ?? "anthropic");
   const [baseUrl, setBaseUrl] = useState(e?.base_url ?? "");
   const [model, setModel] = useState(e?.default_model ?? "");
+  const [region, setRegion] = useState(e?.region ?? "");
+  const [project, setProject] = useState(e?.project ?? "");
   const [apiKey, setApiKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
   const policy = useSecretPolicy();
@@ -123,13 +144,15 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
   const qc = useQueryClient();
   const toast = useToast();
   const hint = HINTS[provider];
+  const keyless = KEYLESS.includes(provider);
+  const location = keyless ? { region: region.trim() || null, project: provider === "vertex" ? project.trim() || null : null } : {};
 
   const headerMap = (): Record<string, string> =>
     Object.fromEntries(headers.filter((h) => h.name.trim()).map((h) => [h.name.trim(), h.value]));
 
   const test = useMutation({
     mutationFn: () => {
-      const req: LlmTestRequest = { provider, base_url: baseUrl || null, default_model: model || null };
+      const req: LlmTestRequest = { provider, base_url: baseUrl || null, default_model: model || null, ...location };
       if (e) req.connection_id = e.id;
       if (apiKey) req.api_key = apiKey;
       else if (clearKey) req.api_key = null;
@@ -152,9 +175,10 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
           api_key: apiKey || null,
           extra_headers: headerMap(),
           is_default: makeDefault || null,
+          ...location,
         });
       }
-      const patch: LlmConnectionPatch = { base_url: baseUrl || null, default_model: model || null };
+      const patch: LlmConnectionPatch = { base_url: baseUrl || null, default_model: model || null, ...location };
       if (name !== e.name) patch.name = name;
       if (apiKey) patch.api_key = apiKey;
       else if (clearKey) patch.api_key = null;
@@ -176,6 +200,8 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
     name !== (e?.name ?? "") ||
     baseUrl !== (e?.base_url ?? "") ||
     model !== (e?.default_model ?? "") ||
+    region !== (e?.region ?? "") ||
+    project !== (e?.project ?? "") ||
     apiKey !== "" ||
     clearKey ||
     headers.some((h) => h.name || h.value) ||
@@ -229,16 +255,37 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
           <span className="label">Name</span>
           <input className="input w-full" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="e.g. claude" required />
         </label>
+        {!keyless && (
         <label className="block">
           <span className="label">Base URL (optional)</span>
           <input className="input mono w-full" value={baseUrl} onChange={(ev) => setBaseUrl(ev.target.value)} placeholder={hint.url} inputMode="url" />
           <span className="mt-1 block text-xs text-muted">{hint.urlHelp}</span>
         </label>
+        )}
         <label className="block">
-          <span className="label">Default model{provider === "openai_compat" ? "" : " (optional)"}</span>
-          <input className="input mono w-full" value={model} onChange={(ev) => setModel(ev.target.value)} placeholder={hint.model} required={provider === "openai_compat"} />
-          <span className="mt-1 block text-xs text-muted">Used by curation and by eval suites that don't pin a model.</span>
+          <span className="label">Default model{provider === "openai_compat" || keyless ? "" : " (optional)"}</span>
+          <input className="input mono w-full" value={model} onChange={(ev) => setModel(ev.target.value)} placeholder={hint.model} required={provider === "openai_compat" || keyless} />
+          <span className="mt-1 block text-xs text-muted">
+            {provider === "bedrock" ? "A Bedrock model or inference profile id. " : provider === "vertex" ? "A Claude model (claude-...) or a Gemini model. " : ""}
+            Used by curation and by eval suites that don't pin a model.
+          </span>
         </label>
+        {keyless && (
+          <>
+            {provider === "vertex" && (
+              <label className="block">
+                <span className="label">GCP project (optional)</span>
+                <input className="input mono w-full" value={project} onChange={(ev) => setProject(ev.target.value)} placeholder="the server's GOOGLE_CLOUD_PROJECT" autoComplete="off" spellCheck={false} />
+              </label>
+            )}
+            <label className="block">
+              <span className="label">Region (optional)</span>
+              <input className="input mono w-full" value={region} onChange={(ev) => setRegion(ev.target.value)} placeholder={provider === "bedrock" ? "the server's AWS region" : "global"} autoComplete="off" spellCheck={false} />
+            </label>
+            <Notice>{hint.keyHelp}</Notice>
+          </>
+        )}
+        {!keyless && (
         <div className="space-y-3">
           <SecretModeSwitch
             policy={policy}
@@ -283,6 +330,8 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
             </label>
           )}
         </div>
+        )}
+        {!keyless && (
         <div>
           <span className="label">Extra headers (optional)</span>
           {replaceHeaders ? (
@@ -308,6 +357,7 @@ function ConnectionForm(props: { editing: LlmConnection | null; encryption: bool
           )}
           <span className="mt-1 block text-xs text-muted">For gateways that authenticate with their own header (Azure OpenAI's api-key, Portkey, Helicone). Values are encrypted.</span>
         </div>
+        )}
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={makeDefault} onChange={(ev) => setMakeDefault(ev.target.checked)} />
           Workspace default

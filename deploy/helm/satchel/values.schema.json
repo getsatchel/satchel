@@ -171,6 +171,12 @@
         },
         "model": {
           "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
         }
       }
     },

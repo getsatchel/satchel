@@ -45,6 +45,12 @@ data:
   {{- with .Values.chat.model }}
   SATCHEL_CHAT_MODEL: {{ . | quote }}
   {{- end }}
+  {{- with .Values.chat.region }}
+  SATCHEL_CHAT_REGION: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.chat.project }}
+  SATCHEL_CHAT_PROJECT: {{ . | quote }}
+  {{- end }}
   {{- range $k, $v := .Values.embedding.extra }}
   SATCHEL_EMBEDDING_{{ $k }}: {{ $v | quote }}
   {{- end }}

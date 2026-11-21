@@ -159,6 +159,13 @@ class _HttpChat:
         self._sleep = sleep
         self.usage = Usage()  # running totals across every call (judges included)
 
+    def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """One model call. Subclasses change the endpoint or the authentication."""
+        return self._post(self._url, self._headers, payload)
+
+    _url: str = ""
+    _headers: dict[str, str] = {}  # noqa: RUF012 - set per instance in __init__
+
     def _post(self, url: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:
         last = "no attempt made"
         for attempt in range(self._max_retries + 1):
@@ -220,7 +227,7 @@ class AnthropicChat(_HttpChat):
             }],
             "tool_choice": {"type": "tool", "name": "respond"},
         }
-        body = self._post(self._url, self._headers, payload)
+        body = self._send(payload)
         for block in body.get("content") or []:
             if isinstance(block, dict) and block.get("type") == "tool_use":
                 data = block.get("input")
@@ -265,7 +272,7 @@ class AnthropicChat(_HttpChat):
                 ]})
         payload = {"model": self.model, "max_tokens": max_tokens, "system": system,
                    "messages": msgs, "tools": list(tools)}
-        body = self._post(self._url, self._headers, payload)
+        body = self._send(payload)
         turn = ModelTurn(usage=_usage_of(body), stop_reason=body.get("stop_reason"))
         for b in body.get("content") or []:
             if not isinstance(b, dict):
@@ -305,7 +312,7 @@ class OpenAICompatChat(_HttpChat):
                 "json_schema": {"name": "response", "schema": schema, "strict": False},
             },
         }
-        body = self._post(self._url, self._headers, payload)
+        body = self._send(payload)
         try:
             content = body["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError):
@@ -343,7 +350,7 @@ class OpenAICompatChat(_HttpChat):
                 "parameters": t["input_schema"]}}
                 for t in tools],
         }
-        body = self._post(self._url, self._headers, payload)
+        body = self._send(payload)
         try:
             msg = body["choices"][0]["message"]
         except (KeyError, IndexError, TypeError):
@@ -361,6 +368,131 @@ class OpenAICompatChat(_HttpChat):
                                           args if isinstance(args, dict) else {},
                                           extra if isinstance(extra, dict) else None))
         return turn
+
+
+# --- keyless: the server's cloud identity instead of an API key -----------------------------
+
+BEDROCK_ANTHROPIC_VERSION = "bedrock-2023-05-31"
+VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
+
+
+class BedrockChat(AnthropicChat):
+    """Claude on Amazon Bedrock: the Messages API through ``bedrock-runtime`` ``InvokeModel``,
+    signed with the server's AWS identity (instance role, IRSA, EKS Pod Identity). ``model`` is
+    a Bedrock model or inference-profile id (``eu.anthropic.claude-...``)."""
+
+    def __init__(self, model: str, region: str | None, *, timeout_s: float = 120.0,
+                 max_retries: int = 4, client: Any = None) -> None:
+        super().__init__("", model, timeout_s=timeout_s, max_retries=max_retries)
+        self.model_id = f"bedrock:{model}"
+        self.region = region
+        self._bedrock = client
+        self._timeout_s, self._retries = timeout_s, max_retries
+
+    def _runtime(self) -> Any:
+        if self._bedrock is None:
+            try:
+                import boto3
+                from botocore.config import Config
+            except ImportError:
+                raise ChatError("Bedrock needs the aws extra (boto3)") from None
+            self._bedrock = boto3.client(
+                "bedrock-runtime", region_name=self.region, config=Config(
+                    read_timeout=self._timeout_s, connect_timeout=10,
+                    retries={"max_attempts": self._retries + 1, "mode": "adaptive"}))
+        return self._bedrock
+
+    def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
+        body = {k: v for k, v in payload.items() if k != "model"}
+        body["anthropic_version"] = BEDROCK_ANTHROPIC_VERSION
+        try:
+            from botocore.exceptions import BotoCoreError, ClientError
+        except ImportError:
+            raise ChatError("Bedrock needs the aws extra (boto3)") from None
+        try:
+            resp = self._runtime().invoke_model(
+                modelId=self.model, body=json.dumps(body), contentType="application/json",
+                accept="application/json")
+            out = json.loads(resp["body"].read())
+        except ClientError as e:
+            err = e.response.get("Error", {})
+            raise ChatError(f"Bedrock {err.get('Code', 'error')}: "
+                            f"{str(err.get('Message', ''))[:300]}") from None
+        except BotoCoreError as e:
+            raise ChatError(f"Bedrock: {type(e).__name__}: {e}") from None
+        if not isinstance(out, dict):
+            raise ChatError("Bedrock returned an unexpected body")
+        self.usage.add(_usage_of(out))
+        return out
+
+
+class _GoogleToken:
+    """An OAuth access token for the server's Google identity, refreshed before it expires."""
+
+    def __init__(self, credentials: Any = None) -> None:
+        self._creds = credentials
+
+    def bearer(self) -> str:
+        try:
+            import google.auth
+            from google.auth.exceptions import GoogleAuthError
+            from google.auth.transport.requests import Request
+        except ImportError:
+            raise ChatError("Vertex AI needs google-auth") from None
+        try:
+            if self._creds is None:
+                self._creds, _ = google.auth.default(
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"])
+            if not self._creds.valid:
+                self._creds.refresh(Request())
+        except GoogleAuthError as e:
+            raise ChatError(f"Vertex AI: no Google credentials ({type(e).__name__})") from None
+        return f"Bearer {self._creds.token}"
+
+
+def vertex_base(project: str, region: str) -> str:
+    host = "aiplatform.googleapis.com" if region == "global" else (
+        f"{region}-aiplatform.googleapis.com")
+    return f"https://{host}/v1/projects/{project}/locations/{region}"
+
+
+class VertexAnthropicChat(AnthropicChat):
+    """Claude on Vertex AI (``rawPredict``), with the server's Google identity."""
+
+    def __init__(self, model: str, project: str, region: str, *, timeout_s: float = 120.0,
+                 max_retries: int = 4, client: httpx.Client | None = None,
+                 sleep: Callable[[float], None] = time.sleep, credentials: Any = None) -> None:
+        super().__init__("", model, timeout_s=timeout_s, max_retries=max_retries, client=client,
+                         sleep=sleep)
+        self.model_id = f"vertex:{model}"
+        self._url = (f"{vertex_base(project, region)}/publishers/anthropic/models/{model}"
+                     ":rawPredict")
+        self._token = _GoogleToken(credentials)
+
+    def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
+        body = {k: v for k, v in payload.items() if k != "model"}
+        body["anthropic_version"] = VERTEX_ANTHROPIC_VERSION
+        headers = {"content-type": "application/json", "authorization": self._token.bearer()}
+        return self._post(self._url, headers, body)
+
+
+class VertexOpenAIChat(OpenAICompatChat):
+    """Gemini (and other Model Garden models) on Vertex AI through its OpenAI-compatible
+    endpoint, with the server's Google identity. A bare Gemini name becomes ``google/<name>``."""
+
+    def __init__(self, model: str, project: str, region: str, *, timeout_s: float = 120.0,
+                 max_retries: int = 4, client: httpx.Client | None = None,
+                 sleep: Callable[[float], None] = time.sleep, credentials: Any = None) -> None:
+        name = model if "/" in model else f"google/{model}"
+        super().__init__(name, f"{vertex_base(project, region)}/endpoints/openapi",
+                         timeout_s=timeout_s, max_retries=max_retries, client=client,
+                         sleep=sleep, provider="vertex")
+        self.model_id = f"vertex:{model}"
+        self._token = _GoogleToken(credentials)
+
+    def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post(self._url, {**self._headers, "authorization": self._token.bearer()},
+                          payload)
 
 
 class FakeChatProvider:

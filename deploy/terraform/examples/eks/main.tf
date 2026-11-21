@@ -96,6 +96,7 @@ module "foundation" {
   audit_retention_days = var.audit_retention_days
 
   secret_ref_prefix = var.secret_ref_prefix
+  enable_bedrock    = var.enable_bedrock
 }
 
 module "eks" {

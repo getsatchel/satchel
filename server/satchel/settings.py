@@ -81,10 +81,16 @@ class Settings(BaseSettings):
     # key comes from the environment only (SATCHEL_CHAT_API_KEY, else the provider's own variable:
     # ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY). `openai_compat` also covers Ollama,
     # vLLM, LiteLLM. `gemini` takes a Gemini API key (Google AI Studio).
-    chat_provider: Literal["anthropic", "openai_compat", "gemini"] | None = None
+    chat_provider: (
+        Literal["anthropic", "openai_compat", "gemini", "bedrock", "vertex"] | None) = None
     chat_model: str | None = None  # default claude-sonnet-5-5 (anthropic), gemini-2.5-flash
     chat_base_url: str | None = None  # default per provider
     chat_api_key: str | None = None
+    # bedrock / vertex: no API key, the server's cloud identity. Region (Bedrock: else
+    # AWS_REGION; Vertex: else CLOUD_ML_REGION, else "global") and GCP project (Vertex: else
+    # GOOGLE_CLOUD_PROJECT).
+    chat_region: str | None = None
+    chat_project: str | None = None
     chat_timeout_s: float = 120.0
     chat_max_retries: int = 4
     # `satchel worker` runs curation for every workspace on this interval (minutes).

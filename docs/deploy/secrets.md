@@ -111,6 +111,8 @@ Prefer a connection that needs no credential where the platform supports it:
 - **BigQuery:** leave the key empty, and the server's own Google identity runs the queries.
   Grant that identity `roles/bigquery.jobUser` and `roles/bigquery.dataViewer`.
 - **DuckDB:** a file path, no credential.
+- **Models:** **Amazon Bedrock** and **Vertex AI** call Claude (and, on Vertex, Gemini) with the
+  server's own identity: see [Settings → Models](configuration.md#settings--models).
 
 ## What Satchel still stores
 

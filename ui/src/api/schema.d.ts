@@ -2080,10 +2080,20 @@ export interface components {
             /** Model */
             model: string | null;
             /**
+             * Project
+             * @description vertex: the GCP project.
+             */
+            project?: string | null;
+            /**
              * Provider
              * @enum {string}
              */
-            provider: "anthropic" | "openai_compat" | "gemini";
+            provider: "anthropic" | "openai_compat" | "gemini" | "bedrock" | "vertex";
+            /**
+             * Region
+             * @description bedrock / vertex: where the model runs.
+             */
+            region?: string | null;
         };
         /** DeploymentOut */
         DeploymentOut: {
@@ -2715,10 +2725,20 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Project
+             * @description vertex: the GCP project.
+             */
+            project?: string | null;
+            /**
              * Provider
              * @enum {string}
              */
-            provider: "anthropic" | "openai_compat" | "gemini";
+            provider: "anthropic" | "openai_compat" | "gemini" | "bedrock" | "vertex";
+            /**
+             * Region
+             * @description bedrock / vertex: where the model runs.
+             */
+            region?: string | null;
         };
         /** LlmConnectionOut */
         LlmConnectionOut: {
@@ -2755,10 +2775,20 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Project
+             * @description vertex: the GCP project.
+             */
+            project?: string | null;
+            /**
              * Provider
              * @enum {string}
              */
-            provider: "anthropic" | "openai_compat" | "gemini";
+            provider: "anthropic" | "openai_compat" | "gemini" | "bedrock" | "vertex";
+            /**
+             * Region
+             * @description bedrock / vertex: where the model runs.
+             */
+            region?: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -2787,6 +2817,16 @@ export interface components {
             is_default?: boolean | null;
             /** Name */
             name?: string | null;
+            /**
+             * Project
+             * @description vertex: the GCP project.
+             */
+            project?: string | null;
+            /**
+             * Region
+             * @description bedrock / vertex: where the model runs.
+             */
+            region?: string | null;
         };
         /** LlmConnectionsOut */
         LlmConnectionsOut: {
@@ -2844,8 +2884,18 @@ export interface components {
              * @description Test this model instead of the default.
              */
             model?: string | null;
+            /**
+             * Project
+             * @description vertex: the GCP project.
+             */
+            project?: string | null;
             /** Provider */
-            provider?: ("anthropic" | "openai_compat" | "gemini") | null;
+            provider?: ("anthropic" | "openai_compat" | "gemini" | "bedrock" | "vertex") | null;
+            /**
+             * Region
+             * @description bedrock / vertex: where the model runs.
+             */
+            region?: string | null;
         };
         /** MeOut */
         MeOut: {
