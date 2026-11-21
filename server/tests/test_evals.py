@@ -588,6 +588,49 @@ def test_compare_runs_shows_newly_failing_cases(env: Env) -> None:
     assert cmp["a"]["id"] == good["id"]
 
 
+def test_eval_model_says_which_model_a_run_would_use(
+    app_engine: Engine, tmp_path: Path, warehouse: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    e = make_env(app_engine, tmp_path, warehouse, chat=None, prefix="evm")
+    put_suite(e)  # "mini": pins no model
+
+    def model(suite: str, override: str | None = None) -> dict[str, Any]:
+        params = {"suite": suite} | ({"model": override} if override else {})
+        r = e.client.get("/v1/evals/model", params=params, headers=e.h("analyst"))
+        assert r.status_code == 200, r.text
+        return dict(r.json())
+
+    suites = {x["key"]: x for x in e.client.get("/v1/evals/suites", headers=e.h("explorer")).json()}
+    assert suites["core"]["model"] == "anthropic:claude-sonnet-5-5"
+    assert suites["mini"]["model"] is None
+    assert model("mini") == {"model_id": None, "connection": None, "source": "workspace",
+                             "pinned": None, "problem": "no model is set up: add one in "
+                             "Settings > Models"}
+    core = model("core")
+    assert core["source"] == "suite" and core["pinned"] == "anthropic:claude-sonnet-5-5"
+    assert core["problem"] == ("the suite pins anthropic:claude-sonnet-5-5, but there is no "
+                               "Anthropic model in Settings > Models: pick another model, or "
+                               "add one")
+
+    r = e.client.post("/v1/llm-connections", headers=e.h("admin"), json={
+        "name": "local", "provider": "openai_compat", "base_url": "http://ollama:11434/v1",
+        "default_model": "llama3"})
+    assert r.status_code == 201, r.text
+    assert model("mini") == {"model_id": "openai_compat:llama3", "connection": "local",
+                             "source": "workspace", "pinned": None, "problem": None}
+    assert model("core")["problem"]  # still pinned to a provider the workspace lacks
+    over = model("core", "openai_compat:qwen3")
+    assert over["model_id"] == "openai_compat:qwen3" and over["source"] == "override"
+    assert over["problem"] is None and over["pinned"] == "anthropic:claude-sonnet-5-5"
+    assert model("mini", "llama3.1")["model_id"] == "openai_compat:llama3.1"
+    assert e.client.get("/v1/evals/model", params={"suite": "core"},
+                        headers=e.h("explorer")).status_code == 403
+    assert e.client.get("/v1/evals/model", params={"suite": "nope"},
+                        headers=e.h("analyst")).status_code == 404
+
+
 def test_no_llm_runs_retrieval_suite_and_skips_agent_cases(
     app_engine: Engine, tmp_path: Path, warehouse: Path
 ) -> None:

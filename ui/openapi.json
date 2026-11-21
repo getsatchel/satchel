@@ -2228,6 +2228,78 @@
         "title": "DocRefOut",
         "type": "object"
       },
+      "EvalModelOut": {
+        "description": "The model a run of a suite would use, worked out the way the run does.",
+        "properties": {
+          "connection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The model connection it goes through ('deployment', 'environment' or a Settings > Models name)",
+            "title": "Connection"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "provider:name, or null when there is none",
+            "title": "Model Id"
+          },
+          "pinned": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The suite's own model, if it pins one",
+            "title": "Pinned"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why agent-driven cases would be skipped; null when the model is usable",
+            "title": "Problem"
+          },
+          "source": {
+            "description": "What chose it: the run's model, the suite's pinned model, or the workspace's model",
+            "enum": [
+              "override",
+              "suite",
+              "workspace"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_id",
+          "connection",
+          "source",
+          "pinned",
+          "problem"
+        ],
+        "title": "EvalModelOut",
+        "type": "object"
+      },
       "EvidenceSession": {
         "description": "One question the signals came from (or a whole session, for signals recorded before\nsessions were split into questions).",
         "properties": {
@@ -7268,6 +7340,18 @@
             "title": "Measures",
             "type": "array"
           },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The model the suite pins, as provider:name; null uses the workspace's model",
+            "title": "Model"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -7401,6 +7485,18 @@
             },
             "title": "Measures",
             "type": "array"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The model the suite pins, as provider:name; null uses the workspace's model",
+            "title": "Model"
           },
           "name": {
             "title": "Name",
@@ -10176,6 +10272,113 @@
           }
         },
         "summary": "Compare",
+        "tags": [
+          "evals"
+        ]
+      }
+    },
+    "/v1/evals/model": {
+      "get": {
+        "description": "Which model a run of ``suite`` would use (with ``model`` as the run's override), and\nwhy its agent-driven cases would be skipped, if they would.",
+        "operationId": "eval_model",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "suite",
+            "required": true,
+            "schema": {
+              "title": "Suite",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-workspace",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-Workspace"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-satchel-user",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Satchel-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalModelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Eval Model",
         "tags": [
           "evals"
         ]

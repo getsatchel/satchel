@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "@/api/endpoints";
-import type { EvalCase, EvalRun, EvalSuite } from "@/api/types";
+import type { EvalCase, EvalModel, EvalRun, EvalSuite, LlmConnections } from "@/api/types";
 import { CaseMoves, DeltaTable, MeasureChips, OutcomeBadge } from "@/components/EvalBits";
 import { useToast } from "@/components/Toast";
 import { Chevron, Crumb, EmptyState, ErrorBox, GitBadge, ICONS, KeyLines, Loading, Notice, PageHeader, SectionHeading, Sheet, StatCell, StatGrid, TableCard, Tabs } from "@/components/ui";
@@ -61,6 +61,7 @@ function Suites() {
           ) : undefined
         }
       />
+      <WorkspaceModel admin={role >= RANK.admin} />
       {q.isPending && <Loading />}
       {q.isError && <ErrorBox error={q.error} />}
       {q.data && q.data.length === 0 && (
@@ -94,6 +95,11 @@ function Suites() {
                     {s.managed_by === "git" && <GitBadge />}
                     {s.required_by_gate && <span className="badge badge-accent" title="Evals must pass before a preview can be published">publish gate</span>}
                     {!s.needs_agent && <span className="badge">no LLM</span>}
+                    {s.needs_agent && s.model && (
+                      <span className="badge font-mono" title="The suite pins this model; a run can pick another">
+                        {s.model}
+                      </span>
+                    )}
                     {s.schedule_hours ? (
                       <span className="badge" title={s.next_run_at ? `Next scheduled run ${fullTime(s.next_run_at)}, against the published release` : undefined}>
                         every {everyLabel(s.schedule_hours)} · {timeUntil(s.next_run_at)}
@@ -249,15 +255,26 @@ function SuiteEditor({ initial, onClose }: { initial: string; onClose: () => voi
 function RunDialog({ suite, onClose }: { suite: EvalSuite; onClose: () => void }) {
   const rel = useQuery({ queryKey: ["releases", "published"], queryFn: () => endpoints.listReleases("published") });
   const prev = useQuery({ queryKey: ["releases", "preview"], queryFn: () => endpoints.listReleases("preview") });
+  const llm = useQuery({ queryKey: ["llm-connections"], queryFn: endpoints.listLlmConnections, enabled: suite.needs_agent });
+  const admin = useRole() >= RANK.admin;
   const [release, setRelease] = useState("");
-  const [model, setModel] = useState("");
+  // "" = the suite's or the workspace's model; OTHER = typed below; else provider:model.
+  const [pick, setPick] = useState("");
+  const [touched, setTouched] = useState(false);
+  const [typed, setTyped] = useState("");
+  const model = pick === OTHER ? typed.trim() : pick;
   const nav = useNavigate();
   const toast = useToast();
   const qc = useQueryClient();
   const head = rel.data?.releases[0];
   const chosen = release || head?.id || "";
+  const resolved = useQuery({
+    queryKey: ["eval-model", suite.key, model],
+    queryFn: () => endpoints.evalModel(suite.key, model || undefined),
+    enabled: suite.needs_agent && (pick !== OTHER || typed.trim() !== ""),
+  });
   const start = useMutation({
-    mutationFn: () => endpoints.startEvalRun(suite.key, chosen, model.trim()),
+    mutationFn: () => endpoints.startEvalRun(suite.key, chosen, model),
     onSuccess: (r) => {
       toast("ok", "Run started");
       void qc.invalidateQueries({ queryKey: ["eval-runs"] });
@@ -265,11 +282,17 @@ function RunDialog({ suite, onClose }: { suite: EvalSuite; onClose: () => void }
     },
     onError: (e) => toast("err", errMsg(e)),
   });
+  const choices = modelChoices(llm.data);
+  // The suite pins a model the workspace hasn't set up: start on the workspace's own model.
+  const fallback = workspaceChoice(llm.data);
+  useEffect(() => {
+    if (!touched && pick === "" && resolved.data?.problem && suite.model && fallback) setPick(fallback);
+  }, [touched, pick, resolved.data?.problem, suite.model, fallback]);
   return (
     <Sheet
       open
       onClose={onClose}
-      dirty={model.trim() !== ""}
+      dirty={touched}
       title={`Run ${suite.key}`}
       footer={
         <>
@@ -282,30 +305,161 @@ function RunDialog({ suite, onClose }: { suite: EvalSuite; onClose: () => void }
         </>
       }
     >
-      <label className="mb-3 block">
-        <span className="label">Release</span>
-        <select className="input w-full" value={chosen} onChange={(e) => setRelease(e.target.value)}>
-          {rel.data?.releases.map((r) => (
-            <option key={r.id} value={r.id}>
-              #{r.seq} published{r.is_current ? " (current)" : ""}
-            </option>
-          ))}
-          {prev.data?.releases.map((r) => (
-            <option key={r.id} value={r.id}>
-              #{r.seq} preview
-            </option>
-          ))}
-        </select>
-      </label>
-      {suite.needs_agent ? (
+      <div className="space-y-4">
         <label className="block">
-          <span className="label">Model override (optional, e.g. claude-haiku-4-5)</span>
-          <input className="input w-full" value={model} onChange={(e) => setModel(e.target.value)} />
+          <span className="label">Release</span>
+          <select className="input w-full" value={chosen} onChange={(e) => setRelease(e.target.value)}>
+            {rel.data?.releases.map((r) => (
+              <option key={r.id} value={r.id}>
+                #{r.seq} published{r.is_current ? " (current)" : ""}
+              </option>
+            ))}
+            {prev.data?.releases.map((r) => (
+              <option key={r.id} value={r.id}>
+                #{r.seq} preview
+              </option>
+            ))}
+          </select>
         </label>
-      ) : (
-        <Notice>This suite only checks retrieval, so it runs without an LLM.</Notice>
-      )}
+        {suite.needs_agent ? (
+          <>
+            <div>
+              <label className="block">
+                <span className="label">Model</span>
+                <select
+                  className="input w-full"
+                  value={pick}
+                  onChange={(e) => {
+                    setTouched(true);
+                    setPick(e.target.value);
+                  }}
+                >
+                  <option value="">{suite.model ? `The suite's model (${suite.model})` : "The workspace's model"}</option>
+                  {choices.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                  <option value={OTHER}>Another model...</option>
+                </select>
+              </label>
+              {pick === OTHER && (
+                <label className="mt-3 block">
+                  <span className="label">Model name</span>
+                  <input className="input mono w-full" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="gemini:gemini-2.5-pro or claude-haiku-4-5" autoComplete="off" spellCheck={false} />
+                  <span className="mt-1 block text-xs text-muted">provider:name, or a name for the default provider. It goes through that provider's model in Settings.</span>
+                </label>
+              )}
+            </div>
+            {!touched && pick !== "" && pick === fallback && (
+              <p className="text-xs text-muted">The suite pins {suite.model}, which isn't set up here, so this run starts on the workspace's model.</p>
+            )}
+            <ResolvedModel r={resolved.data} loading={resolved.isFetching} admin={admin} />
+          </>
+        ) : (
+          <Notice>This suite only checks retrieval, so it runs without a model.</Notice>
+        )}
+      </div>
     </Sheet>
+  );
+}
+
+const OTHER = "__other";
+const PROVIDER_DEFAULT: Record<string, string> = { anthropic: "claude-sonnet-5-5", gemini: "gemini-2.5-flash" };
+const PROVIDER_LABEL: Record<string, string> = { anthropic: "Anthropic", gemini: "Gemini", openai_compat: "OpenAI-compatible" };
+
+/** Each configured model as a run override (provider:model); a run picks the provider's connection. */
+function modelChoices(d: LlmConnections | undefined): { value: string; label: string }[] {
+  if (!d) return [];
+  const one = (provider: string, model: string | null | undefined, name: string) => {
+    const m = model || PROVIDER_DEFAULT[provider];
+    return m ? { value: `${provider}:${m}`, label: `${name} · ${provider}:${m}` } : null;
+  };
+  const out = d.deployment
+    ? [one(d.deployment.provider, d.deployment.model, "Deployment")]
+    : d.connections.map((c) => one(c.provider, c.default_model, c.name));
+  const seen = new Set<string>();
+  return out.filter((c): c is { value: string; label: string } => c !== null && !seen.has(c.value) && Boolean(seen.add(c.value)));
+}
+
+/** The workspace's own model as a run choice: the deployment's, or the default connection's. */
+function workspaceChoice(d: LlmConnections | undefined): string | null {
+  if (!d) return null;
+  const p = d.deployment ?? d.connections.find((c) => c.name === d.effective);
+  if (!p) return null;
+  const m = ("model" in p ? p.model : p.default_model) || PROVIDER_DEFAULT[p.provider];
+  return m ? `${p.provider}:${m}` : null;
+}
+
+/** What the run will use, as the server works it out, with a way to fix it when it can't. */
+function ResolvedModel({ r, loading, admin }: { r: EvalModel | undefined; loading: boolean; admin: boolean }) {
+  if (!r) return loading ? <p className="text-xs text-muted">Checking the model...</p> : null;
+  if (r.problem)
+    return (
+      <Notice tone="warn">
+        <p>Agent-driven cases will be skipped: {r.problem}.</p>
+        <p className="mt-1.5 flex flex-wrap gap-x-3">
+          {admin ? (
+            <Link className="underline" to="/settings?tab=models&sheet=new">
+              Add a model
+            </Link>
+          ) : (
+            <span>An admin can add one.</span>
+          )}
+          <Link className="underline" to="/settings?tab=models">
+            Manage models
+          </Link>
+        </p>
+      </Notice>
+    );
+  const why = r.source === "override" ? "chosen for this run" : r.source === "suite" ? "pinned by the suite" : "the workspace's model";
+  return (
+    <p className="text-xs text-muted" role="status">
+      Runs with <span className="font-mono text-ink">{r.model_id}</span> ({why}){r.connection && r.connection !== "environment" ? ` through ${r.connection === "deployment" ? "the deployment's model" : `the ${r.connection} model`}` : ""}.{" "}
+      <Link className="underline hover:text-ink" to="/settings?tab=models">
+        Manage models
+      </Link>
+    </p>
+  );
+}
+
+/** The model agent-driven cases use by default, or how to set one up. */
+function WorkspaceModel({ admin }: { admin: boolean }) {
+  const q = useQuery({ queryKey: ["llm-connections"], queryFn: endpoints.listLlmConnections });
+  if (!q.data) return null;
+  const d = q.data;
+  const def = d.connections.find((c) => c.name === d.effective);
+  const label = d.deployment
+    ? `${d.deployment.provider}:${d.deployment.model ?? PROVIDER_DEFAULT[d.deployment.provider] ?? "?"} (set by the deployment)`
+    : def
+      ? `${def.provider}:${def.default_model || PROVIDER_DEFAULT[def.provider] || "?"} (${def.name})`
+      : null;
+  if (!label)
+    return (
+      <div className="mb-3">
+        <Notice tone="warn">
+          No model is set up, so suites that need an agent or a judge skip those cases. Retrieval-only suites still run.{" "}
+          {admin ? (
+            <Link className="underline" to="/settings?tab=models&sheet=new">
+              Add a model
+            </Link>
+          ) : (
+            "An admin can add one in Settings > Models."
+          )}
+        </Notice>
+      </div>
+    );
+  const others = d.deployment ? [] : d.connections.filter((c) => c.name !== d.effective);
+  return (
+    <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+      <span>
+        Agent and judge model: <span className="font-mono text-ink">{label}</span>
+        {others.length > 0 && <> · also {others.map((c) => `${c.name} (${PROVIDER_LABEL[c.provider] ?? c.provider})`).join(", ")}</>}
+      </span>
+      <Link className="underline hover:text-ink" to="/settings?tab=models">
+        Manage models
+      </Link>
+    </p>
   );
 }
 
@@ -451,7 +605,13 @@ export function EvalRunPage() {
           {r.error && <Notice tone="warn">{r.error}</Notice>}
           {r.status === "running" && <Loading label="Running" />}
           {!r.llm && r.cases_skipped > 0 && (
-            <Notice tone="warn">No LLM was available, so agent-driven cases were skipped. Set ANTHROPIC_API_KEY or SATCHEL_CHAT_PROVIDER.</Notice>
+            <Notice tone="warn">
+              No model was available, so agent-driven cases were skipped. Add one in{" "}
+              <Link className="underline" to="/settings?tab=models">
+                Settings &gt; Models
+              </Link>
+              , or pick a model you have when you run the suite.
+            </Notice>
           )}
         </div>
       </section>

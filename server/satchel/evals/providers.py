@@ -13,7 +13,8 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from typing import cast
+from dataclasses import dataclass
+from typing import Literal, cast
 
 from sqlalchemy import Engine
 
@@ -54,14 +55,25 @@ def _env_target(provider: str) -> ChatTarget | None:
                       base_url=None, model=None, api_key=key, managed_by="deployment")
 
 
-def resolve_provider(
+@dataclass(frozen=True)
+class Resolution:
+    """Which model a run would use, and why: shown before a run, used by the run."""
+
+    target: ChatTarget | None
+    model: str | None  # the model name asked for; None = the target's default
+    source: Literal["override", "suite", "workspace"]
+    pinned: ModelSpec | None  # the suite's own model, if it pins one
+    problem: str | None = None
+
+
+def resolve(
     suite_model: ModelSpec | None,
     override: str | None = None,
     settings: Settings | None = None,
     *,
     workspace_id: uuid.UUID | None = None,
     engine: Engine | None = None,
-) -> EvalProvider | None:
+) -> Resolution:
     st = settings or get_settings()
 
     def lookup(provider: str | None) -> ChatTarget | None:
@@ -76,20 +88,45 @@ def resolve_provider(
             return None
 
     spec = suite_model
-    if override:
+    source: Literal["override", "suite", "workspace"] = "suite" if spec else "workspace"
+    if override and override.strip():
         default = lookup(None)
         spec = parse_model_override(
-            override, spec.provider if spec else (default.provider if default else "anthropic"))
+            override.strip(),
+            spec.provider if spec else (default.provider if default else "anthropic"))
+        source = "override"
     if spec is None:
         target = lookup(None)
-        model = None
-    else:
-        target = lookup(spec.provider) or _env_target(spec.provider)
-        model = spec.name
+        if target is None:
+            return Resolution(None, None, source, suite_model,
+                              "no model is set up: add one in Settings > Models")
+        return Resolution(target, None, source, suite_model)
+    target = lookup(spec.provider) or _env_target(spec.provider)
     if target is None:
-        if spec is not None:
-            log.warning("eval model is %s but no %s connection or API key is configured",
-                        spec.provider, spec.provider)
+        log.warning("eval model is %s but no %s connection or API key is configured",
+                    spec.provider, spec.provider)
+        kind = _LABEL.get(spec.provider, spec.provider)
+        who = "the suite pins" if source == "suite" else "the run asks for"
+        return Resolution(None, spec.name, source, suite_model,
+                          f"{who} {spec.provider}:{spec.name}, but there is no {kind} model in "
+                          "Settings > Models: pick another model, or add one")
+    return Resolution(target, spec.name, source, suite_model)
+
+
+_LABEL = {"anthropic": "Anthropic", "gemini": "Gemini", "openai_compat": "OpenAI-compatible"}
+
+
+def resolve_provider(
+    suite_model: ModelSpec | None,
+    override: str | None = None,
+    settings: Settings | None = None,
+    *,
+    workspace_id: uuid.UUID | None = None,
+    engine: Engine | None = None,
+) -> EvalProvider | None:
+    st = settings or get_settings()
+    res = resolve(suite_model, override, st, workspace_id=workspace_id, engine=engine)
+    if res.target is None:
         return None
-    chat = build_chat(target, st, model)
+    chat = build_chat(res.target, st, res.model)
     return cast(EvalProvider, chat) if chat is not None else None

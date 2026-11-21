@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -22,6 +22,9 @@ class SuiteOut(BaseModel):
     cases: int
     measures: list[str]
     needs_agent: bool
+    model: str | None = Field(
+        default=None, description="The model the suite pins, as provider:name; null uses the "
+        "workspace's model")
     required_by_gate: bool = False
     created_at: datetime
     last_run_at: datetime | None = None
@@ -34,6 +37,21 @@ class SuiteDetail(SuiteOut):
     spec: dict[str, Any]
     yaml: str
     versions: list[int]
+
+
+class EvalModelOut(BaseModel):
+    """The model a run of a suite would use, worked out the way the run does."""
+
+    model_id: str | None = Field(description="provider:name, or null when there is none")
+    connection: str | None = Field(
+        description="The model connection it goes through ('deployment', 'environment' or a "
+        "Settings > Models name)")
+    source: Literal["override", "suite", "workspace"] = Field(
+        description="What chose it: the run's model, the suite's pinned model, or the "
+        "workspace's model")
+    pinned: str | None = Field(description="The suite's own model, if it pins one")
+    problem: str | None = Field(
+        description="Why agent-driven cases would be skipped; null when the model is usable")
 
 
 class RunRequest(BaseModel):

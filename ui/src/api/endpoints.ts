@@ -1,6 +1,7 @@
 import { api, keyPath } from "./client";
 import { crawlReportOf, curationReportOf, isJob, syncReportOf } from "./jobs";
 import type {
+  EvalModel,
   ConnectInfo,
   AgentInstructionsInfo,
   AssetDetail,
@@ -205,6 +206,7 @@ export const endpoints = {
   getAsset: (id: string) => api.get<AssetDetail>(`/v1/assets/${id}`),
 
   listEvalSuites: () => api.get<EvalSuite[]>("/v1/evals/suites"),
+  evalModel: (suite: string, model?: string) => api.get<EvalModel>("/v1/evals/model", { suite, ...(model ? { model } : {}) }),
   getEvalSuite: (key: string) => api.get<EvalSuiteDetail>(`/v1/evals/suites/${keyPath(key)}`),
   saveEvalSuite: (yaml: string) => api.post<EvalSuite>("/v1/evals/suites", { yaml }),
   listEvalRuns: (q: { suite_key?: string; release_id?: string; limit?: number }) =>
