@@ -52,6 +52,19 @@ data "aws_iam_policy_document" "runtime" {
     )
   }
 
+  # Claude on Amazon Bedrock with the runtime role (provider "bedrock"): no API key stored.
+  dynamic "statement" {
+    for_each = var.enable_bedrock ? [1] : []
+    content {
+      sid     = "BedrockInvoke"
+      actions = ["bedrock:InvokeModel"]
+      resources = [
+        "arn:${local.partition}:bedrock:*::foundation-model/*",
+        "arn:${local.partition}:bedrock:*:${local.account_id}:inference-profile/*",
+      ]
+    }
+  }
+
   # Secrets that connections, models and sources reference (aws-sm:...) instead of storing.
   dynamic "statement" {
     for_each = var.secret_ref_prefix == null ? [] : [1]

@@ -75,7 +75,7 @@ Drafting needs a chat model; without one, clustering and hygiene still run and s
 
 | Variable | Meaning |
 |---|---|
-| `SATCHEL_CHAT_PROVIDER` | `anthropic`, `gemini` or `openai_compat` (Ollama, vLLM, LiteLLM, OpenAI). Unset = no model. |
+| `SATCHEL_CHAT_PROVIDER` | `anthropic`, `gemini` or `openai_compat` (Ollama, vLLM, LiteLLM, OpenAI); or, with no API key, `bedrock` / `vertex` (the server's cloud identity; `SATCHEL_CHAT_REGION`, `SATCHEL_CHAT_PROJECT`). Unset = no model. |
 | `SATCHEL_CHAT_MODEL` | Model name. Default for `anthropic`: `claude-sonnet-5-5`; for `gemini`: `gemini-2.5-flash`. Required for `openai_compat`. |
 | `SATCHEL_CHAT_BASE_URL` | Defaults to the provider's public API; set it for local servers, e.g. `http://localhost:11434/v1`. |
 | `SATCHEL_CHAT_API_KEY` | Environment only. Falls back to `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` (then `GOOGLE_API_KEY`). |

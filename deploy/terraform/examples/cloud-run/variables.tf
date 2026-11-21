@@ -147,3 +147,9 @@ variable "secrets_mode" {
   type        = string
   default     = "store"
 }
+
+variable "enable_vertex_ai" {
+  description = "Let Satchel call models on Vertex AI with its own service account (the \"vertex\" model provider): no API key stored."
+  type        = bool
+  default     = false
+}

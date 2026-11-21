@@ -249,7 +249,7 @@ class LlmConnection(Base):
     __table_args__ = (
         UniqueConstraint("workspace_id", "name", name="llm_connection_ws_name_uq"),
         CheckConstraint(
-            "provider in ('anthropic','openai_compat','gemini')",
+            "provider in ('anthropic','openai_compat','gemini','bedrock','vertex')",
             name="llm_connection_provider_ck",
         ),
         # At most one default per workspace (migration 0012).
@@ -268,6 +268,9 @@ class LlmConnection(Base):
     api_key_hint: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A secret manager reference read when the key is needed, instead of api_key_enc.
     api_key_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # bedrock / vertex: where the model runs (no API key: the server's cloud identity).
+    region: Mapped[str | None] = mapped_column(Text, nullable=True)
+    project: Mapped[str | None] = mapped_column(Text, nullable=True)
     extra_headers_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
     extra_header_names: Mapped[list[str]] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")

@@ -2073,14 +2073,40 @@
             ],
             "title": "Model"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vertex: the GCP project.",
+            "title": "Project"
+          },
           "provider": {
             "enum": [
               "anthropic",
               "openai_compat",
-              "gemini"
+              "gemini",
+              "bedrock",
+              "vertex"
             ],
             "title": "Provider",
             "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "bedrock / vertex: where the model runs.",
+            "title": "Region"
           }
         },
         "required": [
@@ -3744,14 +3770,40 @@
             "title": "Name",
             "type": "string"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vertex: the GCP project.",
+            "title": "Project"
+          },
           "provider": {
             "enum": [
               "anthropic",
               "openai_compat",
-              "gemini"
+              "gemini",
+              "bedrock",
+              "vertex"
             ],
             "title": "Provider",
             "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "bedrock / vertex: where the model runs.",
+            "title": "Region"
           }
         },
         "required": [
@@ -3838,14 +3890,40 @@
             "title": "Name",
             "type": "string"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vertex: the GCP project.",
+            "title": "Project"
+          },
           "provider": {
             "enum": [
               "anthropic",
               "openai_compat",
-              "gemini"
+              "gemini",
+              "bedrock",
+              "vertex"
             ],
             "title": "Provider",
             "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "bedrock / vertex: where the model runs.",
+            "title": "Region"
           },
           "updated_at": {
             "format": "date-time",
@@ -3940,6 +4018,30 @@
               }
             ],
             "title": "Name"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vertex: the GCP project.",
+            "title": "Project"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "bedrock / vertex: where the model runs.",
+            "title": "Region"
           }
         },
         "title": "LlmConnectionPatch",
@@ -4118,13 +4220,27 @@
             "description": "Test this model instead of the default.",
             "title": "Model"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vertex: the GCP project.",
+            "title": "Project"
+          },
           "provider": {
             "anyOf": [
               {
                 "enum": [
                   "anthropic",
                   "openai_compat",
-                  "gemini"
+                  "gemini",
+                  "bedrock",
+                  "vertex"
                 ],
                 "type": "string"
               },
@@ -4133,6 +4249,18 @@
               }
             ],
             "title": "Provider"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "bedrock / vertex: where the model runs.",
+            "title": "Region"
           }
         },
         "title": "LlmTestRequest",

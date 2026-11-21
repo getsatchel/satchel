@@ -21,6 +21,7 @@ from sqlalchemy import Engine
 from satchel.evals.runner import EvalProvider
 from satchel.evals.suite import ModelSpec
 from satchel.llm.connections import (
+    KEYLESS,
     ChatTarget,
     build_chat,
     deployment_target,
@@ -37,12 +38,15 @@ def parse_model_override(raw: str, default_provider: str) -> ModelSpec:
     """``claude-haiku`` | ``anthropic:claude-haiku`` | ``openai_compat:gpt-x`` |
     ``gemini:gemini-2.5-pro``."""
     prov, sep, name = raw.partition(":")
-    if sep and prov in ("anthropic", "openai_compat", "gemini"):
+    if sep and prov in ("anthropic", "openai_compat", "gemini", "bedrock", "vertex"):
         return ModelSpec(provider=prov, name=name)
     return ModelSpec(provider=default_provider, name=raw)
 
 
 def _env_target(provider: str) -> ChatTarget | None:
+    if provider in KEYLESS:  # the server's cloud identity; region and project from its env
+        return ChatTarget(name="environment", provider=provider,  # type: ignore[arg-type]
+                          base_url=None, model=None, api_key=None, managed_by="deployment")
     if provider == "anthropic":
         key = os.environ.get("ANTHROPIC_API_KEY")
     elif provider == "gemini":
@@ -113,7 +117,8 @@ def resolve(
     return Resolution(target, spec.name, source, suite_model)
 
 
-_LABEL = {"anthropic": "Anthropic", "gemini": "Gemini", "openai_compat": "OpenAI-compatible"}
+_LABEL = {"anthropic": "Anthropic", "gemini": "Gemini", "openai_compat": "OpenAI-compatible",
+          "bedrock": "Amazon Bedrock", "vertex": "Vertex AI"}
 
 
 def resolve_provider(

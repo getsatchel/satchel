@@ -267,3 +267,9 @@ variable "secret_ref_prefix" {
     error_message = "secret_ref_prefix: letters, digits and / _ + = . @ - only (no wildcards)."
   }
 }
+
+variable "enable_bedrock" {
+  description = "Let the runtime role call models on Amazon Bedrock (bedrock:InvokeModel on foundation models and this account's inference profiles), for the \"bedrock\" model provider: no API key is stored. Model access must still be granted in the Bedrock console."
+  type        = bool
+  default     = false
+}

@@ -58,6 +58,10 @@ embedding:
 chat:
   provider: ""
   model: ""
+  # bedrock / vertex only (no API key: the pod's cloud identity). Bedrock region defaults to
+  # aws.region; Vertex region to "global", and its project to GOOGLE_CLOUD_PROJECT.
+  region: ""
+  project: ""
 
 # Extra non-secret environment (ConfigMap). Keys are full names, for example SATCHEL_DEV_AUTH: "1".
 extraEnv: {}
