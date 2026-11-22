@@ -17,6 +17,10 @@ x-satchel: &satchel
     SATCHEL_OIDC_CLIENT_ID: ${SATCHEL_OIDC_CLIENT_ID:?}
     SATCHEL_OIDC_CLIENT_SECRET: ${SATCHEL_OIDC_CLIENT_SECRET:?}
     SATCHEL_ENCRYPTION_KEY: ${SATCHEL_ENCRYPTION_KEY:?}
+    SATCHEL_OIDC_CREATE_USERS: ${SATCHEL_OIDC_CREATE_USERS:-false}
+    # Secret references (docs/deploy/secrets.md): off unless the allow list is set.
+    SATCHEL_SECRET_REF_ALLOW: ${SATCHEL_SECRET_REF_ALLOW:-}
+    SATCHEL_SECRETS: ${SATCHEL_SECRETS:-store}
     SATCHEL_LOG_FORMAT: json
     # Only Caddy reaches the web container, so trust its X-Forwarded-For for the client address
     # (rate limits and logs). The web port is not published on the host.
