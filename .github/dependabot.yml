@@ -1,6 +1,6 @@
 # Weekly dependency updates. Security updates also arrive between runs (enable "Dependabot
-# security updates" in the repository settings). Minor and patch bumps are grouped per ecosystem
-# so there is one pull request to review, not dozens.
+# security updates" in the repository settings). Per ecosystem, minor and patch bumps come as one
+# pull request and major bumps as another, so a breaking upgrade never blocks the safe ones.
 version: 2
 updates:
   - package-ecosystem: uv
@@ -9,29 +9,43 @@ updates:
     groups:
       server:
         update-types: [minor, patch]
+      server-major:
+        update-types: [major]
   - package-ecosystem: pip
     directory: /sdk
     schedule: {interval: weekly}
+    groups:
+      sdk:
+        patterns: ["*"]
   - package-ecosystem: npm
     directory: /ui
     schedule: {interval: weekly}
     groups:
       ui:
         update-types: [minor, patch]
+      ui-major:
+        update-types: [major]
   - package-ecosystem: npm
     directory: /ui-widgets
     schedule: {interval: weekly}
     groups:
       widgets:
         update-types: [minor, patch]
+      widgets-major:
+        update-types: [major]
   - package-ecosystem: github-actions
     directory: /
     schedule: {interval: weekly}
     groups:
       actions:
         update-types: [minor, patch]
+      actions-major:
+        update-types: [major]
   # Terraform providers. (The Dockerfile's base images are ARG defaults pinned by digest, which
   # Dependabot cannot update: bump them deliberately.)
   - package-ecosystem: terraform
     directories: ["/deploy/terraform/modules/*"]
     schedule: {interval: monthly}
+    groups:
+      terraform:
+        patterns: ["*"]

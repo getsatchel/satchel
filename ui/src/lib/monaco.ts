@@ -1,12 +1,12 @@
 /** Bundled Monaco (no CDN): only the editor core plus the languages satchel needs. */
 import { loader } from "@monaco-editor/react";
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
-import "monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution";
-import "monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution";
-import "monaco-editor/esm/vs/basic-languages/sql/sql.contribution";
-import "monaco-editor/esm/vs/language/json/monaco.contribution";
-import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+import * as monaco from "monaco-editor/editor/editor.api";
+import "monaco-editor/languages/definitions/markdown/register";
+import "monaco-editor/languages/definitions/yaml/register";
+import "monaco-editor/languages/definitions/sql/register";
+import "monaco-editor/languages/features/json/register";
+import EditorWorker from "monaco-editor/editor/editor.worker?worker";
+import JsonWorker from "monaco-editor/languages/features/json/json.worker?worker";
 
 self.MonacoEnvironment = {
   getWorker(_id: string, label: string): Worker {

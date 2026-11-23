@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.9.8
           terraform_wrapper: false
@@ -45,7 +45,7 @@ jobs:
             echo "::endgroup::"
           done
 
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: v3.16.4
 
