@@ -22,7 +22,7 @@ jobs:
       contents: write   # create the GitHub release
       packages: write   # push the chart to ghcr.io
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
         with:
           version: ${{ env.HELM_VERSION }}
@@ -73,8 +73,8 @@ jobs:
     needs: release   # the version checks passed
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -82,7 +82,7 @@ jobs:
       - name: Build the UI (bundled into the wheel)
         working-directory: ui
         run: npm ci && npm run build
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uv python install 3.12
       # Wheel only: the build reads ../ui/dist and ../examples, which an sdist would not carry.
       - name: Build the wheel
@@ -101,7 +101,7 @@ jobs:
           PY
           uv venv /tmp/check && uv pip install --python /tmp/check/bin/python "$whl" ./sdk
           /tmp/check/bin/satchel version
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheel
           path: dist/
@@ -115,7 +115,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: wheel
           path: dist/
