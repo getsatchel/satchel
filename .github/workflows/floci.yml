@@ -38,7 +38,7 @@ jobs:
       gcp: ${{ steps.f.outputs.gcp }}
       aws: ${{ steps.f.outputs.aws }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: f
@@ -73,7 +73,7 @@ jobs:
         # 2: real Cloud Run workloads (execution mode)
         tier: ["1", "2"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: hashicorp/setup-terraform@v4
         with:
@@ -84,11 +84,11 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - uses: azure/setup-kubectl@v4
+      - uses: azure/setup-kubectl@v5
         with:
           version: ${{ env.KUBECTL_VERSION }}
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build image
         uses: docker/build-push-action@v7
@@ -112,7 +112,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: hashicorp/setup-terraform@v4
         with:
@@ -123,7 +123,7 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - uses: azure/setup-kubectl@v4
+      - uses: azure/setup-kubectl@v5
         with:
           version: ${{ env.KUBECTL_VERSION }}
 
@@ -137,7 +137,7 @@ jobs:
           python -m venv /tmp/e2e-venv
           /tmp/e2e-venv/bin/pip install -q boto3
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build image
         uses: docker/build-push-action@v7
