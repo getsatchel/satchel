@@ -144,6 +144,20 @@ claude mcp add --transport http satchel https://<domain>/mcp    # then /mcp to s
   `docker compose exec -T postgres pg_dump -U satchel -Fc satchel > satchel-$(date +%F).dump`.
   Copy the dump off the machine (for example to S3). An EBS snapshot schedule is a simple second layer.
 - **Logs:** `docker compose logs`. Each line is JSON (`SATCHEL_LOG_FORMAT=json`).
+- **Keep secrets in Secrets Manager:** a warehouse key or model API key can live in AWS Secrets
+  Manager, so Satchel stores only a reference to it ([Secrets](secrets.md)). On this machine:
+  1. Give the instance an IAM role allowed `secretsmanager:GetSecretValue` on
+     `arn:aws:secretsmanager:<region>:<account>:secret:satchel/refs/*`.
+  2. Set the instance metadata hop limit to 2, so the containers can reach the role (the default
+     of 1 stops at the host):
+     `aws ec2 modify-instance-metadata-options --instance-id <id> --http-tokens required --http-put-response-hop-limit 2`.
+  3. In `.env`, set
+     `SATCHEL_SECRET_REF_ALLOW=aws-sm:arn:aws:secretsmanager:<region>:<account>:secret:satchel/refs/*`,
+     then `docker compose up -d`.
+  4. Create a secret under `satchel/refs/`, and in the connection's credential step choose
+     **From a secret manager** with its full ARN, `aws-sm:arn:aws:secretsmanager:...`.
+
+  Add `SATCHEL_SECRETS=references` to refuse every stored secret value.
 - **Grow out of it:** for several replicas, a managed database or high availability, move to
   [EKS](eks.md), [GKE](gke.md) or [Cloud Run](cloud-run.md). Restore the `pg_dump` into the new database.
 
