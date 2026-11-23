@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import builtins
 import json
+import os
 import random
 import uuid
 from collections.abc import Iterator
@@ -186,6 +187,10 @@ def test_s3_bucket_against_moto_ranges_heads_and_deletes(monkeypatch: pytest.Mon
 
 def test_s3_custom_endpoint_uses_path_style(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("boto3")
+    # Ignore the developer's own AWS config: botocore resolves its profile when the client is
+    # made, and an `aws login` profile needs botocore[crt].
+    monkeypatch.setenv("AWS_CONFIG_FILE", os.devnull)
+    monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", os.devnull)
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
     monkeypatch.setenv("AWS_ENDPOINT_URL_S3", "http://localhost:4566")
     c = s3.make_client()
